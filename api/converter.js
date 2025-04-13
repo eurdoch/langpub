@@ -19,8 +19,6 @@ import xpath from 'xpath';
  * @param {string|Buffer} options.epub - Path to the EPUB file or file buffer
  * @param {string} options.geminiApiKey - Google Gemini API key
  * @param {string} [options.modelName] - Gemini model to use
- * @param {number} [options.batchSize] - Number of chapters to process in parallel
- * @param {number} [options.delayMs] - Milliseconds to wait between batches
  * @param {Function} [options.onProgress] - Callback function for progress updates
  * @returns {Promise<Object>} Promise resolving to the audiobook JSON object
  */
@@ -32,8 +30,6 @@ export async function convertEpubToAudiobookJSON(options) {
   // Set default options
   const config = {
     modelName: options.modelName || "gemini-1.5-pro",
-    batchSize: options.batchSize || 3,
-    delayMs: options.delayMs || 2000,
     onProgress: options.onProgress || ((status) => console.log(status))
   };
 
@@ -46,7 +42,7 @@ export async function convertEpubToAudiobookJSON(options) {
   try {
     // Extract text from EPUB
     const bookContent = await extractTextFromEpub(options.epub);
-    config.onProgress(`Extracted ${bookContent.chapters.length} chapters from EPUB`);
+    config.onProgress(`Extracted ${bookContent.sections.length} content sections from EPUB`);
     
     // Create metadata object
     const bookMetadata = {
@@ -54,23 +50,39 @@ export async function convertEpubToAudiobookJSON(options) {
       author: bookContent.author
     };
     
-    // Process all chapters in batches
-    const processedChapters = await processBatchesWithDelay(
-      bookContent.chapters, 
-      bookMetadata,
-      config.batchSize,
-      config.delayMs
+    // Process each content section individually
+    const processedSections = [];
+    for (let i = 0; i < bookContent.sections.length; i++) {
+      const section = bookContent.sections[i];
+      config.onProgress(`Processing section ${i+1}/${bookContent.sections.length}: ${section.sourceHref}`);
+      
+      // Process section with Gemini
+      const processedSection = await processContentWithGemini(section, bookMetadata);
+      processedSections.push(processedSection);
+    }
+    
+    // Filter out content that should not be included
+    const includedSections = processedSections.filter(
+      section => section.include !== false
+    );
+    
+    // Count chapters
+    const chapters = includedSections.filter(
+      section => section.contentType === "chapter"
     );
     
     // Combine everything into final audiobook JSON
     const audiobookJSON = {
       title: bookContent.title,
       author: bookContent.author,
-      totalChapters: processedChapters.length,
+      totalContent: includedSections.length,
+      totalChapters: chapters.length,
       processedAt: new Date().toISOString(),
       // Calculate total duration if available
-      estimatedTotalDuration: calculateTotalDuration(processedChapters),
-      chapters: processedChapters
+      estimatedTotalDuration: calculateTotalDuration(includedSections),
+      chapters: chapters,
+      frontMatter: includedSections.filter(s => s.contentType !== "chapter" && s.contentType !== "error"),
+      content: processedSections // Include all processed sections for reference
     };
     
     config.onProgress(`Audiobook JSON conversion completed`);
@@ -136,9 +148,9 @@ export async function convertEpubToAudiobookJSON(options) {
       // Get the OPF directory to resolve relative paths
       const opfDir = path.dirname(opfPath);
       
-      // Extract chapters based on spine order
-      const chapters = [];
-      let chapterIndex = 0;
+      // Extract content sections based on spine order
+      const sections = [];
+      let sectionIndex = 0;
       
       for (const itemref of spineItemrefs) {
         const idref = itemref.getAttribute('idref');
@@ -149,19 +161,22 @@ export async function convertEpubToAudiobookJSON(options) {
         
         // Only process HTML/XHTML content
         if (manifestItem.mediaType.includes('html') || manifestItem.mediaType.includes('xhtml')) {
-          const chapterPath = path.join(opfDir, manifestItem.href);
-          const chapterEntry = zip.getEntry(chapterPath);
+          const contentPath = path.join(opfDir, manifestItem.href);
+          const contentEntry = zip.getEntry(contentPath);
           
-          if (chapterEntry) {
-            const chapterContent = chapterEntry.getData().toString('utf8');
-            const chapterTitle = manifestItem.title || `Chapter ${chapterIndex + 1}`;
+          if (contentEntry) {
+            const rawContent = contentEntry.getData().toString('utf8');
+            // Try to extract title from content if possible
+            let rawTitle = manifestItem.title || '';
             
             // Clean HTML content
-            const cleanText = cleanHtml(chapterContent);
+            const cleanText = cleanHtml(rawContent);
             
-            chapters.push({
-              id: chapterIndex++,
-              title: chapterTitle,
+            sections.push({
+              id: sectionIndex++,
+              sourceId: idref,
+              sourceHref: manifestItem.href,
+              title: rawTitle,
               content: cleanText
             });
           }
@@ -171,7 +186,7 @@ export async function convertEpubToAudiobookJSON(options) {
       return {
         title,
         author,
-        chapters
+        sections
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -250,57 +265,39 @@ export async function convertEpubToAudiobookJSON(options) {
   }
 
   /**
-   * Processes a single chapter with Gemini API
-   * @param {Object} chapter - Chapter to process
+   * Identify the content type of a single section with Gemini API
+   * @param {Object} section - Content section to analyze
    * @param {Object} bookMetadata - Book metadata including title and author
-   * @returns {Promise<Object>} Promise resolving to processed chapter data
+   * @returns {Promise<Object>} Promise resolving to content type data
    */
-  async function processChapterWithGemini(chapter, bookMetadata) {
+  async function processContentWithGemini(section, bookMetadata) {
     try {
-      config.onProgress(`Processing chapter: ${chapter.title}`);
+      config.onProgress(`Analyzing content from: ${section.sourceHref}`);
       
-      // Prepare prompt for Gemini
+      // Prepare prompt for Gemini - only asking for content type identification
       const promptText = `
-      Convert this chapter content into a structured JSON format suitable for an audiobook application.
-      The JSON should include sections for narration timing, pause points, and vocal emphasis.  It should only include text content and only main chapters, not preface or prologues or copyright or table of contents.
+      Analyze this content from an EPUB file and determine what it represents.
       
       Book title: ${bookMetadata.title}
       Author: ${bookMetadata.author}
-      Chapter title: ${chapter.title}
+      Source file: ${section.sourceHref}
       
-      Analyze the content and organize it into:
-      1. Paragraphs with timing estimates (words per minute: 150)
-      2. Dialog sections that should have different voice characteristics
-      3. Section breaks where pauses should occur
-      4. Important phrases or words that should receive emphasis
+      Determine what this content represents by analyzing a sample of it:
+      - Is it a chapter? If so, identify the chapter number and title
+      - Is it front matter (copyright, dedication, preface, etc.)? If so, identify the type
+      - Is it a table of contents? If so, mark it as such
+      - Is it other content? If so, identify its purpose in the book
       
-      Here's the content to process:
-      ${chapter.content.substring(0, 15000)} 
-      ${chapter.content.length > 15000 ? "... [content truncated for prompt size]" : ""}
+      Here's a sample of the content to analyze:
+      ${section.content.substring(0, 3000)} 
+      ${section.content.length > 3000 ? "... [content truncated]" : ""}
       
-      Return ONLY a valid JSON object with structure like this example:
+      Return ONLY a valid JSON object with a structure like this:
       {
-        "chapterId": 1,
-        "chapterTitle": "Example Chapter",
-        "estimatedDuration": "8m 30s",
-        "sections": [
-          {
-            "type": "paragraph",
-            "content": "Text here...",
-            "timing": "45s",
-            "emphasis": [{"text": "important phrase", "level": "medium"}]
-          },
-          {
-            "type": "dialog",
-            "speaker": "Character name if identifiable",
-            "content": "Dialog text here...",
-            "timing": "15s"
-          },
-          {
-            "type": "sectionBreak",
-            "pauseDuration": "2s"
-          }
-        ]
+        "contentType": "chapter", // or "frontmatter", "toc", "copyright", "dedication", "preface", "appendix", etc.
+        "chapterNumber": 1, // if applicable
+        "title": "Chapter Title", // or appropriate title based on content
+        "include": true // whether this should be included in final audiobook
       }
       
       Return only the JSON. Do not include any explanations.
@@ -320,9 +317,27 @@ export async function convertEpubToAudiobookJSON(options) {
       // Parse and validate the JSON
       try {
         const parsedJSON = JSON.parse(jsonContent.trim());
-        return parsedJSON;
+        const contentInfo = {
+          ...parsedJSON,
+          sourceId: section.sourceId,
+          sourceHref: section.sourceHref
+        };
+        
+        // If this is a chapter, parse the content into sentences
+        if (contentInfo.contentType === "chapter" && contentInfo.include !== false) {
+          config.onProgress(`Processing chapter: ${contentInfo.title || section.sourceHref}`);
+          contentInfo.sentences = parseSentences(section.content);
+          
+          // Estimate duration based on word count (150 words per minute)
+          const wordCount = countWords(section.content);
+          const durationMinutes = Math.max(1, Math.round(wordCount / 150));
+          contentInfo.estimatedDuration = `${durationMinutes}m 0s`;
+          contentInfo.wordCount = wordCount;
+        }
+        
+        return contentInfo;
       } catch (parseError) {
-        config.onProgress(`Error parsing JSON for chapter "${chapter.title}": ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+        config.onProgress(`Error parsing JSON for content "${section.sourceHref}": ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
         // Attempt to clean and fix common JSON issues
         const cleanedJSON = jsonContent
           .replace(/```json/g, '')
@@ -330,15 +345,33 @@ export async function convertEpubToAudiobookJSON(options) {
           .trim();
           
         try {
-          return JSON.parse(cleanedJSON);
+          const parsed = JSON.parse(cleanedJSON);
+          const contentInfo = {
+            ...parsed,
+            sourceId: section.sourceId,
+            sourceHref: section.sourceHref
+          };
+          
+          // If this is a chapter, parse the content into sentences
+          if (contentInfo.contentType === "chapter" && contentInfo.include !== false) {
+            contentInfo.sentences = parseSentences(section.content);
+            
+            // Estimate duration based on word count (150 words per minute)
+            const wordCount = countWords(section.content);
+            const durationMinutes = Math.max(1, Math.round(wordCount / 150));
+            contentInfo.estimatedDuration = `${durationMinutes}m 0s`;
+            contentInfo.wordCount = wordCount;
+          }
+          
+          return contentInfo;
         } catch (secondError) {
-          config.onProgress("Failed to parse JSON even after cleaning. Returning raw text.");
+          config.onProgress("Failed to parse JSON even after cleaning. Returning error object.");
           // Return object with error info instead of throwing
           return {
-            chapterId: chapter.id,
-            chapterTitle: chapter.title,
-            estimatedDuration: "0m 0s",
-            sections: [],
+            contentType: "error",
+            sourceId: section.sourceId,
+            sourceHref: section.sourceHref,
+            include: false,
             error: "JSON parsing failed",
             rawResponse: text.substring(0, 500) + "..." // First 500 chars for debugging
           };
@@ -346,90 +379,105 @@ export async function convertEpubToAudiobookJSON(options) {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      config.onProgress(`Error processing chapter "${chapter.title}" with Gemini API: ${errorMessage}`);
+      config.onProgress(`Error processing content "${section.sourceHref}" with Gemini API: ${errorMessage}`);
       // Return object with error info instead of throwing
       return {
-        chapterId: chapter.id,
-        chapterTitle: chapter.title,
-        estimatedDuration: "0m 0s",
-        sections: [],
+        contentType: "error",
+        sourceId: section.sourceId,
+        sourceHref: section.sourceHref,
+        include: false,
         error: errorMessage,
         processed: false
       };
     }
   }
-
+  
   /**
-   * Processes chapters in batches with delay between batches
-   * @param {Array} chapters - Array of chapters to process
-   * @param {Object} bookMetadata - Book metadata including title and author
-   * @param {number} batchSize - Number of chapters to process in parallel
-   * @param {number} delayMs - Milliseconds to wait between batches
-   * @returns {Promise<Array>} Promise resolving to array of processed chapters
+   * Parse text into sentences
+   * @param {string} text - The text to parse
+   * @returns {Array<string>} Array of sentences
    */
-  async function processBatchesWithDelay(
-    chapters, 
-    bookMetadata, 
-    batchSize = 3, 
-    delayMs = 2000
-  ) {
-    const results = [];
-    const batches = [];
+  function parseSentences(text) {
+    // Clean up the text first
+    const cleanText = text
+      .replace(/\s+/g, ' ')
+      .trim();
     
-    // Split chapters into batches
-    for (let i = 0; i < chapters.length; i += batchSize) {
-      batches.push(chapters.slice(i, i + batchSize));
-    }
+    // Use regex to split into sentences
+    // This is a simplified sentence splitter - handles most common cases
+    const sentenceRegex = /([.!?])\s+(?=[A-Z])/g;
+    const sentences = cleanText.split(sentenceRegex)
+      .reduce((result, part, index, array) => {
+        // Add the part to the result
+        if (index % 2 === 0) {
+          // If this is a text part
+          if (index < array.length - 1) {
+            // If there's a punctuation part after this, combine them
+            result.push(part + array[index + 1]);
+          } else {
+            // Otherwise just add the part
+            result.push(part);
+          }
+        }
+        return result;
+      }, [])
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
     
-    config.onProgress(`Processing ${chapters.length} chapters in ${batches.length} batches of ${batchSize}`);
-    
-    // Process each batch with delay between batches
-    for (let i = 0; i < batches.length; i++) {
-      config.onProgress(`Processing batch ${i+1} of ${batches.length}`);
-      
-      // Process chapters in current batch concurrently
-      const batchPromises = batches[i].map(chapter => 
-        processChapterWithGemini(chapter, bookMetadata)
-      );
-      
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
-      
-      // Add delay between batches to avoid rate limiting
-      if (i < batches.length - 1) {
-        config.onProgress(`Waiting ${delayMs/1000} seconds before next batch...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-    }
-    
-    return results;
+    return sentences;
+  }
+  
+  /**
+   * Count words in text
+   * @param {string} text - The text to count words in
+   * @returns {number} Number of words
+   */
+  function countWords(text) {
+    return text.split(/\s+/).filter(w => w.length > 0).length;
   }
 
+
   /**
-   * Calculates total audiobook duration from chapter durations
-   * @param {Array} chapters - Array of processed chapters
+   * Calculates total audiobook duration from all content section durations
+   * @param {Array} contentSections - Array of processed content sections
    * @returns {string} Formatted total duration string
    */
-  function calculateTotalDuration(chapters) {
+  function calculateTotalDuration(contentSections) {
     try {
-      // Find chapters with estimatedDuration
-      const chaptersWithDuration = chapters.filter(ch => ch.estimatedDuration);
+      // Find sections with estimatedDuration that should be included
+      const sectionsWithDuration = contentSections.filter(
+        section => section.estimatedDuration && 
+        (section.include === undefined || section.include === true)
+      );
       
-      if (chaptersWithDuration.length === 0) {
+      if (sectionsWithDuration.length === 0) {
         return "Unknown"; // No duration info available
       }
       
       // Convert durations like "5m 30s" to seconds
-      const durationRegex = /(\d+)m\s+(\d+)s/;
+      const durationRegex = /(\d+)h\s*|(\d+)m\s*|(\d+)s/g;
       let totalSeconds = 0;
       
-      chaptersWithDuration.forEach(chapter => {
-        const match = chapter.estimatedDuration.match(durationRegex);
-        if (match) {
-          const minutes = parseInt(match[1], 10);
-          const seconds = parseInt(match[2], 10);
-          totalSeconds += (minutes * 60) + seconds;
+      sectionsWithDuration.forEach(section => {
+        const duration = section.estimatedDuration;
+        let seconds = 0;
+        let match;
+        
+        // Reset regex index
+        durationRegex.lastIndex = 0;
+        
+        // Process all matches (hours, minutes, seconds)
+        while ((match = durationRegex.exec(duration)) !== null) {
+          if (match[1]) { // hours
+            seconds += parseInt(match[1], 10) * 3600;
+          } else if (match[2]) { // minutes
+            seconds += parseInt(match[2], 10) * 60;
+          } else if (match[3]) { // seconds
+            seconds += parseInt(match[3], 10);
+          }
         }
+        
+        totalSeconds += seconds;
       });
       
       // Format total time as hours, minutes, seconds
