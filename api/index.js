@@ -7,7 +7,11 @@ const PORT = process.env.PORT || 3000;
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // Allow requests from any origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Routes
@@ -17,6 +21,16 @@ app.get('/', (req, res) => {
 
 // File conversion endpoint
 app.post('/conversion', upload.single('file'), (req, res) => {
+  // Set CORS headers explicitly for this route
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // Handle preflight OPTIONS request
+  if (req.method === 'OPTIONS') {
+    return res.status(200).send();
+  }
+  
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
