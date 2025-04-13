@@ -47,7 +47,8 @@ export async function convertEpubToAudiobookJSON(options) {
     // Create metadata object
     const bookMetadata = {
       title: bookContent.title,
-      author: bookContent.author
+      author: bookContent.author,
+      language: bookContent.language
     };
     
     // Process each content section individually
@@ -75,6 +76,7 @@ export async function convertEpubToAudiobookJSON(options) {
     const audiobookJSON = {
       title: bookContent.title,
       author: bookContent.author,
+      language: bookContent.language,
       totalContent: includedSections.length,
       totalChapters: chapters.length,
       processedAt: new Date().toISOString(),
@@ -141,6 +143,33 @@ export async function convertEpubToAudiobookJSON(options) {
       const title = getTextFromXpath('//dc:title', opfDoc) || 'Untitled Book';
       const author = getTextFromXpath('//dc:creator', opfDoc) || 'Unknown Author';
       
+      // Try to extract language from various possible locations
+      let language = getTextFromXpath('//dc:language', opfDoc);
+      
+      // If not found in standard DC tag, try other common locations
+      if (!language) {
+        // Check if it's in the package element xml:lang attribute
+        const packageElement = opfDoc.getElementsByTagName('package')[0];
+        if (packageElement && packageElement.getAttribute('xml:lang')) {
+          language = packageElement.getAttribute('xml:lang');
+        } else {
+          // Check if it's in any metadata element with a 'lang' property
+          const metaElements = opfDoc.getElementsByTagName('meta');
+          for (let i = 0; i < metaElements.length; i++) {
+            const meta = metaElements[i];
+            if (meta.getAttribute('name') === 'dc:language' || 
+                meta.getAttribute('property') === 'language' ||
+                meta.getAttribute('name') === 'language') {
+              language = meta.getAttribute('content') || meta.textContent;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Default to English if no language is found
+      language = language || 'en';
+      
       // Get the spine and manifest to determine reading order
       const manifestItems = getManifestItems(opfDoc);
       const spineItemrefs = getSpineItemrefs(opfDoc);
@@ -186,6 +215,7 @@ export async function convertEpubToAudiobookJSON(options) {
       return {
         title,
         author,
+        language,
         sections
       };
     } catch (error) {
@@ -199,7 +229,9 @@ export async function convertEpubToAudiobookJSON(options) {
    */
   function getTextFromXpath(xpathQuery, doc) {
     const select = xpath.useNamespaces({
-      'dc': 'http://purl.org/dc/elements/1.1/'
+      'dc': 'http://purl.org/dc/elements/1.1/',
+      'opf': 'http://www.idpf.org/2007/opf',
+      'xml': 'http://www.w3.org/XML/1998/namespace'
     });
     
     const nodes = select(xpathQuery, doc);
@@ -280,6 +312,7 @@ export async function convertEpubToAudiobookJSON(options) {
       
       Book title: ${bookMetadata.title}
       Author: ${bookMetadata.author}
+      Language: ${bookMetadata.language || 'en'}
       Source file: ${section.sourceHref}
       
       Determine what this content represents by analyzing a sample of it:
@@ -326,13 +359,14 @@ export async function convertEpubToAudiobookJSON(options) {
         // If this is a chapter, parse the content into sentences
         if (contentInfo.contentType === "chapter" && contentInfo.include !== false) {
           config.onProgress(`Processing chapter: ${contentInfo.title || section.sourceHref}`);
-          contentInfo.sentences = parseSentences(section.content);
+          contentInfo.sentences = parseSentences(section.content, bookMetadata.language);
           
           // Estimate duration based on word count (150 words per minute)
-          const wordCount = countWords(section.content);
+          const wordCount = countWords(section.content, bookMetadata.language);
           const durationMinutes = Math.max(1, Math.round(wordCount / 150));
           contentInfo.estimatedDuration = `${durationMinutes}m 0s`;
           contentInfo.wordCount = wordCount;
+          contentInfo.language = bookMetadata.language;
         }
         
         return contentInfo;
@@ -354,13 +388,14 @@ export async function convertEpubToAudiobookJSON(options) {
           
           // If this is a chapter, parse the content into sentences
           if (contentInfo.contentType === "chapter" && contentInfo.include !== false) {
-            contentInfo.sentences = parseSentences(section.content);
+            contentInfo.sentences = parseSentences(section.content, bookMetadata.language);
             
             // Estimate duration based on word count (150 words per minute)
-            const wordCount = countWords(section.content);
+            const wordCount = countWords(section.content, bookMetadata.language);
             const durationMinutes = Math.max(1, Math.round(wordCount / 150));
             contentInfo.estimatedDuration = `${durationMinutes}m 0s`;
             contentInfo.wordCount = wordCount;
+            contentInfo.language = bookMetadata.language;
           }
           
           return contentInfo;
@@ -393,19 +428,50 @@ export async function convertEpubToAudiobookJSON(options) {
   }
   
   /**
-   * Parse text into sentences
+   * Parse text into sentences, with language-specific handling
    * @param {string} text - The text to parse
+   * @param {string} language - The language code (e.g., 'en', 'fr', 'es')
    * @returns {Array<string>} Array of sentences
    */
-  function parseSentences(text) {
+  function parseSentences(text, language = 'en') {
     // Clean up the text first
     const cleanText = text
       .replace(/\s+/g, ' ')
       .trim();
     
-    // Use regex to split into sentences
-    // This is a simplified sentence splitter - handles most common cases
-    const sentenceRegex = /([.!?])\s+(?=[A-Z])/g;
+    // Language-specific sentence ending patterns
+    // This map contains regex patterns for different languages
+    const languagePatterns = {
+      // English and most Latin languages
+      'en': /([.!?])\s+(?=[A-Z])/g,
+      'fr': /([.!?])\s+(?=[A-Z])/g,
+      'es': /([.!?])\s+(?=[A-Z¿¡])/g,
+      'de': /([.!?])\s+(?=[A-ZÄÖÜß])/g,
+      'it': /([.!?])\s+(?=[A-Z])/g,
+      
+      // For languages that don't use Latin alphabet or have different sentence structures,
+      // we'll fall back to more basic patterns
+      'ja': /([。！？])/g, // Japanese
+      'zh': /([。！？])/g, // Chinese
+      'ko': /([.!?。！？])/g // Korean
+      
+      // Add more languages as needed
+    };
+    
+    // Get the appropriate pattern based on language, or default to English
+    // Only use the first 2 characters of language code (e.g., 'en-US' -> 'en')
+    const langCode = (language || 'en').substring(0, 2).toLowerCase();
+    const sentenceRegex = languagePatterns[langCode] || languagePatterns['en'];
+    
+    // For languages with special sentence structures (Chinese, Japanese, etc.)
+    if (['ja', 'zh', 'ko'].includes(langCode)) {
+      // Simply split on sentence ending punctuation
+      return cleanText.split(sentenceRegex)
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    }
+    
+    // Standard sentence splitting for Latin-based languages
     const sentences = cleanText.split(sentenceRegex)
       .reduce((result, part, index, array) => {
         // Add the part to the result
@@ -428,11 +494,23 @@ export async function convertEpubToAudiobookJSON(options) {
   }
   
   /**
-   * Count words in text
+   * Count words in text with language-aware handling
    * @param {string} text - The text to count words in
+   * @param {string} language - The language code (e.g., 'en', 'zh')
    * @returns {number} Number of words
    */
-  function countWords(text) {
+  function countWords(text, language = 'en') {
+    // Get the language code (first 2 characters, lowercase)
+    const langCode = (language || 'en').substring(0, 2).toLowerCase();
+    
+    // For East Asian languages that don't use spaces between words
+    if (['zh', 'ja', 'ko'].includes(langCode)) {
+      // Estimate by characters: rough approximation that 2.5 characters = 1 word
+      // This is an estimation method commonly used for word count in these languages
+      return Math.ceil(text.replace(/\s+/g, '').length / 2.5);
+    }
+    
+    // For languages using spaces as word separators
     return text.split(/\s+/).filter(w => w.length > 0).length;
   }
 
