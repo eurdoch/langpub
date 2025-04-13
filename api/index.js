@@ -1,9 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
+import axios from 'axios';
 import { convertEpubToAudiobookJSON } from './converter.js';
 import OpenAI from 'openai';
-import { PollyClient } from '@aws-sdk/client-polly';
+import { PollyClient, SynthesizeSpeechCommand } from '@aws-sdk/client-polly';
 
 const config = {
   AWS_REGION: process.env.AWS_REGION || "us-east-1",

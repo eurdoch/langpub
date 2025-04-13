@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 
 // Define types for the audiobook conversion result
 interface AudiobookChapter {
@@ -8,14 +8,54 @@ interface AudiobookChapter {
   sentences: string[];
   wordCount?: number;
   estimatedDuration?: string;
+  language?: string;
 }
 
 interface AudiobookResult {
   title: string;
   author: string;
+  language: string;
   totalChapters: number;
   estimatedTotalDuration: string;
   chapters: AudiobookChapter[];
+}
+
+// Translation result interface
+interface TranslationResult {
+  original: string;
+  translated: string;
+  isLoading: boolean;
+  error?: string;
+}
+
+// Language code to full name mapping
+const LANGUAGE_CODES: Record<string, string> = {
+  'en': 'English',
+  'fr': 'French',
+  'de': 'German',
+  'es': 'Spanish',
+  'it': 'Italian',
+  'pt': 'Portuguese',
+  'nl': 'Dutch',
+  'ja': 'Japanese',
+  'zh': 'Chinese',
+  'ko': 'Korean',
+  'ru': 'Russian',
+  'ar': 'Arabic',
+  'hi': 'Hindi',
+  'tr': 'Turkish',
+  'pl': 'Polish',
+  'uk': 'Ukrainian',
+  'vi': 'Vietnamese',
+  'sv': 'Swedish',
+  'no': 'Norwegian',
+  'da': 'Danish',
+  'fi': 'Finnish',
+  'cs': 'Czech',
+  'el': 'Greek',
+  'he': 'Hebrew',
+  'id': 'Indonesian',
+  'th': 'Thai'
 }
 
 function App() {
@@ -31,12 +71,136 @@ function App() {
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string | null>(null);
   
+  // State for translations
+  const [wordTranslation, setWordTranslation] = useState<TranslationResult | null>(null);
+  const [selectionTranslation, setSelectionTranslation] = useState<TranslationResult | null>(null);
+  
+  // Get current language from the book or current chapter
+  const getCurrentLanguage = useCallback(() => {
+    if (!audiobookData) return 'en';
+    
+    // Try to get language from chapter first, then fall back to book language
+    const chapterLanguage = audiobookData.chapters[currentChapterIndex]?.language;
+    const bookLanguage = audiobookData.language;
+    
+    return chapterLanguage || bookLanguage || 'en';
+  }, [audiobookData, currentChapterIndex]);
+  
+  // Convert language code to full language name
+  const getLanguageName = useCallback((langCode: string) => {
+    // Strip region code if present (e.g., 'en-US' -> 'en')
+    const baseCode = langCode.split('-')[0].toLowerCase();
+    return LANGUAGE_CODES[baseCode] || 'English';
+  }, []);
+  
+  // Function to translate text
+  const translateText = useCallback(async (text: string, isWord: boolean = false) => {
+    if (!text || !audiobookData) return;
+    
+    const languageCode = getCurrentLanguage();
+    const languageName = getLanguageName(languageCode);
+    
+    // Skip translation if already in English
+    if (languageCode === 'en') {
+      if (isWord) {
+        setWordTranslation({
+          original: text,
+          translated: 'Already in English',
+          isLoading: false
+        });
+      } else {
+        setSelectionTranslation({
+          original: text,
+          translated: 'Already in English',
+          isLoading: false
+        });
+      }
+      return;
+    }
+    
+    // Set loading state
+    if (isWord) {
+      setWordTranslation({
+        original: text,
+        translated: '',
+        isLoading: true
+      });
+    } else {
+      setSelectionTranslation({
+        original: text,
+        translated: '',
+        isLoading: true
+      });
+    }
+    
+    try {
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://langpub.directto.link/translate'
+        : 'http://localhost:3004/translate';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          language: languageName,
+          text: text
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Translation failed');
+      }
+      
+      const result = await response.json();
+      
+      if (isWord) {
+        setWordTranslation({
+          original: text,
+          translated: result.translated_text,
+          isLoading: false
+        });
+      } else {
+        setSelectionTranslation({
+          original: text,
+          translated: result.translated_text,
+          isLoading: false
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (isWord) {
+        setWordTranslation({
+          original: text,
+          translated: '',
+          isLoading: false,
+          error: errorMessage
+        });
+      } else {
+        setSelectionTranslation({
+          original: text,
+          translated: '',
+          isLoading: false,
+          error: errorMessage
+        });
+      }
+    }
+  }, [audiobookData, getCurrentLanguage, getLanguageName]);
+  
   // Handler for text selection
   const handleTextSelection = () => {
     const selection = window.getSelection()?.toString().trim();
     if (selection && selection.length > 0) {
       setSelectedText(selection);
+      translateText(selection, false);
     }
+  };
+  
+  // Handler for word click
+  const handleWordClick = (word: string) => {
+    setClickedWord(word);
+    translateText(word, true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,7 +388,7 @@ function App() {
                         {currentSentence.split(' ').map((word, index) => (
                           <span 
                             key={index}
-                            onClick={() => setClickedWord(word)}
+                            onClick={() => handleWordClick(word)}
                             className="cursor-pointer hover:bg-blue-100 px-0.5 rounded transition-colors"
                           >
                             {word}{index < currentSentence.split(' ').length - 1 ? ' ' : ''}
@@ -288,36 +452,84 @@ function App() {
       
       {/* Right sidebar - 1/3 of viewport */}
       <div className="w-1/3 bg-gray-50 border-l border-gray-200 p-6 overflow-auto h-screen">
-        <h2 className="text-xl font-bold mb-4">Text Interactions</h2>
+        <h2 className="text-xl font-bold mb-4">Translation & Interactions</h2>
         
         {audiobookData ? (
           <div>
-            {/* Word Click Display */}
+            {/* Current Language Display */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Clicked Word</h3>
-              <div className="bg-white p-4 rounded shadow-sm min-h-[80px] flex items-center justify-center">
-                {clickedWord ? (
-                  <div className="text-center">
-                    <span className="text-2xl font-medium text-blue-700">{clickedWord}</span>
-                    <p className="text-sm text-gray-500 mt-2">Click any word in the text to display it here</p>
+              <h3 className="text-lg font-semibold mb-2">Book Language</h3>
+              <div className="bg-white p-4 rounded shadow-sm">
+                <p className="text-center">
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                    {getLanguageName(audiobookData.language || 'en')}
+                  </span>
+                </p>
+              </div>
+            </div>
+            
+            {/* Word Translation Display */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Word Translation</h3>
+              <div className="bg-white p-4 rounded shadow-sm min-h-[120px] flex flex-col">
+                {wordTranslation ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Original:</p>
+                      <p className="text-lg font-medium text-blue-700">{wordTranslation.original}</p>
+                    </div>
+                    
+                    {wordTranslation.isLoading ? (
+                      <div className="flex justify-center items-center py-2">
+                        <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                        <span className="ml-2 text-sm text-gray-600">Translating...</span>
+                      </div>
+                    ) : wordTranslation.error ? (
+                      <p className="text-red-500 text-sm">{wordTranslation.error}</p>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-500">Translation:</p>
+                        <p className="text-lg">{wordTranslation.translated}</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-gray-500">Click any word in the text to display it here</p>
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">Click any word in the text to see its translation</p>
+                  </div>
                 )}
               </div>
             </div>
             
-            {/* Text Selection Display */}
+            {/* Text Selection Translation */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Text Selection</h3>
-              <div className="bg-white p-4 rounded shadow-sm min-h-[120px] overflow-auto">
-                {selectedText ? (
-                  <div>
-                    <p className="italic text-blue-800">"{selectedText}"</p>
-                    <p className="text-sm text-gray-500 mt-2">Select any text to display it here</p>
+              <h3 className="text-lg font-semibold mb-2">Selection Translation</h3>
+              <div className="bg-white p-4 rounded shadow-sm min-h-[160px] overflow-auto">
+                {selectionTranslation ? (
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Original:</p>
+                      <p className="italic text-blue-800">"{selectionTranslation.original}"</p>
+                    </div>
+                    
+                    {selectionTranslation.isLoading ? (
+                      <div className="flex justify-center items-center py-2">
+                        <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                        <span className="ml-2 text-sm text-gray-600">Translating...</span>
+                      </div>
+                    ) : selectionTranslation.error ? (
+                      <p className="text-red-500 text-sm">{selectionTranslation.error}</p>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-500">Translation:</p>
+                        <p>"{selectionTranslation.translated}"</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-gray-500">Select any text to display it here</p>
+                  <div className="flex items-center justify-center h-full">
+                    <p className="text-gray-500">Select any text to see its translation</p>
+                  </div>
                 )}
               </div>
             </div>
