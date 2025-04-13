@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 // Define types for the audiobook conversion result
 interface AudiobookChapter {
@@ -71,9 +71,11 @@ function App() {
   const [clickedWord, setClickedWord] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState<string | null>(null);
   
-  // State for translations
+  // State for translations and audio
   const [wordTranslation, setWordTranslation] = useState<TranslationResult | null>(null);
   const [selectionTranslation, setSelectionTranslation] = useState<TranslationResult | null>(null);
+  const [audioSrc, setAudioSrc] = useState<string | null>(null);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
   
   // Get current language from the book or current chapter
   const getCurrentLanguage = useCallback(() => {
@@ -93,12 +95,61 @@ function App() {
     return LANGUAGE_CODES[baseCode] || 'English';
   }, []);
   
+  // Function to get speech audio
+  const getSpeechAudio = useCallback(async (text: string) => {
+    if (!text || !audiobookData) return;
+    
+    const languageCode = getCurrentLanguage();
+    const languageName = getLanguageName(languageCode);
+    
+    // Don't get speech for English content
+    if (languageCode === 'en') {
+      return;
+    }
+    
+    setIsAudioLoading(true);
+    setAudioSrc(null);
+    
+    try {
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://langpub.directto.link/speech'
+        : 'http://localhost:3004/speech';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          language: languageName,
+          text: text
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Speech generation failed');
+      }
+      
+      // Create blob URL from audio data
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      setAudioSrc(audioUrl);
+    } catch (error) {
+      console.error('Speech error:', error);
+    } finally {
+      setIsAudioLoading(false);
+    }
+  }, [audiobookData, getCurrentLanguage, getLanguageName]);
+
   // Function to translate text
   const translateText = useCallback(async (text: string, isWord: boolean = false) => {
     if (!text || !audiobookData) return;
     
     const languageCode = getCurrentLanguage();
     const languageName = getLanguageName(languageCode);
+    
+    // Get speech audio for the original text
+    getSpeechAudio(text);
     
     // Skip translation if already in English
     if (languageCode === 'en') {
@@ -186,12 +237,27 @@ function App() {
         });
       }
     }
-  }, [audiobookData, getCurrentLanguage, getLanguageName]);
+  }, [audiobookData, getCurrentLanguage, getLanguageName, getSpeechAudio]);
   
+  // Clean up audio URLs when component unmounts or when new translations are requested
+  useEffect(() => {
+    return () => {
+      if (audioSrc) {
+        URL.revokeObjectURL(audioSrc);
+      }
+    };
+  }, [audioSrc]);
+
   // Handler for text selection
   const handleTextSelection = () => {
     const selection = window.getSelection()?.toString().trim();
     if (selection && selection.length > 0) {
+      // Clean up previous audio URL if it exists
+      if (audioSrc) {
+        URL.revokeObjectURL(audioSrc);
+        setAudioSrc(null);
+      }
+      
       setSelectedText(selection);
       translateText(selection, false);
     }
@@ -199,6 +265,12 @@ function App() {
   
   // Handler for word click
   const handleWordClick = (word: string) => {
+    // Clean up previous audio URL if it exists
+    if (audioSrc) {
+      URL.revokeObjectURL(audioSrc);
+      setAudioSrc(null);
+    }
+    
     setClickedWord(word);
     translateText(word, true);
   };
@@ -484,12 +556,49 @@ function App() {
                   <div className="space-y-4">
                     {/* Translation Content */}
                     <div className="bg-gray-50 p-4 rounded">
-                      {/* Original Text (Bold) */}
-                      <p className="text-lg font-bold text-blue-700 mb-3">
-                        {wordTranslation?.original || selectionTranslation?.original}
-                      </p>
+                      {/* Original Text with Audio Controls */}
+                      <div className="flex flex-col mb-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-blue-700">
+                            {wordTranslation?.original || selectionTranslation?.original}
+                          </p>
+                          
+                          {/* Audio Controls */}
+                          {audioSrc && (
+                            <div>
+                              <button 
+                                onClick={() => {
+                                  const audio = new Audio(audioSrc);
+                                  audio.play();
+                                }}
+                                className="flex items-center px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                              >
+                                <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                                </svg>
+                                Play
+                              </button>
+                              <audio src={audioSrc} className="hidden" />
+                            </div>
+                          )}
+                          
+                          {isAudioLoading && (
+                            <div className="flex items-center">
+                              <div className="animate-spin h-4 w-4 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                              <span className="ml-2 text-xs text-gray-600">Loading audio...</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Language Badge */}
+                        <div className="mt-1">
+                          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                            {getLanguageName(getCurrentLanguage())}
+                          </span>
+                        </div>
+                      </div>
                       
-                      {/* Loading State */}
+                      {/* Loading State for Translation */}
                       {(wordTranslation?.isLoading || selectionTranslation?.isLoading) ? (
                         <div className="flex items-center py-2">
                           <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
