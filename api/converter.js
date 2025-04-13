@@ -18,11 +18,9 @@ import xpath from 'xpath';
  * @param {Object} options - Configuration options for the conversion
  * @param {string|Buffer} options.epub - Path to the EPUB file or file buffer
  * @param {string} options.geminiApiKey - Google Gemini API key
- * @param {string} [options.outputPath] - Path where the JSON result will be saved
  * @param {string} [options.modelName] - Gemini model to use
  * @param {number} [options.batchSize] - Number of chapters to process in parallel
  * @param {number} [options.delayMs] - Milliseconds to wait between batches
- * @param {boolean} [options.saveProgressFile] - Whether to save a progress tracking file
  * @param {Function} [options.onProgress] - Callback function for progress updates
  * @returns {Promise<Object>} Promise resolving to the audiobook JSON object
  */
@@ -33,28 +31,15 @@ export async function convertEpubToAudiobookJSON(options) {
   
   // Set default options
   const config = {
-    outputPath: options.outputPath || path.resolve(
-      process.cwd(),
-      typeof options.epub === 'string' 
-        ? `${path.basename(options.epub, path.extname(options.epub))}-audiobook.json`
-        : `audiobook-${Date.now()}.json`
-    ),
     modelName: options.modelName || "gemini-1.5-pro",
     batchSize: options.batchSize || 3,
     delayMs: options.delayMs || 2000,
-    saveProgressFile: options.hasOwnProperty('saveProgressFile') ? options.saveProgressFile : true,
     onProgress: options.onProgress || ((status) => console.log(status))
   };
 
   // Initialize the Google Generative AI with the API key
   const genAI = new GoogleGenerativeAI(options.geminiApiKey);
   const model = genAI.getGenerativeModel({ model: config.modelName });
-  
-  // Ensure output directory exists
-  const outputDir = path.dirname(config.outputPath);
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
   
   config.onProgress(`Starting EPUB to audiobook JSON conversion`);
   
@@ -88,21 +73,7 @@ export async function convertEpubToAudiobookJSON(options) {
       chapters: processedChapters
     };
     
-    // Save to file
-    fs.writeFileSync(config.outputPath, JSON.stringify(audiobookJSON, null, 2));
-    config.onProgress(`Audiobook JSON saved to: ${config.outputPath}`);
-    
-    // Save progress file (in case processing was interrupted)
-    if (config.saveProgressFile) {
-      const progressPath = config.outputPath.replace('.json', '-progress.json');
-      const progressData = {
-        progress: "complete",
-        completedChapters: processedChapters.length,
-        totalChapters: bookContent.chapters.length,
-        timestamp: new Date().toISOString()
-      };
-      fs.writeFileSync(progressPath, JSON.stringify(progressData, null, 2));
-    }
+    config.onProgress(`Audiobook JSON conversion completed`);
     
     return audiobookJSON;
   } catch (error) {
@@ -291,7 +262,7 @@ export async function convertEpubToAudiobookJSON(options) {
       // Prepare prompt for Gemini
       const promptText = `
       Convert this chapter content into a structured JSON format suitable for an audiobook application.
-      The JSON should include sections for narration timing, pause points, and vocal emphasis.
+      The JSON should include sections for narration timing, pause points, and vocal emphasis.  It should only include text content and only main chapters, not preface or prologues or copyright or table of contents.
       
       Book title: ${bookMetadata.title}
       Author: ${bookMetadata.author}

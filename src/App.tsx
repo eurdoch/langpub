@@ -32,10 +32,10 @@ function App() {
       const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData
-        // Don't set Content-Type - browser will set it with correct boundary for multipart/form-data
       })
       
       const result = await response.json()
+      console.log('Conversion result: ', result);
       
       if (response.ok) {
         setUploadResult({
