@@ -468,67 +468,64 @@ function App() {
               </div>
             </div>
             
-            {/* Word Translation Display */}
+            {/* Translation Display */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Word Translation</h3>
-              <div className="bg-white p-4 rounded shadow-sm min-h-[120px] flex flex-col">
-                {wordTranslation ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Original:</p>
-                      <p className="text-lg font-medium text-blue-700">{wordTranslation.original}</p>
+              <h3 className="text-lg font-semibold mb-2">Translation</h3>
+              <div className="bg-white p-4 rounded shadow-sm min-h-[200px] flex flex-col">
+                {/* Tabs for Word and Selection */}
+                <div className="flex border-b mb-4">
+                  <div className="flex-1 text-center py-2 border-b-2 border-blue-500 font-medium text-blue-600">
+                    Active Translation
+                  </div>
+                </div>
+                
+                {/* Translation Content */}
+                {(wordTranslation || selectionTranslation) ? (
+                  <div className="space-y-4">
+                    {/* Translation Content */}
+                    <div className="bg-gray-50 p-4 rounded">
+                      {/* Original Text (Bold) */}
+                      <p className="text-lg font-bold text-blue-700 mb-3">
+                        {wordTranslation?.original || selectionTranslation?.original}
+                      </p>
+                      
+                      {/* Loading State */}
+                      {(wordTranslation?.isLoading || selectionTranslation?.isLoading) ? (
+                        <div className="flex items-center py-2">
+                          <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
+                          <span className="ml-3 text-gray-600">Translating...</span>
+                        </div>
+                      ) : (wordTranslation?.error || selectionTranslation?.error) ? (
+                        <p className="text-red-600">
+                          {wordTranslation?.error || selectionTranslation?.error}
+                        </p>
+                      ) : (
+                        /* Translation Text (Normal) */
+                        <p className="text-md text-gray-800">
+                          {wordTranslation?.translated || selectionTranslation?.translated}
+                        </p>
+                      )}
                     </div>
                     
-                    {wordTranslation.isLoading ? (
-                      <div className="flex justify-center items-center py-2">
-                        <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-                        <span className="ml-2 text-sm text-gray-600">Translating...</span>
-                      </div>
-                    ) : wordTranslation.error ? (
-                      <p className="text-red-500 text-sm">{wordTranslation.error}</p>
-                    ) : (
-                      <div>
-                        <p className="text-sm text-gray-500">Translation:</p>
-                        <p className="text-lg">{wordTranslation.translated}</p>
-                      </div>
-                    )}
+                    {/* Interaction Type */}
+                    <div className="text-center text-sm text-gray-500 mt-2">
+                      {wordTranslation ? (
+                        <span className="px-2 py-1 bg-gray-100 rounded-full">
+                          Word Translation
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 rounded-full">
+                          Text Selection
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-gray-500">Click any word in the text to see its translation</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Text Selection Translation */}
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Selection Translation</h3>
-              <div className="bg-white p-4 rounded shadow-sm min-h-[160px] overflow-auto">
-                {selectionTranslation ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-500">Original:</p>
-                      <p className="italic text-blue-800">"{selectionTranslation.original}"</p>
+                    <div className="text-center text-gray-500 p-4">
+                      <p className="mb-2">No active translation</p>
+                      <p className="text-sm">Click any word or select text to translate</p>
                     </div>
-                    
-                    {selectionTranslation.isLoading ? (
-                      <div className="flex justify-center items-center py-2">
-                        <div className="animate-spin h-5 w-5 border-2 border-blue-500 rounded-full border-t-transparent"></div>
-                        <span className="ml-2 text-sm text-gray-600">Translating...</span>
-                      </div>
-                    ) : selectionTranslation.error ? (
-                      <p className="text-red-500 text-sm">{selectionTranslation.error}</p>
-                    ) : (
-                      <div>
-                        <p className="text-sm text-gray-500">Translation:</p>
-                        <p>"{selectionTranslation.translated}"</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-gray-500">Select any text to see its translation</p>
                   </div>
                 )}
               </div>
