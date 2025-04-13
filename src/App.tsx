@@ -198,37 +198,47 @@ function App() {
                 Chapter {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}: {currentChapterTitle}
               </h3>
               
-              <div className="p-6 border border-gray-200 rounded-lg bg-white shadow-sm min-h-[200px] flex items-center justify-center">
-                {currentSentence ? (
-                  <p className="text-lg">{currentSentence}</p>
-                ) : (
-                  <p className="text-gray-500 italic">No content available</p>
-                )}
-              </div>
-              
-              <div className="mt-4 flex justify-between items-center">
-                <span className="text-sm text-gray-600">
-                  Sentence {currentSentenceIndex + 1} of {audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0}
-                </span>
+              <div className="border border-gray-200 rounded-lg bg-white shadow-sm mb-4">
+                {/* Fixed height content area to prevent layout shifts */}
+                <div className="p-6 h-[200px] flex items-center justify-center overflow-auto">
+                  {currentSentence ? (
+                    <p className="text-lg">{currentSentence}</p>
+                  ) : (
+                    <p className="text-gray-500 italic">No content available</p>
+                  )}
+                </div>
                 
-                <div className="flex gap-4">
-                  <button 
-                    onClick={handlePrevSentence}
-                    disabled={currentChapterIndex === 0 && currentSentenceIndex === 0}
-                    className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <button 
-                    onClick={handleNextSentence}
-                    disabled={
-                      currentChapterIndex === audiobookData.chapters.length - 1 && 
-                      currentSentenceIndex === (audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0) - 1
-                    }
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
+                {/* Fixed navigation bar */}
+                <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                  <span className="text-sm text-gray-600 w-1/3 text-left">
+                    Sentence {currentSentenceIndex + 1} of {audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0}
+                  </span>
+                  
+                  <div className="flex gap-4 w-1/3 justify-center">
+                    <button 
+                      onClick={handlePrevSentence}
+                      disabled={currentChapterIndex === 0 && currentSentenceIndex === 0}
+                      className="w-24 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button 
+                      onClick={handleNextSentence}
+                      disabled={
+                        currentChapterIndex === audiobookData.chapters.length - 1 && 
+                        currentSentenceIndex === (audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0) - 1
+                      }
+                      className="w-24 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  
+                  <div className="w-1/3 text-right">
+                    <span className="text-sm text-gray-600">
+                      Chapter {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}/{audiobookData.totalChapters}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
