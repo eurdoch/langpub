@@ -1,6 +1,6 @@
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
+import express from 'express';
+import cors from 'cors';
+import multer from 'multer';
 
 const app = express();
 const PORT = 3004;
@@ -21,16 +21,6 @@ app.get('/', (req, res) => {
 
 // File conversion endpoint
 app.post('/conversion', upload.single('file'), (req, res) => {
-  // Set CORS headers explicitly for this route
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  
-  // Handle preflight OPTIONS request
-  if (req.method === 'OPTIONS') {
-    return res.status(200).send();
-  }
-  
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }

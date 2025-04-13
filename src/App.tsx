@@ -25,7 +25,11 @@ function App() {
       const formData = new FormData()
       formData.append('file', fileToUpload)
       
-      const response = await fetch('https://langpub.directto.link/conversion', {
+      const apiUrl = import.meta.env.PROD 
+        ? 'https://langpub.directto.link/conversion'
+        : 'http://localhost:3004/conversion'
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData
         // Don't set Content-Type - browser will set it with correct boundary for multipart/form-data
