@@ -202,7 +202,17 @@ function App() {
                 {/* Fixed height content area to prevent layout shifts */}
                 <div className="p-6 h-[200px] flex items-center justify-center overflow-auto">
                   {currentSentence ? (
-                    <p className="text-lg">{currentSentence}</p>
+                    <p className="text-lg leading-relaxed">
+                      {currentSentence.split(' ').map((word, index) => (
+                        <span 
+                          key={index}
+                          onClick={() => console.log('Clicked word:', word)}
+                          className="cursor-pointer hover:bg-blue-100 px-0.5 rounded transition-colors"
+                        >
+                          {word}{index < currentSentence.split(' ').length - 1 ? ' ' : ''}
+                        </span>
+                      ))}
+                    </p>
                   ) : (
                     <p className="text-gray-500 italic">No content available</p>
                   )}
