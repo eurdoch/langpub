@@ -27,11 +27,15 @@ function App() {
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
   
+  // State for clicked word and selected text
+  const [clickedWord, setClickedWord] = useState<string | null>(null);
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  
   // Handler for text selection
   const handleTextSelection = () => {
-    const selectedText = window.getSelection()?.toString().trim();
-    if (selectedText && selectedText.length > 0) {
-      console.log('Selected text:', selectedText);
+    const selection = window.getSelection()?.toString().trim();
+    if (selection && selection.length > 0) {
+      setSelectedText(selection);
     }
   };
 
@@ -145,136 +149,208 @@ function App() {
     : '';
 
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen p-6">
-      <div className="text-center max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6">EPUB to Audiobook Converter</h1>
-        
-        {!audiobookData && (
-          <form onSubmit={handleSubmit} className="mb-8">
-            <label className="block mb-4">
-              <span className="block mb-2">Select an EPUB file to convert:</span>
-              <input 
-                type="file" 
-                accept=".epub"
-                onChange={handleFileChange}
-                disabled={uploading}
-                className="block w-full text-sm text-slate-500 
-                  file:mr-4 file:py-2 file:px-4 
-                  file:rounded-full file:border-0 
-                  file:text-sm file:font-semibold 
-                  file:bg-violet-50 file:text-violet-700 
-                  hover:file:bg-violet-100"
-              />
-            </label>
-            
-            {file && (
-              <div className="mt-4 p-4 bg-gray-50 rounded">
-                <p className="font-semibold">{file.name}</p>
-                <p className="text-sm text-gray-600">Size: {(file.size / 1024 / 1024).toFixed(2)} MB</p>
-              </div>
-            )}
-          </form>
-        )}
-        
-        {uploading && (
-          <div className="my-8 flex flex-col items-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4"></div>
-            <p className="text-lg">Converting EPUB to audiobook format...</p>
-            <p className="text-sm text-gray-600 mt-2">This may take several minutes for large files</p>
-          </div>
-        )}
-        
-        {uploadResult && !audiobookData && (
-          <div className={`my-6 p-4 rounded ${uploadResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-            <p>{uploadResult.message}</p>
-          </div>
-        )}
-        
-        {audiobookData && (
-          <div className="mt-8">
-            <div className="mb-6 p-4 bg-blue-50 rounded">
-              <h2 className="text-xl font-bold">{audiobookData.title}</h2>
-              <p className="text-gray-700">by {audiobookData.author}</p>
-              <div className="mt-2 text-sm text-gray-600">
-                <p>{audiobookData.totalChapters} chapters</p>
-                <p>Estimated duration: {audiobookData.estimatedTotalDuration}</p>
-              </div>
-            </div>
-            
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">
-                Chapter {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}: {currentChapterTitle}
-              </h3>
+    <div className="flex min-h-screen">
+      {/* Main content area - 2/3 of viewport */}
+      <div className="w-2/3 p-6 flex flex-col items-center">
+        <div className="text-center max-w-2xl">
+          <h1 className="text-2xl font-bold mb-6">EPUB to Audiobook Converter</h1>
+          
+          {!audiobookData && (
+            <form onSubmit={handleSubmit} className="mb-8">
+              <label className="block mb-4">
+                <span className="block mb-2">Select an EPUB file to convert:</span>
+                <input 
+                  type="file" 
+                  accept=".epub"
+                  onChange={handleFileChange}
+                  disabled={uploading}
+                  className="block w-full text-sm text-slate-500 
+                    file:mr-4 file:py-2 file:px-4 
+                    file:rounded-full file:border-0 
+                    file:text-sm file:font-semibold 
+                    file:bg-violet-50 file:text-violet-700 
+                    hover:file:bg-violet-100"
+                />
+              </label>
               
-              <div className="border border-gray-200 rounded-lg bg-white shadow-sm mb-4">
-                {/* Fixed height content area to prevent layout shifts */}
-                <div 
-                  className="p-6 h-[200px] flex items-center justify-center overflow-auto"
-                  onMouseUp={handleTextSelection} // Detect selection when mouse is released
-                  onTouchEnd={handleTextSelection} // Support for touch devices
-                >
-                  {currentSentence ? (
-                    <p className="text-lg leading-relaxed select-text"> {/* Ensure text is selectable */}
-                      {currentSentence.split(' ').map((word, index) => (
-                        <span 
-                          key={index}
-                          onClick={() => console.log('Clicked word:', word)}
-                          className="cursor-pointer hover:bg-blue-100 px-0.5 rounded transition-colors"
-                        >
-                          {word}{index < currentSentence.split(' ').length - 1 ? ' ' : ''}
-                        </span>
-                      ))}
-                    </p>
-                  ) : (
-                    <p className="text-gray-500 italic">No content available</p>
-                  )}
+              {file && (
+                <div className="mt-4 p-4 bg-gray-50 rounded">
+                  <p className="font-semibold">{file.name}</p>
+                  <p className="text-sm text-gray-600">Size: {(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
+              )}
+            </form>
+          )}
+          
+          {uploading && (
+            <div className="my-8 flex flex-col items-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-lg">Converting EPUB to audiobook format...</p>
+              <p className="text-sm text-gray-600 mt-2">This may take several minutes for large files</p>
+            </div>
+          )}
+          
+          {uploadResult && !audiobookData && (
+            <div className={`my-6 p-4 rounded ${uploadResult.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+              <p>{uploadResult.message}</p>
+            </div>
+          )}
+          
+          {audiobookData && (
+            <div className="mt-8 w-full">
+              <div className="mb-6 p-4 bg-blue-50 rounded">
+                <h2 className="text-xl font-bold">{audiobookData.title}</h2>
+                <p className="text-gray-700">by {audiobookData.author}</p>
+                <div className="mt-2 text-sm text-gray-600">
+                  <p>{audiobookData.totalChapters} chapters</p>
+                  <p>Estimated duration: {audiobookData.estimatedTotalDuration}</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2">
+                  Chapter {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}: {currentChapterTitle}
+                </h3>
                 
-                {/* Fixed navigation bar */}
-                <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
-                  <span className="text-sm text-gray-600 w-1/3 text-left">
-                    Sentence {currentSentenceIndex + 1} of {audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0}
-                  </span>
-                  
-                  <div className="flex gap-4 w-1/3 justify-center">
-                    <button 
-                      onClick={handlePrevSentence}
-                      disabled={currentChapterIndex === 0 && currentSentenceIndex === 0}
-                      className="w-24 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <button 
-                      onClick={handleNextSentence}
-                      disabled={
-                        currentChapterIndex === audiobookData.chapters.length - 1 && 
-                        currentSentenceIndex === (audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0) - 1
-                      }
-                      className="w-24 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
+                <div className="border border-gray-200 rounded-lg bg-white shadow-sm mb-4">
+                  {/* Fixed height content area to prevent layout shifts */}
+                  <div 
+                    className="p-6 h-[200px] flex items-center justify-center overflow-auto"
+                    onMouseUp={handleTextSelection} // Detect selection when mouse is released
+                    onTouchEnd={handleTextSelection} // Support for touch devices
+                  >
+                    {currentSentence ? (
+                      <p className="text-lg leading-relaxed select-text"> {/* Ensure text is selectable */}
+                        {currentSentence.split(' ').map((word, index) => (
+                          <span 
+                            key={index}
+                            onClick={() => setClickedWord(word)}
+                            className="cursor-pointer hover:bg-blue-100 px-0.5 rounded transition-colors"
+                          >
+                            {word}{index < currentSentence.split(' ').length - 1 ? ' ' : ''}
+                          </span>
+                        ))}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 italic">No content available</p>
+                    )}
                   </div>
                   
-                  <div className="w-1/3 text-right">
-                    <span className="text-sm text-gray-600">
-                      Chapter {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}/{audiobookData.totalChapters}
+                  {/* Fixed navigation bar */}
+                  <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                    <span className="text-sm text-gray-600 w-1/3 text-left">
+                      Sentence {currentSentenceIndex + 1} of {audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0}
                     </span>
+                    
+                    <div className="flex gap-4 w-1/3 justify-center">
+                      <button 
+                        onClick={handlePrevSentence}
+                        disabled={currentChapterIndex === 0 && currentSentenceIndex === 0}
+                        className="w-24 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <button 
+                        onClick={handleNextSentence}
+                        disabled={
+                          currentChapterIndex === audiobookData.chapters.length - 1 && 
+                          currentSentenceIndex === (audiobookData.chapters[currentChapterIndex]?.sentences?.length || 0) - 1
+                        }
+                        className="w-24 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
+                    
+                    <div className="w-1/3 text-right">
+                      <span className="text-sm text-gray-600">
+                        Chapter {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}/{audiobookData.totalChapters}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
+              
+              <button 
+                onClick={() => {
+                  setFile(null);
+                  setAudiobookData(null);
+                  setUploadResult(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+              >
+                Convert another file
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Right sidebar - 1/3 of viewport */}
+      <div className="w-1/3 bg-gray-50 border-l border-gray-200 p-6 overflow-auto h-screen">
+        <h2 className="text-xl font-bold mb-4">Text Interactions</h2>
+        
+        {audiobookData ? (
+          <div>
+            {/* Word Click Display */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Clicked Word</h3>
+              <div className="bg-white p-4 rounded shadow-sm min-h-[80px] flex items-center justify-center">
+                {clickedWord ? (
+                  <div className="text-center">
+                    <span className="text-2xl font-medium text-blue-700">{clickedWord}</span>
+                    <p className="text-sm text-gray-500 mt-2">Click any word in the text to display it here</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Click any word in the text to display it here</p>
+                )}
+              </div>
             </div>
             
-            <button 
-              onClick={() => {
-                setFile(null);
-                setAudiobookData(null);
-                setUploadResult(null);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
-            >
-              Convert another file
-            </button>
+            {/* Text Selection Display */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Text Selection</h3>
+              <div className="bg-white p-4 rounded shadow-sm min-h-[120px] overflow-auto">
+                {selectedText ? (
+                  <div>
+                    <p className="italic text-blue-800">"{selectedText}"</p>
+                    <p className="text-sm text-gray-500 mt-2">Select any text to display it here</p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Select any text to display it here</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Book Information */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Book Information</h3>
+              <div className="bg-white p-4 rounded shadow-sm">
+                <p><strong>Title:</strong> {audiobookData.title}</p>
+                <p><strong>Author:</strong> {audiobookData.author}</p>
+                <p><strong>Chapters:</strong> {audiobookData.totalChapters}</p>
+                <p><strong>Duration:</strong> {audiobookData.estimatedTotalDuration}</p>
+              </div>
+            </div>
+            
+            {/* Current Chapter Info */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">Current Chapter</h3>
+              <div className="bg-white p-4 rounded shadow-sm">
+                <p><strong>Chapter:</strong> {audiobookData.chapters[currentChapterIndex]?.chapterNumber || currentChapterIndex + 1}</p>
+                <p><strong>Title:</strong> {currentChapterTitle}</p>
+                {audiobookData.chapters[currentChapterIndex]?.wordCount && (
+                  <p><strong>Word Count:</strong> {audiobookData.chapters[currentChapterIndex].wordCount}</p>
+                )}
+                {audiobookData.chapters[currentChapterIndex]?.estimatedDuration && (
+                  <p><strong>Duration:</strong> {audiobookData.chapters[currentChapterIndex].estimatedDuration}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white p-4 rounded shadow-sm">
+            <p className="text-gray-500">Select and convert an EPUB file to see details here.</p>
           </div>
         )}
       </div>
