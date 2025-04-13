@@ -26,6 +26,14 @@ function App() {
   const [audiobookData, setAudiobookData] = useState<AudiobookResult | null>(null);
   const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [currentSentenceIndex, setCurrentSentenceIndex] = useState(0);
+  
+  // Handler for text selection
+  const handleTextSelection = () => {
+    const selectedText = window.getSelection()?.toString().trim();
+    if (selectedText && selectedText.length > 0) {
+      console.log('Selected text:', selectedText);
+    }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -200,9 +208,13 @@ function App() {
               
               <div className="border border-gray-200 rounded-lg bg-white shadow-sm mb-4">
                 {/* Fixed height content area to prevent layout shifts */}
-                <div className="p-6 h-[200px] flex items-center justify-center overflow-auto">
+                <div 
+                  className="p-6 h-[200px] flex items-center justify-center overflow-auto"
+                  onMouseUp={handleTextSelection} // Detect selection when mouse is released
+                  onTouchEnd={handleTextSelection} // Support for touch devices
+                >
                   {currentSentence ? (
-                    <p className="text-lg leading-relaxed">
+                    <p className="text-lg leading-relaxed select-text"> {/* Ensure text is selectable */}
                       {currentSentence.split(' ').map((word, index) => (
                         <span 
                           key={index}
