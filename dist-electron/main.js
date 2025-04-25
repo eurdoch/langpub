@@ -4802,13 +4802,38 @@ app.whenReady().then(() => {
           }
           console.log("Extracted spine items:", spine.length);
           ipcMain.handle("get-spine-item-content", async (_event2, spineItemPath) => {
+            var _a2;
             try {
               const itemEntry = zip.getEntry(spineItemPath);
               if (itemEntry) {
+                const content = itemEntry.getData().toString("utf8");
+                const cssFiles = [];
+                const cssMatches = content.match(/href=['"]([^'"]*\.css)['"]|@import\s+['"]([^'"]*\.css)['"]/g);
+                if (cssMatches) {
+                  console.log(`Found CSS references in ${spineItemPath}:`, cssMatches);
+                  const baseDir = path.dirname(spineItemPath);
+                  for (const cssMatch of cssMatches) {
+                    const cssPath = (_a2 = cssMatch.match(/['"]([^'"]*\.css)['"]/)) == null ? void 0 : _a2[1];
+                    if (cssPath) {
+                      const cssFullPath = path.join(baseDir, cssPath).replace(/\\/g, "/");
+                      const cssEntry = zip.getEntry(cssFullPath);
+                      if (cssEntry) {
+                        cssFiles.push({
+                          path: cssFullPath,
+                          content: cssEntry.getData().toString("utf8")
+                        });
+                        console.log(`Found CSS file: ${cssFullPath}`);
+                      } else {
+                        console.warn(`Referenced CSS file not found: ${cssFullPath}`);
+                      }
+                    }
+                  }
+                }
                 return {
                   success: true,
-                  content: itemEntry.getData().toString("utf8"),
-                  path: spineItemPath
+                  content,
+                  path: spineItemPath,
+                  cssFiles
                 };
               } else {
                 console.error(`Spine item file not found: ${spineItemPath}`);

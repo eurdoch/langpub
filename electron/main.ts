@@ -249,11 +249,52 @@ app.whenReady().then(() => {
               const itemEntry = zip.getEntry(spineItemPath)
               
               if (itemEntry) {
-                // Return the content of the file
+                // Get the content of the file
+                const content = itemEntry.getData().toString('utf8')
+                
+                // Also check if there are any referenced CSS files to send
+                const cssFiles = []
+                
+                // Simple regex to find stylesheet references
+                const cssMatches = content.match(/href=['"]([^'"]*\.css)['"]|@import\s+['"]([^'"]*\.css)['"]/g)
+                
+                if (cssMatches) {
+                  console.log(`Found CSS references in ${spineItemPath}:`, cssMatches)
+                  
+                  // Get the base directory of the spine item
+                  const baseDir = path.dirname(spineItemPath)
+                  
+                  // For each CSS match, try to get the CSS content
+                  for (const cssMatch of cssMatches) {
+                    // Extract the path from the match
+                    const cssPath = cssMatch.match(/['"]([^'"]*\.css)['"]/)?.[1]
+                    
+                    if (cssPath) {
+                      // Resolve relative path
+                      const cssFullPath = path.join(baseDir, cssPath).replace(/\\/g, '/')
+                      
+                      // Try to get the CSS entry
+                      const cssEntry = zip.getEntry(cssFullPath)
+                      
+                      if (cssEntry) {
+                        cssFiles.push({
+                          path: cssFullPath,
+                          content: cssEntry.getData().toString('utf8')
+                        })
+                        console.log(`Found CSS file: ${cssFullPath}`)
+                      } else {
+                        console.warn(`Referenced CSS file not found: ${cssFullPath}`)
+                      }
+                    }
+                  }
+                }
+                
+                // Return the content and any found CSS
                 return {
                   success: true,
-                  content: itemEntry.getData().toString('utf8'),
-                  path: spineItemPath
+                  content: content,
+                  path: spineItemPath,
+                  cssFiles: cssFiles
                 }
               } else {
                 console.error(`Spine item file not found: ${spineItemPath}`)

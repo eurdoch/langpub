@@ -5,38 +5,42 @@
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+/* EPUB content viewer styles */
+.epub-content {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  text-align: left;
+  line-height: 1.6;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.epub-content img {
+  max-width: 100%;
+  height: auto;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.epub-content h1, 
+.epub-content h2, 
+.epub-content h3, 
+.epub-content h4, 
+.epub-content h5, 
+.epub-content h6 {
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  line-height: 1.2;
 }
 
-.card {
-  padding: 2em;
+.epub-content p {
+  margin-bottom: 1em;
 }
 
-.read-the-docs {
-  color: #888;
+.epub-content table {
+  border-collapse: collapse;
+  width: 100%;
 }
+
+.epub-content td, 
+.epub-content th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
+
+/* Allow specific EPUB styles to override these base styles */

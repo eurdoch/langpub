@@ -23,10 +23,16 @@ interface EpubSpineItem {
   fullPath: string
 }
 
+interface CssFile {
+  path: string
+  content: string
+}
+
 interface SpineItemContent {
   success: boolean
   content?: string
   path?: string
+  cssFiles?: CssFile[]
   error?: string
 }
 

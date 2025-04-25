@@ -4,6 +4,9 @@ import './App.css'
 interface ParsedContent {
   title: string
   bodyText: string | null
+  htmlContent: string | null
+  styles: string[]
+  cssFiles: CssFile[]
   error?: string
 }
 
@@ -16,8 +19,14 @@ function App() {
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
   
   // Function to parse HTML content in the browser
-  const parseHtmlContent = (html: string): ParsedContent => {
+  const parseHtmlContent = (result: SpineItemContent): ParsedContent => {
     try {
+      if (!result.success || !result.content) {
+        throw new Error(result.error || 'No content provided')
+      }
+      
+      const html = result.content
+      
       // Create a DOM parser
       const parser = new DOMParser()
       const doc = parser.parseFromString(html, 'text/html')
@@ -29,17 +38,51 @@ function App() {
       const body = doc.querySelector('body')
       const bodyText = body ? body.textContent : null
       
+      // Extract all CSS styles
+      const styles: string[] = []
+      
+      // Get inline styles
+      const styleElements = doc.querySelectorAll('style')
+      styleElements.forEach(styleEl => {
+        if (styleEl.textContent) {
+          styles.push(styleEl.textContent)
+        }
+      })
+      
+      // Get linked stylesheets
+      const linkElements = doc.querySelectorAll('link[rel="stylesheet"]')
+      linkElements.forEach(linkEl => {
+        const href = linkEl.getAttribute('href')
+        if (href) {
+          console.log('Found linked stylesheet:', href)
+          styles.push(`/* External stylesheet: ${href} */`)
+        }
+      })
+      
+      // Get the HTML content of the body for rendering
+      const htmlContent = body ? body.innerHTML : null
+      
+      // Include external CSS files from result
+      const cssFiles = result.cssFiles || []
+      console.log(`Including ${cssFiles.length} CSS files with content`)
+      
       return { 
         title, 
         bodyText: bodyText ? 
           (bodyText.substring(0, 300) + (bodyText.length > 300 ? '...' : '')) : 
-          null 
+          null,
+        htmlContent,
+        styles,
+        cssFiles
       }
     } catch (error) {
       console.error('Error parsing HTML:', error)
       return { 
         title: 'Parse Error', 
         bodyText: null,
+        htmlContent: null,
+        styles: [],
+        cssFiles: [],
         error: error instanceof Error ? error.message : 'Unknown error'
       }
     }
@@ -150,8 +193,8 @@ function App() {
                                 setLoadingItems(prev => ({ ...prev, [item.fullPath]: true }))
                                 window.electron.getSpineItemContent(item.fullPath)
                                   .then(result => {
-                                    if (result.success && result.content) {
-                                      const parsed = parseHtmlContent(result.content)
+                                    if (result.success) {
+                                      const parsed = parseHtmlContent(result)
                                       setSpineItemsContent(prev => ({ 
                                         ...prev, 
                                         [item.fullPath]: parsed 
@@ -199,9 +242,33 @@ function App() {
                               {spineItemsContent[item.fullPath].title && (
                                 <div><span className="font-semibold">Title:</span> {spineItemsContent[item.fullPath].title}</div>
                               )}
-                              {spineItemsContent[item.fullPath].bodyText && (
-                                <div className="italic mt-1 text-gray-500">{spineItemsContent[item.fullPath].bodyText}</div>
+                              
+                              {/* Apply extracted styles */}
+                              {spineItemsContent[item.fullPath].styles && spineItemsContent[item.fullPath].styles.length > 0 && (
+                                <style>
+                                  {spineItemsContent[item.fullPath].styles.join('\n')}
+                                </style>
                               )}
+                              
+                              {/* Apply CSS from external files */}
+                              {spineItemsContent[item.fullPath].cssFiles && spineItemsContent[item.fullPath].cssFiles.map((cssFile, cssIndex) => (
+                                <style key={cssIndex} data-source={cssFile.path}>
+                                  {cssFile.content}
+                                </style>
+                              ))}
+                              
+                              {/* Render HTML content with styles */}
+                              {spineItemsContent[item.fullPath].htmlContent ? (
+                                <div className="mt-2 border border-gray-200 p-2 rounded max-h-96 overflow-auto">
+                                  <div 
+                                    className="epub-content" 
+                                    dangerouslySetInnerHTML={{ __html: spineItemsContent[item.fullPath].htmlContent }}
+                                  />
+                                </div>
+                              ) : spineItemsContent[item.fullPath].bodyText ? (
+                                <div className="italic mt-1 text-gray-500">{spineItemsContent[item.fullPath].bodyText}</div>
+                              ) : null}
+                              
                               {spineItemsContent[item.fullPath].error && (
                                 <div className="text-red-500">Error: {spineItemsContent[item.fullPath].error}</div>
                               )}
