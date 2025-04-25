@@ -15,23 +15,19 @@ interface EpubSimpleMetadata {
   opfContent: string
 }
 
-interface EpubParsedContent {
-  title?: string
-  hasBody?: boolean
-  bodyText?: string | null
-  mediaType?: string
-  size?: number
-  error?: string
-  rawContent?: string
-}
-
 interface EpubSpineItem {
   idref: string
   id: string
   href: string
   mediaType: string
   fullPath: string
-  parsedContent?: EpubParsedContent
+}
+
+interface SpineItemContent {
+  success: boolean
+  content?: string
+  path?: string
+  error?: string
 }
 
 interface EpubContents {
@@ -48,6 +44,7 @@ interface Window {
     openFile: (filePath: string) => Promise<string>
     openFileDialog: (filters: { name: string, extensions: string[] }[]) => Promise<string | null>
     unzipEpub: (filePath: string) => Promise<EpubContents>
+    getSpineItemContent: (spineItemPath: string) => Promise<SpineItemContent>
   }
   ipcRenderer: {
     on: (channel: string, listener: (...args: any[]) => void) => void

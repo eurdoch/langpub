@@ -23,5 +23,6 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
 electron.contextBridge.exposeInMainWorld("electron", {
   openFile: (filePath) => electron.ipcRenderer.invoke("open-file", filePath),
   openFileDialog: (filters) => electron.ipcRenderer.invoke("open-file-dialog", filters),
-  unzipEpub: (filePath) => electron.ipcRenderer.invoke("unzip-epub", filePath)
+  unzipEpub: (filePath) => electron.ipcRenderer.invoke("unzip-epub", filePath),
+  getSpineItemContent: (spineItemPath) => electron.ipcRenderer.invoke("get-spine-item-content", spineItemPath)
 });

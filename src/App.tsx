@@ -1,10 +1,49 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
+
+interface ParsedContent {
+  title: string
+  bodyText: string | null
+  error?: string
+}
 
 function App() {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [epubContents, setEpubContents] = useState<EpubContents | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedSpineIndex, setSelectedSpineIndex] = useState<number | null>(null)
+  const [spineItemsContent, setSpineItemsContent] = useState<Record<string, ParsedContent>>({})
+  const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
+  
+  // Function to parse HTML content in the browser
+  const parseHtmlContent = (html: string): ParsedContent => {
+    try {
+      // Create a DOM parser
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(html, 'text/html')
+      
+      // Extract title
+      const title = doc.querySelector('title')?.textContent || 'No title'
+      
+      // Extract body text
+      const body = doc.querySelector('body')
+      const bodyText = body ? body.textContent : null
+      
+      return { 
+        title, 
+        bodyText: bodyText ? 
+          (bodyText.substring(0, 300) + (bodyText.length > 300 ? '...' : '')) : 
+          null 
+      }
+    } catch (error) {
+      console.error('Error parsing HTML:', error)
+      return { 
+        title: 'Parse Error', 
+        bodyText: null,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  }
 
   const handleOpenDialog = async () => {
     try {
@@ -99,16 +138,76 @@ function App() {
                         <span className="font-semibold">{index + 1}.</span> {item.fullPath} 
                         <span className="text-gray-500"> ({item.mediaType})</span>
                       </div>
-                      {item.parsedContent && (
-                        <div className="ml-5 text-xs text-gray-700">
-                          {item.parsedContent.title && (
-                            <div><span className="font-semibold">Title:</span> {item.parsedContent.title}</div>
-                          )}
-                          {item.parsedContent.bodyText && (
-                            <div className="italic mt-1 text-gray-500">{item.parsedContent.bodyText}</div>
-                          )}
-                          {item.parsedContent.error && (
-                            <div className="text-red-500">Error: {item.parsedContent.error}</div>
+                      <div className="ml-5 mt-1 flex">
+                        <button 
+                          onClick={() => {
+                            if (selectedSpineIndex === index) {
+                              setSelectedSpineIndex(null)
+                            } else {
+                              setSelectedSpineIndex(index)
+                              // Load content if not already loaded
+                              if (!spineItemsContent[item.fullPath] && !loadingItems[item.fullPath]) {
+                                setLoadingItems(prev => ({ ...prev, [item.fullPath]: true }))
+                                window.electron.getSpineItemContent(item.fullPath)
+                                  .then(result => {
+                                    if (result.success && result.content) {
+                                      const parsed = parseHtmlContent(result.content)
+                                      setSpineItemsContent(prev => ({ 
+                                        ...prev, 
+                                        [item.fullPath]: parsed 
+                                      }))
+                                    } else {
+                                      setSpineItemsContent(prev => ({ 
+                                        ...prev, 
+                                        [item.fullPath]: { 
+                                          title: 'Error', 
+                                          bodyText: null, 
+                                          error: result.error || 'Unknown error' 
+                                        } 
+                                      }))
+                                    }
+                                    setLoadingItems(prev => ({ ...prev, [item.fullPath]: false }))
+                                  })
+                                  .catch(error => {
+                                    console.error(`Error loading spine item ${item.fullPath}:`, error)
+                                    setSpineItemsContent(prev => ({ 
+                                      ...prev, 
+                                      [item.fullPath]: { 
+                                        title: 'Error', 
+                                        bodyText: null, 
+                                        error: error.message 
+                                      } 
+                                    }))
+                                    setLoadingItems(prev => ({ ...prev, [item.fullPath]: false }))
+                                  })
+                              }
+                            }
+                          }}
+                          className="text-xs bg-gray-200 hover:bg-blue-100 px-2 py-1 rounded"
+                        >
+                          {loadingItems[item.fullPath] ? 'Loading...' : (selectedSpineIndex === index ? 'Hide Content' : 'View Content')}
+                        </button>
+                      </div>
+                      
+                      {/* Show content when selected */}
+                      {selectedSpineIndex === index && (
+                        <div className="ml-5 mt-2 text-xs text-gray-700 border-l-2 border-blue-200 pl-2">
+                          {loadingItems[item.fullPath] ? (
+                            <div>Loading content...</div>
+                          ) : spineItemsContent[item.fullPath] ? (
+                            <>
+                              {spineItemsContent[item.fullPath].title && (
+                                <div><span className="font-semibold">Title:</span> {spineItemsContent[item.fullPath].title}</div>
+                              )}
+                              {spineItemsContent[item.fullPath].bodyText && (
+                                <div className="italic mt-1 text-gray-500">{spineItemsContent[item.fullPath].bodyText}</div>
+                              )}
+                              {spineItemsContent[item.fullPath].error && (
+                                <div className="text-red-500">Error: {spineItemsContent[item.fullPath].error}</div>
+                              )}
+                            </>
+                          ) : (
+                            <div>No content loaded</div>
                           )}
                         </div>
                       )}
