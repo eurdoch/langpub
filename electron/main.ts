@@ -240,6 +240,65 @@ app.whenReady().then(() => {
           
           console.log('Extracted spine items:', spine.length)
           
+          // Now parse each spine item's content
+          for (const spineItem of spine) {
+            try {
+              const itemEntry = zip.getEntry(spineItem.fullPath)
+              
+              if (itemEntry) {
+                // Get the content of the file
+                const content = itemEntry.getData().toString('utf8')
+                
+                // Parse with xmldom if it's HTML/XML content
+                if (spineItem.mediaType && 
+                    (spineItem.mediaType.includes('html') || 
+                     spineItem.mediaType.includes('xml') || 
+                     spineItem.mediaType.includes('xhtml'))) {
+                  
+                  try {
+                    const itemDoc = parser.parseFromString(content, 'application/xhtml+xml')
+                    
+                    // Get the body content or title
+                    const title = itemDoc.getElementsByTagName('title')[0]?.textContent || 'No title'
+                    const bodyContent = itemDoc.getElementsByTagName('body')[0]
+                    
+                    console.log(`Parsed spine item: ${spineItem.fullPath}`)
+                    console.log(`  Title: ${title}`)
+                    console.log(`  Has body: ${!!bodyContent}`)
+                    
+                    // Add parsed content to spine item - without passing the DOM elements
+                    spineItem.parsedContent = {
+                      title,
+                      hasBody: !!bodyContent,
+                      bodyText: bodyContent ? 
+                        bodyContent.textContent?.substring(0, 200) + (bodyContent.textContent?.length > 200 ? '...' : '') : 
+                        null
+                    }
+                  } catch (parseError) {
+                    console.error(`Error parsing spine item ${spineItem.fullPath}:`, parseError.message)
+                    spineItem.parsedContent = {
+                      error: parseError.message,
+                      rawContent: content.substring(0, 100) + '...' // First 100 chars
+                    }
+                  }
+                } else {
+                  // Just store basic info for non-HTML content
+                  console.log(`Non-HTML spine item: ${spineItem.fullPath} (${spineItem.mediaType})`)
+                  spineItem.parsedContent = {
+                    mediaType: spineItem.mediaType,
+                    size: itemEntry.header.size
+                  }
+                }
+              } else {
+                console.error(`Spine item file not found: ${spineItem.fullPath}`)
+                spineItem.parsedContent = { error: 'File not found in EPUB' }
+              }
+            } catch (error) {
+              console.error(`Error processing spine item ${spineItem.fullPath}:`, error)
+              spineItem.parsedContent = { error: error.message }
+            }
+          }
+          
         } catch (xmlError) {
           console.error('Error parsing OPF XML:', xmlError)
           

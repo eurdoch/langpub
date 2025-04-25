@@ -4710,7 +4710,7 @@ app.whenReady().then(() => {
     }
   });
   ipcMain.handle("unzip-epub", async (_event, filePath) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f;
     try {
       await fs.promises.access(filePath, fs.constants.F_OK);
       const zip = new AdmZip(filePath);
@@ -4801,6 +4801,48 @@ app.whenReady().then(() => {
             }
           }
           console.log("Extracted spine items:", spine.length);
+          for (const spineItem of spine) {
+            try {
+              const itemEntry = zip.getEntry(spineItem.fullPath);
+              if (itemEntry) {
+                const content = itemEntry.getData().toString("utf8");
+                if (spineItem.mediaType && (spineItem.mediaType.includes("html") || spineItem.mediaType.includes("xml") || spineItem.mediaType.includes("xhtml"))) {
+                  try {
+                    const itemDoc = parser.parseFromString(content, "application/xhtml+xml");
+                    const title = ((_d = itemDoc.getElementsByTagName("title")[0]) == null ? void 0 : _d.textContent) || "No title";
+                    const bodyContent = itemDoc.getElementsByTagName("body")[0];
+                    console.log(`Parsed spine item: ${spineItem.fullPath}`);
+                    console.log(`  Title: ${title}`);
+                    console.log(`  Has body: ${!!bodyContent}`);
+                    spineItem.parsedContent = {
+                      title,
+                      hasBody: !!bodyContent,
+                      bodyText: bodyContent ? ((_e = bodyContent.textContent) == null ? void 0 : _e.substring(0, 200)) + (((_f = bodyContent.textContent) == null ? void 0 : _f.length) > 200 ? "..." : "") : null
+                    };
+                  } catch (parseError) {
+                    console.error(`Error parsing spine item ${spineItem.fullPath}:`, parseError.message);
+                    spineItem.parsedContent = {
+                      error: parseError.message,
+                      rawContent: content.substring(0, 100) + "..."
+                      // First 100 chars
+                    };
+                  }
+                } else {
+                  console.log(`Non-HTML spine item: ${spineItem.fullPath} (${spineItem.mediaType})`);
+                  spineItem.parsedContent = {
+                    mediaType: spineItem.mediaType,
+                    size: itemEntry.header.size
+                  };
+                }
+              } else {
+                console.error(`Spine item file not found: ${spineItem.fullPath}`);
+                spineItem.parsedContent = { error: "File not found in EPUB" };
+              }
+            } catch (error) {
+              console.error(`Error processing spine item ${spineItem.fullPath}:`, error);
+              spineItem.parsedContent = { error: error.message };
+            }
+          }
         } catch (xmlError) {
           console.error("Error parsing OPF XML:", xmlError);
           const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i);

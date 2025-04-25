@@ -94,9 +94,24 @@ function App() {
               <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
                 <ul className="text-xs font-mono">
                   {epubContents.spine && epubContents.spine.map((item, index) => (
-                    <li key={index} className="py-1 truncate">
-                      <span className="font-semibold">{index + 1}.</span> {item.fullPath} 
-                      <span className="text-gray-500"> ({item.mediaType})</span>
+                    <li key={index} className="py-1">
+                      <div className="truncate">
+                        <span className="font-semibold">{index + 1}.</span> {item.fullPath} 
+                        <span className="text-gray-500"> ({item.mediaType})</span>
+                      </div>
+                      {item.parsedContent && (
+                        <div className="ml-5 text-xs text-gray-700">
+                          {item.parsedContent.title && (
+                            <div><span className="font-semibold">Title:</span> {item.parsedContent.title}</div>
+                          )}
+                          {item.parsedContent.bodyText && (
+                            <div className="italic mt-1 text-gray-500">{item.parsedContent.bodyText}</div>
+                          )}
+                          {item.parsedContent.error && (
+                            <div className="text-red-500">Error: {item.parsedContent.error}</div>
+                          )}
+                        </div>
+                      )}
                     </li>
                   ))}
                   {(!epubContents.spine || epubContents.spine.length === 0) && (

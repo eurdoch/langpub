@@ -15,12 +15,23 @@ interface EpubSimpleMetadata {
   opfContent: string
 }
 
+interface EpubParsedContent {
+  title?: string
+  hasBody?: boolean
+  bodyText?: string | null
+  mediaType?: string
+  size?: number
+  error?: string
+  rawContent?: string
+}
+
 interface EpubSpineItem {
   idref: string
   id: string
   href: string
   mediaType: string
   fullPath: string
+  parsedContent?: EpubParsedContent
 }
 
 interface EpubContents {
