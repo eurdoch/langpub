@@ -3,6 +3,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
+import AdmZip from 'adm-zip'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -102,6 +103,36 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Error showing open dialog:', error)
       throw new Error('Failed to show open dialog')
+    }
+  })
+  
+  // Handle unzip epub file
+  ipcMain.handle('unzip-epub', async (_event, filePath) => {
+    try {
+      // Check if file exists
+      await fs.promises.access(filePath, fs.constants.F_OK)
+      
+      // Read and parse the EPUB file (which is a zip file)
+      const zip = new AdmZip(filePath)
+      const zipEntries = zip.getEntries()
+      
+      // Create a list of all the entries for logging
+      const entries = zipEntries.map(entry => ({
+        name: entry.entryName,
+        isDirectory: entry.isDirectory,
+        size: entry.header.size,
+      }))
+      
+      // Return information about the EPUB contents
+      return {
+        path: filePath,
+        entries: entries,
+        // Extract the container.xml to find the OPF file location
+        containerXml: zip.getEntry('META-INF/container.xml')?.getData().toString('utf8') || null
+      }
+    } catch (error) {
+      console.error('Error unzipping EPUB:', error)
+      throw new Error(`Failed to unzip EPUB: ${error.message}`)
     }
   })
 })
