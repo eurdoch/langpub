@@ -4804,27 +4804,74 @@ app.whenReady().then(() => {
           ipcMain.handle("get-spine-item-content", async (_event2, spineItemPath) => {
             var _a2;
             try {
-              const itemEntry = zip.getEntry(spineItemPath);
+              let itemEntry = zip.getEntry(spineItemPath);
+              if (!itemEntry) {
+                console.log(`Spine item not found at exact path: ${spineItemPath}, trying variations...`);
+                if (spineItemPath.startsWith("./")) {
+                  const normalizedPath = spineItemPath.substring(2);
+                  itemEntry = zip.getEntry(normalizedPath);
+                  if (itemEntry) {
+                    console.log(`Found at normalized path: ${normalizedPath}`);
+                  }
+                }
+                if (!itemEntry) {
+                  const filename = path.basename(spineItemPath);
+                  console.log(`Looking for filename: ${filename} in any directory`);
+                  const allEntries = zip.getEntries();
+                  const matchingEntries = allEntries.filter(
+                    (entry) => entry.entryName.endsWith("/" + filename) || entry.entryName === filename
+                  );
+                  if (matchingEntries.length > 0) {
+                    itemEntry = matchingEntries[0];
+                    console.log(`Found matching file: ${itemEntry.entryName}`);
+                  }
+                }
+              }
               if (itemEntry) {
                 const content = itemEntry.getData().toString("utf8");
+                const actualPath = itemEntry.entryName;
                 const cssFiles = [];
                 const cssMatches = content.match(/href=['"]([^'"]*\.css)['"]|@import\s+['"]([^'"]*\.css)['"]/g);
                 if (cssMatches) {
-                  console.log(`Found CSS references in ${spineItemPath}:`, cssMatches);
-                  const baseDir = path.dirname(spineItemPath);
+                  console.log(`Found CSS references in ${actualPath}:`, cssMatches);
+                  const baseDir = path.dirname(actualPath);
                   for (const cssMatch of cssMatches) {
                     const cssPath = (_a2 = cssMatch.match(/['"]([^'"]*\.css)['"]/)) == null ? void 0 : _a2[1];
                     if (cssPath) {
-                      const cssFullPath = path.join(baseDir, cssPath).replace(/\\/g, "/");
-                      const cssEntry = zip.getEntry(cssFullPath);
+                      let cssEntry = null;
+                      const cssVariations = [
+                        path.join(baseDir, cssPath).replace(/\\/g, "/"),
+                        // Relative to HTML file
+                        cssPath,
+                        // Direct path as in the HTML
+                        cssPath.startsWith("./") ? cssPath.substring(2) : cssPath
+                        // Without leading ./
+                      ];
+                      for (const cssVariation of cssVariations) {
+                        cssEntry = zip.getEntry(cssVariation);
+                        if (cssEntry) {
+                          console.log(`Found CSS file at: ${cssVariation}`);
+                          break;
+                        }
+                      }
+                      if (!cssEntry) {
+                        const cssFilename = path.basename(cssPath);
+                        const allEntries = zip.getEntries();
+                        const matchingCss = allEntries.filter(
+                          (entry) => entry.entryName.endsWith("/" + cssFilename) || entry.entryName === cssFilename
+                        );
+                        if (matchingCss.length > 0) {
+                          cssEntry = matchingCss[0];
+                          console.log(`Found CSS by filename: ${cssEntry.entryName}`);
+                        }
+                      }
                       if (cssEntry) {
                         cssFiles.push({
-                          path: cssFullPath,
+                          path: cssEntry.entryName,
                           content: cssEntry.getData().toString("utf8")
                         });
-                        console.log(`Found CSS file: ${cssFullPath}`);
                       } else {
-                        console.warn(`Referenced CSS file not found: ${cssFullPath}`);
+                        console.warn(`Referenced CSS file not found: ${cssPath}`);
                       }
                     }
                   }
@@ -4832,11 +4879,11 @@ app.whenReady().then(() => {
                 return {
                   success: true,
                   content,
-                  path: spineItemPath,
+                  path: actualPath,
                   cssFiles
                 };
               } else {
-                console.error(`Spine item file not found: ${spineItemPath}`);
+                console.error(`Spine item file not found: ${spineItemPath} (tried multiple variations)`);
                 return {
                   success: false,
                   error: "File not found in EPUB"

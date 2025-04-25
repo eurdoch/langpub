@@ -246,11 +246,44 @@ app.whenReady().then(() => {
           // Add a new handler to get spine item content
           ipcMain.handle('get-spine-item-content', async (_event, spineItemPath) => {
             try {
-              const itemEntry = zip.getEntry(spineItemPath)
+              // First try the exact path provided
+              let itemEntry = zip.getEntry(spineItemPath)
+              
+              // If not found, try some common path variations
+              if (!itemEntry) {
+                console.log(`Spine item not found at exact path: ${spineItemPath}, trying variations...`)
+                
+                // Try removing leading "./" if present
+                if (spineItemPath.startsWith('./')) {
+                  const normalizedPath = spineItemPath.substring(2)
+                  itemEntry = zip.getEntry(normalizedPath)
+                  if (itemEntry) {
+                    console.log(`Found at normalized path: ${normalizedPath}`)
+                  }
+                }
+                
+                // If still not found, try looking for the filename in any directory
+                if (!itemEntry) {
+                  const filename = path.basename(spineItemPath)
+                  console.log(`Looking for filename: ${filename} in any directory`)
+                  
+                  // Search all entries for a matching filename
+                  const allEntries = zip.getEntries()
+                  const matchingEntries = allEntries.filter(entry => 
+                    entry.entryName.endsWith('/' + filename) || entry.entryName === filename
+                  )
+                  
+                  if (matchingEntries.length > 0) {
+                    itemEntry = matchingEntries[0]
+                    console.log(`Found matching file: ${itemEntry.entryName}`)
+                  }
+                }
+              }
               
               if (itemEntry) {
                 // Get the content of the file
                 const content = itemEntry.getData().toString('utf8')
+                const actualPath = itemEntry.entryName // Use the actual path found
                 
                 // Also check if there are any referenced CSS files to send
                 const cssFiles = []
@@ -259,10 +292,10 @@ app.whenReady().then(() => {
                 const cssMatches = content.match(/href=['"]([^'"]*\.css)['"]|@import\s+['"]([^'"]*\.css)['"]/g)
                 
                 if (cssMatches) {
-                  console.log(`Found CSS references in ${spineItemPath}:`, cssMatches)
+                  console.log(`Found CSS references in ${actualPath}:`, cssMatches)
                   
                   // Get the base directory of the spine item
-                  const baseDir = path.dirname(spineItemPath)
+                  const baseDir = path.dirname(actualPath)
                   
                   // For each CSS match, try to get the CSS content
                   for (const cssMatch of cssMatches) {
@@ -270,20 +303,44 @@ app.whenReady().then(() => {
                     const cssPath = cssMatch.match(/['"]([^'"]*\.css)['"]/)?.[1]
                     
                     if (cssPath) {
-                      // Resolve relative path
-                      const cssFullPath = path.join(baseDir, cssPath).replace(/\\/g, '/')
+                      // Try multiple path variations for CSS
+                      let cssEntry = null
+                      const cssVariations = [
+                        path.join(baseDir, cssPath).replace(/\\/g, '/'), // Relative to HTML file
+                        cssPath, // Direct path as in the HTML
+                        cssPath.startsWith('./') ? cssPath.substring(2) : cssPath // Without leading ./
+                      ]
                       
-                      // Try to get the CSS entry
-                      const cssEntry = zip.getEntry(cssFullPath)
+                      // Try each variation
+                      for (const cssVariation of cssVariations) {
+                        cssEntry = zip.getEntry(cssVariation)
+                        if (cssEntry) {
+                          console.log(`Found CSS file at: ${cssVariation}`)
+                          break
+                        }
+                      }
+                      
+                      // If still not found, search by filename
+                      if (!cssEntry) {
+                        const cssFilename = path.basename(cssPath)
+                        const allEntries = zip.getEntries()
+                        const matchingCss = allEntries.filter(entry => 
+                          entry.entryName.endsWith('/' + cssFilename) || entry.entryName === cssFilename
+                        )
+                        
+                        if (matchingCss.length > 0) {
+                          cssEntry = matchingCss[0]
+                          console.log(`Found CSS by filename: ${cssEntry.entryName}`)
+                        }
+                      }
                       
                       if (cssEntry) {
                         cssFiles.push({
-                          path: cssFullPath,
+                          path: cssEntry.entryName,
                           content: cssEntry.getData().toString('utf8')
                         })
-                        console.log(`Found CSS file: ${cssFullPath}`)
                       } else {
-                        console.warn(`Referenced CSS file not found: ${cssFullPath}`)
+                        console.warn(`Referenced CSS file not found: ${cssPath}`)
                       }
                     }
                   }
@@ -293,11 +350,11 @@ app.whenReady().then(() => {
                 return {
                   success: true,
                   content: content,
-                  path: spineItemPath,
+                  path: actualPath,
                   cssFiles: cssFiles
                 }
               } else {
-                console.error(`Spine item file not found: ${spineItemPath}`)
+                console.error(`Spine item file not found: ${spineItemPath} (tried multiple variations)`)
                 return {
                   success: false,
                   error: 'File not found in EPUB'
