@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 import AdmZip from 'adm-zip'
+import { DOMParser } from 'xmldom'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -163,31 +164,100 @@ app.whenReady().then(() => {
         }
       }
       
-      // If we have OPF content, extract metadata
+      // If we have OPF content, parse it with xmldom
+      let spine = []
+      
       if (opfContent) {
-        // Very basic extraction of title and creator
-        const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i)
-        const creatorMatch = opfContent.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i)
-        
-        // Extract more fields if available
-        const languageMatch = opfContent.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i)
-        const publisherMatch = opfContent.match(/<dc:publisher[^>]*>(.*?)<\/dc:publisher>/i)
-        
-        metadata = {
-          title: titleMatch ? titleMatch[1] : 'Unknown Title',
-          creator: creatorMatch ? creatorMatch[1] : 'Unknown Author',
-          language: languageMatch ? languageMatch[1] : 'Unknown',
-          publisher: publisherMatch ? publisherMatch[1] : '',
-          opfPath: opfPath || 'Unknown',
-          opfContent: opfContent
+        try {
+          // Parse the OPF file with xmldom
+          const parser = new DOMParser()
+          const opfDoc = parser.parseFromString(opfContent, 'application/xml')
+          
+          // Extract metadata
+          const titleElement = opfDoc.getElementsByTagName('dc:title')[0]
+          const creatorElement = opfDoc.getElementsByTagName('dc:creator')[0]
+          const languageElement = opfDoc.getElementsByTagName('dc:language')[0]
+          const publisherElement = opfDoc.getElementsByTagName('dc:publisher')[0]
+          
+          // Create metadata object
+          metadata = {
+            title: titleElement ? titleElement.textContent.trim() : 'Unknown Title',
+            creator: creatorElement ? creatorElement.textContent.trim() : 'Unknown Author',
+            language: languageElement ? languageElement.textContent.trim() : 'Unknown',
+            publisher: publisherElement ? publisherElement.textContent.trim() : '',
+            opfPath: opfPath || 'Unknown',
+            opfContent: opfContent
+          }
+          
+          console.log('Extracted metadata from XML:', metadata)
+          
+          // Extract the manifest items to get file info
+          const manifestItems = opfDoc.getElementsByTagName('manifest')[0]?.getElementsByTagName('item')
+          const manifestMap = {}
+          
+          if (manifestItems) {
+            for (let i = 0; i < manifestItems.length; i++) {
+              const item = manifestItems[i]
+              const id = item.getAttribute('id')
+              const href = item.getAttribute('href')
+              const mediaType = item.getAttribute('media-type')
+              
+              if (id && href) {
+                manifestMap[id] = { id, href, mediaType }
+              }
+            }
+          }
+          
+          console.log('Found manifest items:', Object.keys(manifestMap).length)
+          
+          // Calculate the base directory for the OPF file
+          const opfDir = opfPath ? path.dirname(opfPath) + '/' : ''
+          
+          // Extract spine items, which reference manifest items
+          const spineElements = opfDoc.getElementsByTagName('spine')[0]?.getElementsByTagName('itemref')
+          
+          if (spineElements) {
+            for (let i = 0; i < spineElements.length; i++) {
+              const spineItem = spineElements[i]
+              const idref = spineItem.getAttribute('idref')
+              
+              if (idref && manifestMap[idref]) {
+                const item = manifestMap[idref]
+                
+                // Create full path by joining OPF directory and href
+                const fullPath = opfDir + item.href
+                
+                spine.push({
+                  idref,
+                  id: item.id,
+                  href: item.href,
+                  mediaType: item.mediaType,
+                  fullPath
+                })
+              }
+            }
+          }
+          
+          console.log('Extracted spine items:', spine.length)
+          
+        } catch (xmlError) {
+          console.error('Error parsing OPF XML:', xmlError)
+          
+          // Fallback to regex if XML parsing fails
+          const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i)
+          const creatorMatch = opfContent.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i)
+          const languageMatch = opfContent.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i)
+          const publisherMatch = opfContent.match(/<dc:publisher[^>]*>(.*?)<\/dc:publisher>/i)
+          
+          metadata = {
+            title: titleMatch ? titleMatch[1] : 'Unknown Title',
+            creator: creatorMatch ? creatorMatch[1] : 'Unknown Author',
+            language: languageMatch ? languageMatch[1] : 'Unknown',
+            publisher: publisherMatch ? publisherMatch[1] : '',
+            opfPath: opfPath || 'Unknown',
+            opfContent: opfContent
+          }
         }
-        
-        console.log('Extracted metadata:', {
-          title: metadata.title,
-          creator: metadata.creator,
-          language: metadata.language,
-          publisher: metadata.publisher
-        })
       }
       
       // Return information about the EPUB contents
@@ -196,6 +266,7 @@ app.whenReady().then(() => {
         entries: entries,
         containerXml,
         metadata,
+        spine,
         toc
       }
     } catch (error) {

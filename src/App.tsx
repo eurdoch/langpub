@@ -88,9 +88,27 @@ function App() {
               </div>
             )}
             
+            {/* Spine Items */}
+            <div className="mb-4">
+              <h4 className="text-md font-medium text-gray-800 mb-1">Spine Items</h4>
+              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                <ul className="text-xs font-mono">
+                  {epubContents.spine && epubContents.spine.map((item, index) => (
+                    <li key={index} className="py-1 truncate">
+                      <span className="font-semibold">{index + 1}.</span> {item.fullPath} 
+                      <span className="text-gray-500"> ({item.mediaType})</span>
+                    </li>
+                  ))}
+                  {(!epubContents.spine || epubContents.spine.length === 0) && (
+                    <li className="text-gray-500 italic">No spine items found</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+            
             {/* EPUB Files */}
             <div>
-              <h4 className="text-md font-medium text-gray-800 mb-1">EPUB Contents</h4>
+              <h4 className="text-md font-medium text-gray-800 mb-1">All Files</h4>
               <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
                 <ul className="text-xs font-mono">
                   {epubContents.entries.map((entry, index) => (

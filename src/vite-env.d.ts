@@ -15,11 +15,20 @@ interface EpubSimpleMetadata {
   opfContent: string
 }
 
+interface EpubSpineItem {
+  idref: string
+  id: string
+  href: string
+  mediaType: string
+  fullPath: string
+}
+
 interface EpubContents {
   path: string
   entries: EpubEntry[]
   containerXml: string | null
   metadata: EpubSimpleMetadata | null
+  spine: EpubSpineItem[]
   toc: any[]
 }
 
