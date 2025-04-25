@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Description:  This is an Electron app.
+
 ## Build Commands
 - `yarn dev`: Run development server with live Tailwind CSS rebuilding
 - `yarn build`: Build for production with TypeScript checking
-- `yarn lint`: Run ESLint on TypeScript and TSX files
-- `yarn preview`: Preview the production build
 
 ## Code Style Guidelines
 - **TypeScript**: Strict mode enabled, avoid unused variables/parameters

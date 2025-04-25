@@ -1,34 +1,39 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/electron-vite.animate.svg'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+
+  const handleOpenDialog = async () => {
+    try {
+      // Open dialog to select only EPUB files
+      const filePath = await window.electron.openFileDialog([{ name: 'EPUB Files', extensions: ['epub'] }])
+      if (filePath) {
+        setSelectedFilePath(filePath)
+        console.log('File selected:', filePath)
+      }
+    } catch (error) {
+      console.error('Error selecting file:', error)
+    }
+  }
 
   return (
-    <>
-      <div>
-        <a href="https://electron-vite.github.io" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          <p>count is {count}</p>
+    <div className="flex h-screen w-screen items-center justify-center bg-gray-100">
+      <div className="rounded-lg bg-white p-8 shadow-md">
+        <button
+          onClick={handleOpenDialog}
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Open Epub
         </button>
-        <p className="text-3xl">
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
+        
+        {selectedFilePath && (
+          <div className="mt-4 text-sm text-gray-600">
+            Selected: {selectedFilePath}
+          </div>
+        )}
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    </div>
   )
 }
 

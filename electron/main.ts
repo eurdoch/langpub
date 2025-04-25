@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -65,4 +66,42 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+
+  // Handle file open requests from the renderer
+  ipcMain.handle('open-file', async (_event, filePath) => {
+    try {
+      // Check if file exists
+      await fs.promises.access(filePath, fs.constants.F_OK)
+      
+      // You could perform additional operations with the file here
+      // For example, reading its contents:
+      // const content = await fs.promises.readFile(filePath, 'utf8')
+      
+      return filePath
+    } catch (error) {
+      console.error('Error opening file:', error)
+      throw new Error('Failed to open file')
+    }
+  })
+  
+  // Handle file dialog open requests
+  ipcMain.handle('open-file-dialog', async (_event, filters) => {
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        properties: ['openFile'],
+        filters: filters || [{ name: 'All Files', extensions: ['*'] }]
+      })
+      
+      if (canceled || filePaths.length === 0) {
+        return null
+      }
+      
+      return filePaths[0]
+    } catch (error) {
+      console.error('Error showing open dialog:', error)
+      throw new Error('Failed to show open dialog')
+    }
+  })
+})

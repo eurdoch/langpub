@@ -20,3 +20,7 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   // You can expose other APTs you need here.
   // ...
 });
+electron.contextBridge.exposeInMainWorld("electron", {
+  openFile: (filePath) => electron.ipcRenderer.invoke("open-file", filePath),
+  openFileDialog: (filters) => electron.ipcRenderer.invoke("open-file-dialog", filters)
+});

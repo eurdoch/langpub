@@ -1,7 +1,8 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, "..");
@@ -37,7 +38,33 @@ app.on("activate", () => {
     createWindow();
   }
 });
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  ipcMain.handle("open-file", async (_event, filePath) => {
+    try {
+      await fs.promises.access(filePath, fs.constants.F_OK);
+      return filePath;
+    } catch (error) {
+      console.error("Error opening file:", error);
+      throw new Error("Failed to open file");
+    }
+  });
+  ipcMain.handle("open-file-dialog", async (_event, filters) => {
+    try {
+      const { canceled, filePaths } = await dialog.showOpenDialog({
+        properties: ["openFile"],
+        filters: filters || [{ name: "All Files", extensions: ["*"] }]
+      });
+      if (canceled || filePaths.length === 0) {
+        return null;
+      }
+      return filePaths[0];
+    } catch (error) {
+      console.error("Error showing open dialog:", error);
+      throw new Error("Failed to show open dialog");
+    }
+  });
+});
 export {
   MAIN_DIST,
   RENDERER_DIST,

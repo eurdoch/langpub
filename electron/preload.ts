@@ -22,3 +22,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
 })
+
+// Expose an API for file operations
+contextBridge.exposeInMainWorld('electron', {
+  openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
+  openFileDialog: (filters: { name: string, extensions: string[] }[]) => 
+    ipcRenderer.invoke('open-file-dialog', filters)
+})
