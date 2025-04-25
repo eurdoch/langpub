@@ -4804,6 +4804,8 @@ app.whenReady().then(() => {
           ipcMain.handle("get-spine-item-content", async (_event2, spineItemPath) => {
             var _a2;
             try {
+              const allEntries = zip.getEntries();
+              console.log(`EPUB contains ${allEntries.length} files, looking for: ${spineItemPath}`);
               let itemEntry = zip.getEntry(spineItemPath);
               if (!itemEntry) {
                 console.log(`Spine item not found at exact path: ${spineItemPath}, trying variations...`);
@@ -4811,19 +4813,42 @@ app.whenReady().then(() => {
                   const normalizedPath = spineItemPath.substring(2);
                   itemEntry = zip.getEntry(normalizedPath);
                   if (itemEntry) {
-                    console.log(`Found at normalized path: ${normalizedPath}`);
+                    console.log(`Found at normalized path without ./: ${normalizedPath}`);
+                  }
+                }
+                if (!itemEntry && !spineItemPath.startsWith("./")) {
+                  const withDotSlash = "./" + spineItemPath;
+                  itemEntry = zip.getEntry(withDotSlash);
+                  if (itemEntry) {
+                    console.log(`Found with added ./: ${withDotSlash}`);
+                  }
+                }
+                if (!itemEntry && !spineItemPath.startsWith("OEBPS/")) {
+                  const withOEBPS = "OEBPS/" + (spineItemPath.startsWith("./") ? spineItemPath.substring(2) : spineItemPath);
+                  itemEntry = zip.getEntry(withOEBPS);
+                  if (itemEntry) {
+                    console.log(`Found with OEBPS/ prefix: ${withOEBPS}`);
                   }
                 }
                 if (!itemEntry) {
                   const filename = path.basename(spineItemPath);
                   console.log(`Looking for filename: ${filename} in any directory`);
-                  const allEntries = zip.getEntries();
+                  console.log("All available files in EPUB:");
+                  allEntries.forEach((entry) => {
+                    if (!entry.isDirectory) {
+                      console.log(`- ${entry.entryName}`);
+                    }
+                  });
                   const matchingEntries = allEntries.filter(
-                    (entry) => entry.entryName.endsWith("/" + filename) || entry.entryName === filename
+                    (entry) => !entry.isDirectory && (entry.entryName.endsWith("/" + filename) || entry.entryName === filename)
                   );
                   if (matchingEntries.length > 0) {
                     itemEntry = matchingEntries[0];
-                    console.log(`Found matching file: ${itemEntry.entryName}`);
+                    console.log(`Found matching file by filename: ${itemEntry.entryName}`);
+                    if (matchingEntries.length > 1) {
+                      console.log(`Note: Multiple matches found for ${filename}:`);
+                      matchingEntries.forEach((entry) => console.log(`- ${entry.entryName}`));
+                    }
                   }
                 }
               }
@@ -4856,8 +4881,8 @@ app.whenReady().then(() => {
                       }
                       if (!cssEntry) {
                         const cssFilename = path.basename(cssPath);
-                        const allEntries = zip.getEntries();
-                        const matchingCss = allEntries.filter(
+                        const allEntries2 = zip.getEntries();
+                        const matchingCss = allEntries2.filter(
                           (entry) => entry.entryName.endsWith("/" + cssFilename) || entry.entryName === cssFilename
                         );
                         if (matchingCss.length > 0) {

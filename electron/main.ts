@@ -246,6 +246,10 @@ app.whenReady().then(() => {
           // Add a new handler to get spine item content
           ipcMain.handle('get-spine-item-content', async (_event, spineItemPath) => {
             try {
+              // Get a list of all entries for debugging
+              const allEntries = zip.getEntries()
+              console.log(`EPUB contains ${allEntries.length} files, looking for: ${spineItemPath}`)
+              
               // First try the exact path provided
               let itemEntry = zip.getEntry(spineItemPath)
               
@@ -253,12 +257,31 @@ app.whenReady().then(() => {
               if (!itemEntry) {
                 console.log(`Spine item not found at exact path: ${spineItemPath}, trying variations...`)
                 
-                // Try removing leading "./" if present
+                // Try without leading "./" if present
                 if (spineItemPath.startsWith('./')) {
                   const normalizedPath = spineItemPath.substring(2)
                   itemEntry = zip.getEntry(normalizedPath)
                   if (itemEntry) {
-                    console.log(`Found at normalized path: ${normalizedPath}`)
+                    console.log(`Found at normalized path without ./: ${normalizedPath}`)
+                  }
+                }
+                
+                // Try with leading "./" if not present
+                if (!itemEntry && !spineItemPath.startsWith('./')) {
+                  const withDotSlash = './' + spineItemPath
+                  itemEntry = zip.getEntry(withDotSlash)
+                  if (itemEntry) {
+                    console.log(`Found with added ./: ${withDotSlash}`)
+                  }
+                }
+                
+                // If still not found, try with OEBPS/ prefix (common in EPUBs)
+                if (!itemEntry && !spineItemPath.startsWith('OEBPS/')) {
+                  const withOEBPS = 'OEBPS/' + (spineItemPath.startsWith('./') ? 
+                                   spineItemPath.substring(2) : spineItemPath)
+                  itemEntry = zip.getEntry(withOEBPS)
+                  if (itemEntry) {
+                    console.log(`Found with OEBPS/ prefix: ${withOEBPS}`)
                   }
                 }
                 
@@ -267,15 +290,29 @@ app.whenReady().then(() => {
                   const filename = path.basename(spineItemPath)
                   console.log(`Looking for filename: ${filename} in any directory`)
                   
+                  // Log all entries for debugging
+                  console.log('All available files in EPUB:')
+                  allEntries.forEach(entry => {
+                    if (!entry.isDirectory) {
+                      console.log(`- ${entry.entryName}`)
+                    }
+                  })
+                  
                   // Search all entries for a matching filename
-                  const allEntries = zip.getEntries()
                   const matchingEntries = allEntries.filter(entry => 
-                    entry.entryName.endsWith('/' + filename) || entry.entryName === filename
+                    !entry.isDirectory && 
+                    (entry.entryName.endsWith('/' + filename) || entry.entryName === filename)
                   )
                   
                   if (matchingEntries.length > 0) {
                     itemEntry = matchingEntries[0]
-                    console.log(`Found matching file: ${itemEntry.entryName}`)
+                    console.log(`Found matching file by filename: ${itemEntry.entryName}`)
+                    
+                    // If multiple matches, log them all
+                    if (matchingEntries.length > 1) {
+                      console.log(`Note: Multiple matches found for ${filename}:`)
+                      matchingEntries.forEach(entry => console.log(`- ${entry.entryName}`))
+                    }
                   }
                 }
               }
