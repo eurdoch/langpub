@@ -23,5 +23,5 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
 electron.contextBridge.exposeInMainWorld("electron", {
   openFile: (filePath) => electron.ipcRenderer.invoke("open-file", filePath),
   openFileDialog: (filters) => electron.ipcRenderer.invoke("open-file-dialog", filters),
-  parseEpub: (filePath) => electron.ipcRenderer.invoke("parse-epub", filePath)
+  unzipEpub: (filePath) => electron.ipcRenderer.invoke("unzip-epub", filePath)
 });

@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
-import EPub from 'epub2'
+import AdmZip from 'adm-zip'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -106,50 +106,56 @@ app.whenReady().then(() => {
     }
   })
   
-  // Handle parse epub file
-  ipcMain.handle('parse-epub', async (_event, filePath) => {
+  // Handle unzip epub file
+  ipcMain.handle('unzip-epub', async (_event, filePath) => {
     try {
       // Check if file exists
       await fs.promises.access(filePath, fs.constants.F_OK)
       
-      // Parse the EPUB file using epub2
-      const epub = await EPub.createAsync(filePath)
+      // Read and parse the EPUB file (which is a zip file)
+      const zip = new AdmZip(filePath)
+      const zipEntries = zip.getEntries()
       
-      // Get basic metadata
-      const metadata = {
-        title: epub.metadata.title,
-        creator: epub.metadata.creator,
-        language: epub.metadata.language,
-        publisher: epub.metadata.publisher,
-        description: epub.metadata.description,
-        cover: epub.metadata.cover,
-        coverPath: epub.getCoverPath ? epub.getCoverPath() : null
+      // Create a list of all the entries for logging
+      const entries = zipEntries.map(entry => ({
+        name: entry.entryName,
+        isDirectory: entry.isDirectory,
+        size: entry.header.size,
+      }))
+      
+      // Try to find and parse container.xml to locate OPF file
+      const containerXml = zip.getEntry('META-INF/container.xml')?.getData().toString('utf8') || null
+      
+      // Try to extract simple metadata
+      let metadata = null
+      let toc = []
+      
+      // Look for content.opf file
+      const contentOpfEntry = zipEntries.find(entry => 
+        entry.entryName.endsWith('.opf') || entry.entryName.includes('content.opf')
+      )
+      
+      if (contentOpfEntry) {
+        const opfContent = contentOpfEntry.getData().toString('utf8')
+        
+        // Very basic extraction of title and creator
+        const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i)
+        const creatorMatch = opfContent.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i)
+        
+        metadata = {
+          title: titleMatch ? titleMatch[1] : 'Unknown Title',
+          creator: creatorMatch ? creatorMatch[1] : 'Unknown Author',
+          opfPath: contentOpfEntry.entryName
+        }
       }
       
-      // Get table of contents
-      const toc = epub.toc.map(item => ({
-        level: item.level,
-        order: item.order,
-        title: item.title,
-        href: item.href,
-        id: item.id
-      }))
-      
-      // Get list of chapters/spine items
-      const spine = epub.spine.contents.map(item => ({
-        id: item.id,
-        mediaType: item['media-type'],
-        href: item.href
-      }))
-      
-      // Return parsed EPUB information
+      // Return information about the EPUB contents
       return {
         path: filePath,
+        entries: entries,
+        containerXml,
         metadata,
-        toc,
-        spine,
-        ncxPath: epub.ncxPath,
-        opfPath: epub.opfPath
+        toc
       }
     } catch (error) {
       console.error('Error parsing EPUB:', error)
