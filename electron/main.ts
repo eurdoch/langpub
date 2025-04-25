@@ -129,24 +129,65 @@ app.whenReady().then(() => {
       // Try to extract simple metadata
       let metadata = null
       let toc = []
+      let opfPath = null
       
-      // Look for content.opf file
-      const contentOpfEntry = zipEntries.find(entry => 
-        entry.entryName.endsWith('.opf') || entry.entryName.includes('content.opf')
-      )
+      // First try to find OPF path from container.xml
+      if (containerXml) {
+        const opfPathMatch = containerXml.match(/full-path="([^"]+\.opf)"/i)
+        if (opfPathMatch && opfPathMatch[1]) {
+          opfPath = opfPathMatch[1]
+          console.log('Found OPF path from container.xml:', opfPath)
+        }
+      }
       
-      if (contentOpfEntry) {
-        const opfContent = contentOpfEntry.getData().toString('utf8')
+      // If we found the OPF path, try to get that file directly
+      let opfContent = null
+      if (opfPath) {
+        const opfEntry = zip.getEntry(opfPath)
+        if (opfEntry) {
+          opfContent = opfEntry.getData().toString('utf8')
+          console.log('Successfully loaded OPF file from', opfPath)
+        }
+      }
+      
+      // If we didn't find it from container.xml, search for any .opf file
+      if (!opfContent) {
+        const contentOpfEntry = zipEntries.find(entry => 
+          entry.entryName.endsWith('.opf') || entry.entryName.includes('content.opf')
+        )
         
+        if (contentOpfEntry) {
+          opfPath = contentOpfEntry.entryName
+          opfContent = contentOpfEntry.getData().toString('utf8')
+          console.log('Found OPF file by searching:', opfPath)
+        }
+      }
+      
+      // If we have OPF content, extract metadata
+      if (opfContent) {
         // Very basic extraction of title and creator
         const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i)
         const creatorMatch = opfContent.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i)
         
+        // Extract more fields if available
+        const languageMatch = opfContent.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i)
+        const publisherMatch = opfContent.match(/<dc:publisher[^>]*>(.*?)<\/dc:publisher>/i)
+        
         metadata = {
           title: titleMatch ? titleMatch[1] : 'Unknown Title',
           creator: creatorMatch ? creatorMatch[1] : 'Unknown Author',
-          opfPath: contentOpfEntry.entryName
+          language: languageMatch ? languageMatch[1] : 'Unknown',
+          publisher: publisherMatch ? publisherMatch[1] : '',
+          opfPath: opfPath || 'Unknown',
+          opfContent: opfContent
         }
+        
+        console.log('Extracted metadata:', {
+          title: metadata.title,
+          creator: metadata.creator,
+          language: metadata.language,
+          publisher: metadata.publisher
+        })
       }
       
       // Return information about the EPUB contents

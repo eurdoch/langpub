@@ -55,6 +55,10 @@ function App() {
                 <div className="border border-gray-200 rounded p-3 bg-gray-50">
                   <p className="text-sm font-semibold mb-1">Title: {epubContents.metadata.title}</p>
                   <p className="text-sm mb-1">Author: {epubContents.metadata.creator}</p>
+                  <p className="text-sm mb-1">Language: {epubContents.metadata.language}</p>
+                  {epubContents.metadata.publisher && (
+                    <p className="text-sm mb-1">Publisher: {epubContents.metadata.publisher}</p>
+                  )}
                   <p className="text-sm mb-1">OPF Path: {epubContents.metadata.opfPath}</p>
                 </div>
               </div>
@@ -67,6 +71,18 @@ function App() {
                 <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
                   <pre className="text-xs whitespace-pre-wrap">
                     {epubContents.containerXml}
+                  </pre>
+                </div>
+              </div>
+            )}
+            
+            {/* OPF Content */}
+            {epubContents.metadata && epubContents.metadata.opfContent && (
+              <div className="mb-4">
+                <h4 className="text-md font-medium text-gray-800 mb-1">OPF Content</h4>
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                  <pre className="text-xs whitespace-pre-wrap">
+                    {epubContents.metadata.opfContent}
                   </pre>
                 </div>
               </div>

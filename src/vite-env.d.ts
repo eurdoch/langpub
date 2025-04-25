@@ -9,7 +9,10 @@ interface EpubEntry {
 interface EpubSimpleMetadata {
   title: string
   creator: string
+  language: string
+  publisher: string
   opfPath: string
+  opfContent: string
 }
 
 interface EpubContents {

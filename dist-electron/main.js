@@ -2641,18 +2641,51 @@ app.whenReady().then(() => {
       const containerXml = ((_a = zip.getEntry("META-INF/container.xml")) == null ? void 0 : _a.getData().toString("utf8")) || null;
       let metadata = null;
       let toc = [];
-      const contentOpfEntry = zipEntries.find(
-        (entry) => entry.entryName.endsWith(".opf") || entry.entryName.includes("content.opf")
-      );
-      if (contentOpfEntry) {
-        const opfContent = contentOpfEntry.getData().toString("utf8");
+      let opfPath = null;
+      if (containerXml) {
+        const opfPathMatch = containerXml.match(/full-path="([^"]+\.opf)"/i);
+        if (opfPathMatch && opfPathMatch[1]) {
+          opfPath = opfPathMatch[1];
+          console.log("Found OPF path from container.xml:", opfPath);
+        }
+      }
+      let opfContent = null;
+      if (opfPath) {
+        const opfEntry = zip.getEntry(opfPath);
+        if (opfEntry) {
+          opfContent = opfEntry.getData().toString("utf8");
+          console.log("Successfully loaded OPF file from", opfPath);
+        }
+      }
+      if (!opfContent) {
+        const contentOpfEntry = zipEntries.find(
+          (entry) => entry.entryName.endsWith(".opf") || entry.entryName.includes("content.opf")
+        );
+        if (contentOpfEntry) {
+          opfPath = contentOpfEntry.entryName;
+          opfContent = contentOpfEntry.getData().toString("utf8");
+          console.log("Found OPF file by searching:", opfPath);
+        }
+      }
+      if (opfContent) {
         const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i);
         const creatorMatch = opfContent.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i);
+        const languageMatch = opfContent.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i);
+        const publisherMatch = opfContent.match(/<dc:publisher[^>]*>(.*?)<\/dc:publisher>/i);
         metadata = {
           title: titleMatch ? titleMatch[1] : "Unknown Title",
           creator: creatorMatch ? creatorMatch[1] : "Unknown Author",
-          opfPath: contentOpfEntry.entryName
+          language: languageMatch ? languageMatch[1] : "Unknown",
+          publisher: publisherMatch ? publisherMatch[1] : "",
+          opfPath: opfPath || "Unknown",
+          opfContent
         };
+        console.log("Extracted metadata:", {
+          title: metadata.title,
+          creator: metadata.creator,
+          language: metadata.language,
+          publisher: metadata.publisher
+        });
       }
       return {
         path: filePath,
