@@ -28,5 +28,5 @@ contextBridge.exposeInMainWorld('electron', {
   openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
   openFileDialog: (filters: { name: string, extensions: string[] }[]) => 
     ipcRenderer.invoke('open-file-dialog', filters),
-  unzipEpub: (filePath: string) => ipcRenderer.invoke('unzip-epub', filePath)
+  parseEpub: (filePath: string) => ipcRenderer.invoke('parse-epub', filePath)
 })

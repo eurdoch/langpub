@@ -3,7 +3,7 @@ import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
-import AdmZip from 'adm-zip'
+import EPub from 'epub2'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -106,33 +106,54 @@ app.whenReady().then(() => {
     }
   })
   
-  // Handle unzip epub file
-  ipcMain.handle('unzip-epub', async (_event, filePath) => {
+  // Handle parse epub file
+  ipcMain.handle('parse-epub', async (_event, filePath) => {
     try {
       // Check if file exists
       await fs.promises.access(filePath, fs.constants.F_OK)
       
-      // Read and parse the EPUB file (which is a zip file)
-      const zip = new AdmZip(filePath)
-      const zipEntries = zip.getEntries()
+      // Parse the EPUB file using epub2
+      const epub = await EPub.createAsync(filePath)
       
-      // Create a list of all the entries for logging
-      const entries = zipEntries.map(entry => ({
-        name: entry.entryName,
-        isDirectory: entry.isDirectory,
-        size: entry.header.size,
+      // Get basic metadata
+      const metadata = {
+        title: epub.metadata.title,
+        creator: epub.metadata.creator,
+        language: epub.metadata.language,
+        publisher: epub.metadata.publisher,
+        description: epub.metadata.description,
+        cover: epub.metadata.cover,
+        coverPath: epub.getCoverPath ? epub.getCoverPath() : null
+      }
+      
+      // Get table of contents
+      const toc = epub.toc.map(item => ({
+        level: item.level,
+        order: item.order,
+        title: item.title,
+        href: item.href,
+        id: item.id
       }))
       
-      // Return information about the EPUB contents
+      // Get list of chapters/spine items
+      const spine = epub.spine.contents.map(item => ({
+        id: item.id,
+        mediaType: item['media-type'],
+        href: item.href
+      }))
+      
+      // Return parsed EPUB information
       return {
         path: filePath,
-        entries: entries,
-        // Extract the container.xml to find the OPF file location
-        containerXml: zip.getEntry('META-INF/container.xml')?.getData().toString('utf8') || null
+        metadata,
+        toc,
+        spine,
+        ncxPath: epub.ncxPath,
+        opfPath: epub.opfPath
       }
     } catch (error) {
-      console.error('Error unzipping EPUB:', error)
-      throw new Error(`Failed to unzip EPUB: ${error.message}`)
+      console.error('Error parsing EPUB:', error)
+      throw new Error(`Failed to parse EPUB: ${error.message}`)
     }
   })
 })

@@ -15,8 +15,8 @@ function App() {
         setIsLoading(true)
         console.log('File selected:', filePath)
         
-        // Unzip the EPUB and get its contents
-        const contents = await window.electron.unzipEpub(filePath)
+        // Parse the EPUB and get its contents using epub2
+        const contents = await window.electron.parseEpub(filePath)
         console.log('EPUB contents:', contents)
         setEpubContents(contents)
         setIsLoading(false)
@@ -46,31 +46,62 @@ function App() {
 
         {epubContents && (
           <div className="mt-6">
-            <h3 className="text-lg font-medium text-gray-800 mb-2">EPUB Contents</h3>
-            <div className="max-h-96 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
-              <ul className="text-xs font-mono">
-                {epubContents.entries.slice(0, 20).map((entry, index) => (
-                  <li key={index} className={`${entry.isDirectory ? 'font-bold' : ''} py-1`}>
-                    {entry.name} {!entry.isDirectory && `(${entry.size} bytes)`}
-                  </li>
-                ))}
-                {epubContents.entries.length > 20 && (
-                  <li className="italic text-gray-500">
-                    ...and {epubContents.entries.length - 20} more files
-                  </li>
+            <h3 className="text-lg font-medium text-gray-800 mb-2">EPUB Information</h3>
+            
+            {/* Metadata section */}
+            <div className="mb-4">
+              <h4 className="text-md font-medium text-gray-800 mb-1">Metadata</h4>
+              <div className="border border-gray-200 rounded p-3 bg-gray-50">
+                <p className="text-sm font-semibold mb-1">Title: {epubContents.metadata.title}</p>
+                <p className="text-sm mb-1">Author: {epubContents.metadata.creator}</p>
+                <p className="text-sm mb-1">Language: {epubContents.metadata.language}</p>
+                {epubContents.metadata.publisher && (
+                  <p className="text-sm mb-1">Publisher: {epubContents.metadata.publisher}</p>
                 )}
-              </ul>
+                {epubContents.metadata.description && (
+                  <div className="mt-2">
+                    <p className="text-sm font-semibold mb-1">Description:</p>
+                    <p className="text-xs italic">{epubContents.metadata.description.substring(0, 200)}
+                      {epubContents.metadata.description.length > 200 && '...'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
             
-            {epubContents.containerXml && (
-              <div className="mt-4">
-                <h4 className="text-md font-medium text-gray-800 mb-1">Container XML</h4>
-                <pre className="text-xs bg-gray-50 p-2 rounded border border-gray-200 overflow-x-auto">
-                  {epubContents.containerXml.substring(0, 500)}
-                  {epubContents.containerXml.length > 500 && '...'}
-                </pre>
+            {/* Table of Contents */}
+            <div className="mb-4">
+              <h4 className="text-md font-medium text-gray-800 mb-1">Table of Contents</h4>
+              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                <ul className="text-xs">
+                  {epubContents.toc.map((item, index) => (
+                    <li key={index} className="py-1" style={{ marginLeft: `${item.level * 12}px` }}>
+                      {item.title || `(Untitled - ${item.id})`}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            )}
+            </div>
+            
+            {/* Spine Items */}
+            <div>
+              <h4 className="text-md font-medium text-gray-800 mb-1">Content Files</h4>
+              <div className="max-h-60 overflow-y-auto border border-gray-200 rounded p-2 bg-gray-50">
+                <ul className="text-xs font-mono">
+                  {epubContents.spine.map((item, index) => (
+                    <li key={index} className="py-1 truncate">
+                      {item.href} ({item.mediaType})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            {/* File paths */}
+            <div className="mt-4 text-xs text-gray-500">
+              <p>NCX Path: {epubContents.ncxPath}</p>
+              <p>OPF Path: {epubContents.opfPath}</p>
+            </div>
           </div>
         )}
       </div>
