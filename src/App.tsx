@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 
 // Base URL for API calls
-const API_BASE_URL = 'http://localhost:3004'
+const API_BASE_URL = 'https://langpub.directto.link'
 
 // Function to detect language of text
 async function detectLanguage(text: string): Promise<string> {
