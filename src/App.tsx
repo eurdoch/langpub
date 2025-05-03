@@ -242,13 +242,48 @@ async function generateSpeech(text: string, language: string): Promise<string | 
 
 // Helper function to convert base64 to Blob
 function base64ToBlob(base64: string, mimeType: string): Blob {
-  const byteCharacters = atob(base64)
-  const byteNumbers = new Array(byteCharacters.length)
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  try {
+    // Make sure we have a valid base64 string
+    if (!base64 || typeof base64 !== 'string') {
+      console.error('Invalid base64 data:', typeof base64)
+      throw new Error('Invalid base64 data')
+    }
+    
+    // Remove any data URL prefix if present
+    let cleanBase64 = base64
+    if (base64.includes(',')) {
+      cleanBase64 = base64.split(',')[1]
+      console.log('Removed data URL prefix from base64 string')
+    }
+    
+    // Parse the base64 data
+    const byteCharacters = atob(cleanBase64)
+    console.log(`Decoded base64 string, length: ${byteCharacters.length} bytes`)
+    
+    const byteArrays = []
+    const sliceSize = 1024
+    
+    // Process in slices to handle larger files
+    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+      const slice = byteCharacters.slice(offset, offset + sliceSize)
+      const byteNumbers = new Array(slice.length)
+      
+      for (let i = 0; i < slice.length; i++) {
+        byteNumbers[i] = slice.charCodeAt(i)
+      }
+      
+      byteArrays.push(new Uint8Array(byteNumbers))
+    }
+    
+    // Create and return a Blob from all the typed array chunks
+    const blob = new Blob(byteArrays, { type: mimeType })
+    console.log(`Created Blob of type ${mimeType}, size: ${blob.size} bytes`)
+    return blob
+  } catch (error) {
+    console.error('Error converting base64 to Blob:', error)
+    // Return a minimal valid audio blob as a fallback
+    return new Blob([''], { type: mimeType })
   }
-  const byteArray = new Uint8Array(byteNumbers)
-  return new Blob([byteArray], { type: mimeType })
 }
 
 interface ParsedContent {
@@ -280,6 +315,17 @@ function App() {
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState<boolean>(false)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  
+  // Effect to handle audio element when URL changes
+  useEffect(() => {
+    console.log('Audio URL changed:', audioUrl ? 'present' : 'not present')
+    
+    if (audioUrl && audioRef.current) {
+      // When a new audio URL is set, make sure the audio element is updated
+      audioRef.current.load()
+      console.log('Audio element loaded with new URL')
+    }
+  }, [audioUrl])
   
   // Handle text selection with language detection and translation
   const handleMouseUp = useCallback(async (event?: React.MouseEvent) => {
@@ -413,50 +459,72 @@ function App() {
   }, [audioUrl])
   
   // Function to toggle audio playback
-  const toggleAudio = useCallback(() => {
+  const toggleAudio = useCallback(async () => {
     console.log('Toggle audio called')
     
     if (!audioRef.current) {
-      console.log('Cannot play audio: No audio reference available')
+      console.error('Cannot play audio: No audio reference available')
       return
     }
     
     if (!audioUrl) {
-      console.log('Cannot play audio: No audio URL available')
+      console.error('Cannot play audio: No audio URL available')
       return
     }
     
-    console.log('Audio element exists:', !!audioRef.current)
-    console.log('Audio URL:', audioUrl)
-    console.log('Current play state:', isPlaying ? 'Playing' : 'Paused')
+    const audio = audioRef.current
+    
+    // Debug audio element
+    console.log('Audio element details:', {
+      src: audio.src,
+      readyState: audio.readyState,
+      paused: audio.paused,
+      duration: audio.duration,
+      networkState: audio.networkState,
+      error: audio.error
+    })
     
     try {
       if (isPlaying) {
         console.log('Pausing audio playback')
-        audioRef.current.pause()
+        audio.pause()
         setIsPlaying(false)
       } else {
-        console.log('Starting audio playback')
-        const playPromise = audioRef.current.play()
+        console.log('Starting audio playback attempt')
         
-        if (playPromise !== undefined) {
-          playPromise
-            .then(() => {
-              console.log('Audio playback started successfully')
-              setIsPlaying(true)
-            })
-            .catch(error => {
-              console.error('Error playing audio:', error)
-              // Check if the audio element has a valid source
-              console.log('Audio source:', audioRef.current?.src)
-              // Check if audio data is loaded
-              console.log('Audio ready state:', audioRef.current?.readyState)
-              console.log('Audio paused state:', audioRef.current?.paused)
-              console.log('Audio element:', audioRef.current)
-            })
-        } else {
-          console.log('Play promise is undefined, setting isPlaying state directly')
+        // Force a reload of the audio element
+        audio.load()
+        
+        try {
+          // We'll attempt to play in a separate try/catch
+          console.log('Attempting to play audio...')
+          await audio.play()
+          console.log('Audio playback started successfully!')
           setIsPlaying(true)
+        } catch (playError) {
+          console.error('Error playing audio:', playError)
+          
+          // Detailed diagnostics
+          console.log('Audio element diagnostics:', {
+            currentSrc: audio.currentSrc,
+            networkState: audio.networkState, // NETWORK_EMPTY, NETWORK_IDLE, NETWORK_LOADING, NETWORK_NO_SOURCE
+            readyState: audio.readyState,     // HAVE_NOTHING, HAVE_METADATA, HAVE_CURRENT_DATA, HAVE_FUTURE_DATA, HAVE_ENOUGH_DATA
+            error: audio.error?.code,        // MEDIA_ERR_ABORTED, MEDIA_ERR_NETWORK, MEDIA_ERR_DECODE, MEDIA_ERR_SRC_NOT_SUPPORTED
+            errorMessage: audio.error?.message
+          })
+          
+          // Let's try one more time with a slight delay
+          setTimeout(() => {
+            console.log('Retrying audio playback after delay...')
+            audio.play()
+              .then(() => {
+                console.log('Retry successful')
+                setIsPlaying(true)
+              })
+              .catch(retryError => {
+                console.error('Retry also failed:', retryError)
+              })
+          }, 500)
         }
       }
     } catch (error) {
@@ -733,23 +801,40 @@ function App() {
                   </div>
                   <p className="text-gray-800 break-words">{selectedText}</p>
                   
-                  {/* Audio element */}
+                  {/* Audio element - forcing a new instance with key={audioUrl} */}
                   <audio 
+                    key={audioUrl || 'empty'}
                     ref={audioRef}
                     src={audioUrl || undefined}
                     onEnded={() => setIsPlaying(false)}
                     onPause={() => setIsPlaying(false)}
                     onPlay={() => setIsPlaying(true)}
-                    onError={(e) => console.error('Audio error:', e)}
+                    onError={(e) => console.error('Audio error:', e.currentTarget.error)}
                     onLoadedData={() => console.log('Audio data loaded')}
-                    controls={false}
-                    style={{ display: 'none' }}
+                    onCanPlay={() => console.log('Audio can play')}
+                    preload="auto"
+                    controls={true} // Temporary for debugging
+                    style={{ display: 'block', marginTop: '8px', width: '100%' }}
                   />
                 </div>
                 
                 <div>
                   <h3 className="text-sm text-gray-500 font-medium mb-1">Translation (English)</h3>
                   <p className="text-gray-800 break-words">{translatedText}</p>
+                  
+                  {/* Debug: Alternative direct audio player */}
+                  {audioUrl && (
+                    <div className="mt-4 pt-4 border-t border-gray-200">
+                      <h4 className="text-xs text-gray-500 mb-1">Alternative Audio Player</h4>
+                      <audio 
+                        src={audioUrl} 
+                        controls 
+                        className="w-full h-8 mt-1"
+                        onPlay={() => console.log('Debug player: Playing')}
+                        onError={(e) => console.log('Debug player error:', e.currentTarget.error)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
