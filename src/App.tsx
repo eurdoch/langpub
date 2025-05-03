@@ -375,28 +375,53 @@ function App() {
   
   // Function to toggle audio playback
   const toggleAudio = useCallback(() => {
-    if (!audioRef.current || !audioUrl) {
-      console.log('Cannot play audio: No audio reference or URL available')
+    console.log('Toggle audio called')
+    
+    if (!audioRef.current) {
+      console.log('Cannot play audio: No audio reference available')
       return
     }
     
-    if (isPlaying) {
-      console.log('Pausing audio playback')
-      audioRef.current.pause()
-      setIsPlaying(false)
-    } else {
-      console.log('Starting audio playback')
-      audioRef.current.play()
-      .then(() => {
-        setIsPlaying(true)
-      })
-      .catch(error => {
-        console.error('Error playing audio:', error)
-        // Check if the audio element has a valid source
-        console.log('Audio source:', audioRef.current?.src)
-        // Check if audio data is loaded
-        console.log('Audio ready state:', audioRef.current?.readyState)
-      })
+    if (!audioUrl) {
+      console.log('Cannot play audio: No audio URL available')
+      return
+    }
+    
+    console.log('Audio element exists:', !!audioRef.current)
+    console.log('Audio URL:', audioUrl)
+    console.log('Current play state:', isPlaying ? 'Playing' : 'Paused')
+    
+    try {
+      if (isPlaying) {
+        console.log('Pausing audio playback')
+        audioRef.current.pause()
+        setIsPlaying(false)
+      } else {
+        console.log('Starting audio playback')
+        const playPromise = audioRef.current.play()
+        
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => {
+              console.log('Audio playback started successfully')
+              setIsPlaying(true)
+            })
+            .catch(error => {
+              console.error('Error playing audio:', error)
+              // Check if the audio element has a valid source
+              console.log('Audio source:', audioRef.current?.src)
+              // Check if audio data is loaded
+              console.log('Audio ready state:', audioRef.current?.readyState)
+              console.log('Audio paused state:', audioRef.current?.paused)
+              console.log('Audio element:', audioRef.current)
+            })
+        } else {
+          console.log('Play promise is undefined, setting isPlaying state directly')
+          setIsPlaying(true)
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error in toggleAudio:', error)
     }
   }, [audioUrl, isPlaying])
   
@@ -643,8 +668,13 @@ function App() {
                       <span className="text-xs text-blue-500 animate-pulse">Generating audio...</span>
                     ) : (
                       <button 
+                        type="button"
                         className={`text-white text-xs px-3 py-1 rounded-full flex items-center gap-1 ${audioUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'}`}
-                        onClick={toggleAudio}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleAudio();
+                        }}
                         title={isPlaying ? "Pause audio" : "Play audio"}
                         disabled={!audioUrl}
                       >
@@ -664,17 +694,18 @@ function App() {
                   </div>
                   <p className="text-gray-800 break-words">{selectedText}</p>
                   
-                  {/* Hidden audio element */}
-                  {audioUrl && (
-                    <audio 
-                      ref={audioRef}
-                      src={audioUrl}
-                      onEnded={() => setIsPlaying(false)}
-                      onPause={() => setIsPlaying(false)}
-                      onPlay={() => setIsPlaying(true)}
-                      className="hidden"
-                    />
-                  )}
+                  {/* Audio element */}
+                  <audio 
+                    ref={audioRef}
+                    src={audioUrl || undefined}
+                    onEnded={() => setIsPlaying(false)}
+                    onPause={() => setIsPlaying(false)}
+                    onPlay={() => setIsPlaying(true)}
+                    onError={(e) => console.error('Audio error:', e)}
+                    onLoadedData={() => console.log('Audio data loaded')}
+                    controls={false}
+                    style={{ display: 'none' }}
+                  />
                 </div>
                 
                 <div>
