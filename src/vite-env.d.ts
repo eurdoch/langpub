@@ -51,6 +51,7 @@ interface Window {
     openFileDialog: (filters: { name: string, extensions: string[] }[]) => Promise<string | null>
     unzipEpub: (filePath: string) => Promise<EpubContents>
     getSpineItemContent: (spineItemPath: string) => Promise<SpineItemContent>
+    apiRequest: (url: string, method: string, data?: any) => Promise<any>
   }
   ipcRenderer: {
     on: (channel: string, listener: (...args: any[]) => void) => void

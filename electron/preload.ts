@@ -23,11 +23,16 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // ...
 })
 
-// Expose an API for file operations
+// Expose an API for file operations and network requests
 contextBridge.exposeInMainWorld('electron', {
+  // File operations
   openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
   openFileDialog: (filters: { name: string, extensions: string[] }[]) => 
     ipcRenderer.invoke('open-file-dialog', filters),
   unzipEpub: (filePath: string) => ipcRenderer.invoke('unzip-epub', filePath),
-  getSpineItemContent: (spineItemPath: string) => ipcRenderer.invoke('get-spine-item-content', spineItemPath)
+  getSpineItemContent: (spineItemPath: string) => ipcRenderer.invoke('get-spine-item-content', spineItemPath),
+  
+  // Network requests (bypassing CORS)
+  apiRequest: (url: string, method: string, data?: any) => 
+    ipcRenderer.invoke('api-request', url, method, data)
 })

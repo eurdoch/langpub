@@ -4,22 +4,16 @@ import './App.css'
 // Base URL for API calls
 const API_BASE_URL = 'https://langpub.directto.link'
 
-// Function to detect language of text
+// Function to detect language of text using Electron's net module
 async function detectLanguage(text: string): Promise<string> {
   try {
-    const response = await fetch(`${API_BASE_URL}/language`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ text }),
-    })
+    console.log('Detecting language using Electron net module')
+    const data = await window.electron.apiRequest(
+      `${API_BASE_URL}/language`,
+      'POST',
+      { text }
+    )
     
-    if (!response.ok) {
-      throw new Error(`Language detection failed: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
     console.log('Detected language:', data.language)
     return data.language
   } catch (error) {
@@ -28,25 +22,19 @@ async function detectLanguage(text: string): Promise<string> {
   }
 }
 
-// Function to translate text to English
+// Function to translate text to English using Electron's net module
 async function translateText(text: string, language: string): Promise<string> {
   try {
-    const response = await fetch(`${API_BASE_URL}/translate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
+    console.log('Translating text using Electron net module')
+    const data = await window.electron.apiRequest(
+      `${API_BASE_URL}/translate`,
+      'POST',
+      { 
         text,
         language,
-      }),
-    })
+      }
+    )
     
-    if (!response.ok) {
-      throw new Error(`Translation failed: ${response.statusText}`)
-    }
-    
-    const data = await response.json()
     return data.translated_text
   } catch (error) {
     console.error('Error translating text:', error)
