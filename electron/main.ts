@@ -529,9 +529,20 @@ app.whenReady().then(() => {
               try {
                 // For binary data, concatenate buffers and convert to base64
                 const buffer = Buffer.concat(chunks)
-                const base64Data = buffer.toString('base64')
-                resolve(base64Data)
+                
+                console.log(`Received binary data: ${buffer.length} bytes`)
+                console.log(`Content-Type: ${response.headers['content-type'] || 'unknown'}`)
+                
+                // Check content type to ensure proper handling
+                const contentType = response.headers['content-type'] || 'audio/mpeg'
+                
+                // Return both the base64 data and content type
+                resolve({
+                  data: buffer.toString('base64'),
+                  contentType: contentType
+                })
               } catch (error) {
+                console.error('Error processing binary response:', error)
                 reject(error)
               }
             })

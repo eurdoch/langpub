@@ -130,9 +130,7 @@ async function generateSpeech(text: string, language: string): Promise<string | 
     console.log('Generating speech for text:', text.substring(0, 50) + '...')
     console.log('Language for speech:', language)
     
-    // TEMPORARY: Use test audio instead of real API
-    console.log('Using test audio due to API issues')
-    return createTestAudio()
+    // Use the actual API now that we've confirmed it works with curl
     
     // Check if language is in expected format (likely the cause of 400 error)
     let processedLanguage = language
@@ -172,6 +170,12 @@ async function generateSpeech(text: string, language: string): Promise<string | 
     
     try {
       // Make request to speech API using Electron's net module
+      console.log('Sending request to speech API:', {
+        url: speechApiUrl,
+        language: processedLanguage,
+        textLength: text.length
+      })
+      
       const response = await window.electron.apiRequest(
         speechApiUrl,
         'POST',
@@ -187,12 +191,31 @@ async function generateSpeech(text: string, language: string): Promise<string | 
         return null
       }
       
+      console.log('Response type:', typeof response)
+      
+      // Handle response based on format
+      let audioData: string
+      let contentType: string = 'audio/mpeg'
+      
+      if (typeof response === 'object' && response.data) {
+        // New format with data and contentType fields
+        audioData = response.data
+        contentType = response.contentType || 'audio/mpeg'
+        console.log('Received structured audio response with content type:', contentType)
+      } else if (typeof response === 'string') {
+        // Old format with just base64 data
+        audioData = response
+        console.log('Received string audio response, using default content type:', contentType)
+      } else {
+        console.error('Unexpected response format:', response)
+        return null
+      }
+      
       // Try to create a blob URL from the base64 data
       try {
-        const audioBlob = base64ToBlob(response, 'audio/mpeg')
+        const audioBlob = base64ToBlob(audioData, contentType)
         const audioUrl = URL.createObjectURL(audioBlob)
-        console.log('Speech audio generated successfully')
-        return audioUrl
+        console.log('Speech audio generated successfully, blob size:', audioBlob.size)
       } catch (blobError) {
         console.error('Error creating audio blob:', blobError)
         console.error('Response data type:', typeof response)
