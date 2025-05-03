@@ -42,11 +42,97 @@ async function translateText(text: string, language: string): Promise<string> {
   }
 }
 
+// Debug function to create test audio - useful when API isn't working
+function createTestAudio(): string {
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  
+  oscillator.type = 'sine';
+  oscillator.frequency.value = 440; // A4 note
+  gainNode.gain.value = 0.5;
+  
+  const duration = 2;
+  const audioBuffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
+  const channelData = audioBuffer.getChannelData(0);
+  
+  for (let i = 0; i < audioBuffer.length; i++) {
+    channelData[i] = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate);
+  }
+  
+  // Convert AudioBuffer to WAV
+  const blob = audioBufferToWav(audioBuffer);
+  const url = URL.createObjectURL(blob);
+  
+  return url;
+}
+
+// Helper function to convert AudioBuffer to WAV
+function audioBufferToWav(buffer: AudioBuffer): Blob {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  
+  const dataLength = buffer.length * numChannels * (bitDepth / 8);
+  const headerLength = 44;
+  const totalLength = headerLength + dataLength;
+  
+  const arrayBuffer = new ArrayBuffer(totalLength);
+  const dataView = new DataView(arrayBuffer);
+  
+  // RIFF chunk descriptor
+  writeString(dataView, 0, 'RIFF');
+  dataView.setUint32(4, totalLength - 8, true);
+  writeString(dataView, 8, 'WAVE');
+  
+  // fmt sub-chunk
+  writeString(dataView, 12, 'fmt ');
+  dataView.setUint32(16, 16, true); // sub-chunk size
+  dataView.setUint16(20, format, true); // audio format
+  dataView.setUint16(22, numChannels, true);
+  dataView.setUint32(24, sampleRate, true);
+  dataView.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true); // byte rate
+  dataView.setUint16(32, numChannels * (bitDepth / 8), true); // block align
+  dataView.setUint16(34, bitDepth, true);
+  
+  // data sub-chunk
+  writeString(dataView, 36, 'data');
+  dataView.setUint32(40, dataLength, true);
+  
+  // Write audio data
+  let offset = 44;
+  for (let i = 0; i < buffer.length; i++) {
+    for (let channel = 0; channel < numChannels; channel++) {
+      const sample = buffer.getChannelData(channel)[i];
+      const sample16 = Math.max(-1, Math.min(1, sample)) * 32767;
+      dataView.setInt16(offset, sample16, true);
+      offset += 2;
+    }
+  }
+  
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+}
+
+// Helper to write strings to DataView
+function writeString(dataView: DataView, offset: number, str: string): void {
+  for (let i = 0; i < str.length; i++) {
+    dataView.setUint8(offset + i, str.charCodeAt(i));
+  }
+}
+
 // Function to generate speech audio for text using Electron's net module
 async function generateSpeech(text: string, language: string): Promise<string | null> {
   try {
     console.log('Generating speech for text:', text.substring(0, 50) + '...')
     console.log('Language for speech:', language)
+    
+    // TEMPORARY: Use test audio instead of real API
+    console.log('Using test audio due to API issues')
+    return createTestAudio()
     
     // Check if language is in expected format (likely the cause of 400 error)
     let processedLanguage = language
@@ -572,26 +658,27 @@ function App() {
                   <div className="flex justify-between items-center mb-1">
                     <h3 className="text-sm text-gray-500 font-medium">Original ({detectedLanguage})</h3>
                     {isGeneratingSpeech ? (
-                      <span className="text-xs text-blue-500">Generating audio...</span>
-                    ) : audioUrl ? (
+                      <span className="text-xs text-blue-500 animate-pulse">Generating audio...</span>
+                    ) : (
                       <button 
-                        className="bg-blue-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1"
+                        className={`text-white text-xs px-3 py-1 rounded-full flex items-center gap-1 ${audioUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'}`}
                         onClick={toggleAudio}
                         title={isPlaying ? "Pause audio" : "Play audio"}
+                        disabled={!audioUrl}
                       >
                         {isPlaying ? (
                           <>
-                            <span>❚❚</span>
+                            <span className="text-lg">❚❚</span>
                             <span>Pause</span>
                           </>
                         ) : (
                           <>
-                            <span>▶</span>
+                            <span className="text-lg">▶</span>
                             <span>Play</span>
                           </>
                         )}
                       </button>
-                    ) : null}
+                    )}
                   </div>
                   <p className="text-gray-800 break-words">{selectedText}</p>
                   
