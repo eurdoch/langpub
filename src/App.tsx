@@ -259,7 +259,14 @@ function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   
   // Handle text selection with language detection and translation
-  const handleMouseUp = useCallback(async () => {
+  const handleMouseUp = useCallback(async (event?: React.MouseEvent) => {
+    // Ignore mouseup events from the play button
+    if (event?.target instanceof HTMLButtonElement && 
+        event.target.closest('button')?.title?.includes('audio')) {
+      console.log('Ignoring mouseup from play/pause button')
+      return
+    }
+    
     const selection = window.getSelection()
     if (selection && selection.toString().trim().length > 0) {
       const selectedTextContent = selection.toString().trim()
@@ -344,6 +351,15 @@ function App() {
           const speechUrl = await speechPromise
           setAudioUrl(speechUrl)
           setIsGeneratingSpeech(false)
+          
+          // Clear selection after processing to avoid duplicate processing
+          if (window.getSelection) {
+            if (window.getSelection()?.empty) {  // Chrome
+              window.getSelection()?.empty()
+            } else if (window.getSelection()?.removeAllRanges) {  // Firefox
+              window.getSelection()?.removeAllRanges()
+            }
+          }
           
         } catch (error) {
           console.error('Error processing text selection:', error)
@@ -574,7 +590,7 @@ function App() {
           {/* Content area */}
           <main 
             className="flex-1 overflow-auto p-4"
-            onMouseUp={handleMouseUp}
+            onMouseUp={(e) => handleMouseUp(e)}
           >
             {isLoading ? (
               <div className="h-full flex items-center justify-center">
