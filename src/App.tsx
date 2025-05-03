@@ -237,13 +237,7 @@ interface ParsedContent {
   error?: string
 }
 
-// Define an interface for translation data
-interface TranslationInfo {
-  originalText: string
-  translatedText: string
-  language: string
-  timestamp: number
-}
+// No longer needed with history section removed
 
 function App() {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
@@ -257,7 +251,6 @@ function App() {
   const [detectedLanguage, setDetectedLanguage] = useState<string>('')
   const [translatedText, setTranslatedText] = useState<string>('')
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
-  const [translationHistory, setTranslationHistory] = useState<TranslationInfo[]>([])
   
   // State for audio playback
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
@@ -333,17 +326,6 @@ function App() {
             
             console.log('Translating from', detectedLang, 'to English...')
             translated = await translateText(selectedTextContent, detectedLang)
-            
-            // Add to translation history
-            setTranslationHistory(prev => [
-              {
-                originalText: selectedTextContent,
-                translatedText: translated,
-                language: detectedLang,
-                timestamp: Date.now()
-              },
-              ...prev,
-            ].slice(0, 20)) // Keep only last 20 translations
             
             console.log('Translation:', {
               original: selectedTextContent,
@@ -703,22 +685,6 @@ function App() {
             ) : (
               <div className="text-center text-gray-500 mt-8">
                 <p>Select text to translate</p>
-              </div>
-            )}
-            
-            {/* Translation history */}
-            {translationHistory.length > 0 && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-700 mb-2 mt-6">History</h3>
-                {translationHistory.map((item, index) => (
-                  <div key={index} className="p-3 rounded-lg bg-white shadow-sm mb-3 text-sm">
-                    <p className="text-xs text-gray-500 mb-1">
-                      {new Date(item.timestamp).toLocaleTimeString()} · {item.language}
-                    </p>
-                    <p className="text-gray-800 mb-2 line-clamp-2">{item.originalText}</p>
-                    <p className="text-gray-600 line-clamp-2">{item.translatedText}</p>
-                  </div>
-                ))}
               </div>
             )}
           </div>
