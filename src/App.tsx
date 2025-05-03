@@ -275,6 +275,11 @@ function App() {
           
           // Generate speech in parallel with translation
           const speech = await generateSpeech(selectedTextContent, detectedLang)
+          if (speech) {
+            speech.onended = () => {
+              setIsPlaying(false);
+            };
+          }
           audioRef.current = speech;
           
           setIsGeneratingSpeech(false);
@@ -355,9 +360,6 @@ function App() {
         setIsPlaying(false)
       } else {
         console.log('Starting audio playback attempt')
-        
-        // Force a reload of the audio element
-        audio.load()
         
         try {
           // We'll attempt to play in a separate try/catch
