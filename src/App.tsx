@@ -159,52 +159,6 @@ async function generateSpeech(text: string, language: string): Promise<HTMLAudio
   }
 }
 
-// Helper function to convert base64 to Blob
-function base64ToBlob(base64: string, mimeType: string): Blob {
-  try {
-    // Make sure we have a valid base64 string
-    if (!base64 || typeof base64 !== 'string') {
-      console.error('Invalid base64 data:', typeof base64)
-      throw new Error('Invalid base64 data')
-    }
-    
-    // Remove any data URL prefix if present
-    let cleanBase64 = base64
-    if (base64.includes(',')) {
-      cleanBase64 = base64.split(',')[1]
-      console.log('Removed data URL prefix from base64 string')
-    }
-    
-    // Parse the base64 data
-    const byteCharacters = atob(cleanBase64)
-    console.log(`Decoded base64 string, length: ${byteCharacters.length} bytes`)
-    
-    const byteArrays = []
-    const sliceSize = 1024
-    
-    // Process in slices to handle larger files
-    for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-      const slice = byteCharacters.slice(offset, offset + sliceSize)
-      const byteNumbers = new Array(slice.length)
-      
-      for (let i = 0; i < slice.length; i++) {
-        byteNumbers[i] = slice.charCodeAt(i)
-      }
-      
-      byteArrays.push(new Uint8Array(byteNumbers))
-    }
-    
-    // Create and return a Blob from all the typed array chunks
-    const blob = new Blob(byteArrays, { type: mimeType })
-    console.log(`Created Blob of type ${mimeType}, size: ${blob.size} bytes`)
-    return blob
-  } catch (error) {
-    console.error('Error converting base64 to Blob:', error)
-    // Return a minimal valid audio blob as a fallback
-    return new Blob([''], { type: mimeType })
-  }
-}
-
 interface ParsedContent {
   title: string
   bodyText: string | null
@@ -215,7 +169,8 @@ interface ParsedContent {
 }
 
 function App() {
-  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  // Storing the file path but not used directly in the component
+  const [_selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [epubContents, setEpubContents] = useState<EpubContents | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [spineItemsContent, setSpineItemsContent] = useState<Record<string, ParsedContent>>({})
@@ -358,10 +313,15 @@ function App() {
   // Add a document-level listener as a fallback
   useEffect(() => {
     // This handles selections that might happen outside our main content area
-    document.addEventListener('mouseup', handleMouseUp)
+    // Convert React.MouseEvent to a regular MouseEvent for document listeners
+    const handleGlobalMouseUp = (_evt: MouseEvent) => {
+      handleMouseUp()
+    }
+    
+    document.addEventListener('mouseup', handleGlobalMouseUp)
     
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
     }
   }, [handleMouseUp])
   
@@ -668,7 +628,7 @@ function App() {
                     ) : spineItemsContent[item.fullPath] && spineItemsContent[item.fullPath].htmlContent ? (
                       <div 
                         className="epub-content" 
-                        dangerouslySetInnerHTML={{ __html: spineItemsContent[item.fullPath].htmlContent }}
+                        dangerouslySetInnerHTML={{ __html: spineItemsContent[item.fullPath].htmlContent || '' }}
                       />
                     ) : spineItemsContent[item.fullPath] && spineItemsContent[item.fullPath].error ? (
                       <div className="py-4 text-center text-red-500">

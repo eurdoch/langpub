@@ -1,5 +1,4 @@
 import { app, BrowserWindow, ipcMain, dialog, net } from "electron";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "node:fs";
@@ -4648,7 +4647,6 @@ var XMLReader = sax.XMLReader;
 var ParseError = sax.ParseError;
 var DOMImplementation = dom.DOMImplementation;
 var DOMParser_1 = DOMParser;
-createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -4759,10 +4757,10 @@ app.whenReady().then(() => {
           const languageElement = opfDoc.getElementsByTagName("dc:language")[0];
           const publisherElement = opfDoc.getElementsByTagName("dc:publisher")[0];
           metadata = {
-            title: titleElement ? titleElement.textContent.trim() : "Unknown Title",
-            creator: creatorElement ? creatorElement.textContent.trim() : "Unknown Author",
-            language: languageElement ? languageElement.textContent.trim() : "Unknown",
-            publisher: publisherElement ? publisherElement.textContent.trim() : "",
+            title: (titleElement == null ? void 0 : titleElement.textContent) ? titleElement.textContent.trim() : "Unknown Title",
+            creator: (creatorElement == null ? void 0 : creatorElement.textContent) ? creatorElement.textContent.trim() : "Unknown Author",
+            language: (languageElement == null ? void 0 : languageElement.textContent) ? languageElement.textContent.trim() : "Unknown",
+            publisher: (publisherElement == null ? void 0 : publisherElement.textContent) ? publisherElement.textContent.trim() : "",
             opfPath: opfPath || "Unknown",
             opfContent
           };
@@ -4951,7 +4949,7 @@ app.whenReady().then(() => {
               console.error(`Error getting spine item content for ${spineItemPath}:`, error);
               return {
                 success: false,
-                error: error.message
+                error: error instanceof Error ? error.message : String(error)
               };
             }
           });
@@ -4981,7 +4979,7 @@ app.whenReady().then(() => {
       };
     } catch (error) {
       console.error("Error parsing EPUB:", error);
-      throw new Error(`Failed to parse EPUB: ${error.message}`);
+      throw new Error(`Failed to parse EPUB: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
   ipcMain.handle("api-request", async (_event, url, method, data, isBinary = false) => {
