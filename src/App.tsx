@@ -235,6 +235,8 @@ function App() {
   // State for word selection
   const [selectedWord, setSelectedWord] = useState<string>('')
   const [wordDetails, setWordDetails] = useState<string>('')
+  const [wordTranslation, setWordTranslation] = useState<string>('')
+  const [isTranslatingWord, setIsTranslatingWord] = useState<boolean>(false)
   const [wordAudio, setWordAudio] = useState<HTMLAudioElement | null>(null)
   const [isGeneratingWordSpeech, setIsGeneratingWordSpeech] = useState<boolean>(false)
   const [isPlayingWordAudio, setIsPlayingWordAudio] = useState<boolean>(false)
@@ -745,6 +747,25 @@ function App() {
                             setSelectedWord(word);
                             setWordDetails(''); // Clear any previous explanation
                             
+                            // Translate the word if not in English
+                            if (detectedLanguage.toLowerCase() !== 'english' && 
+                                detectedLanguage.toLowerCase() !== 'en' && 
+                                detectedLanguage.toLowerCase() !== 'en-us') {
+                              setIsTranslatingWord(true);
+                              try {
+                                const translated = await translateText(word, detectedLanguage);
+                                setWordTranslation(translated);
+                              } catch (error) {
+                                console.error('Error translating word:', error);
+                                setWordTranslation(`[Translation failed: ${error}]`);
+                              } finally {
+                                setIsTranslatingWord(false);
+                              }
+                            } else {
+                              // If already English, just use the word itself
+                              setWordTranslation(word);
+                            }
+                            
                             try {
                               setIsGeneratingWordSpeech(true);
                               
@@ -834,6 +855,19 @@ function App() {
                           )}
                         </div>
                       </div>
+                      {/* Translation section */}
+                      {isTranslatingWord ? (
+                        <div className="mb-3">
+                          <p className="text-xs text-blue-500 animate-pulse">Translating...</p>
+                        </div>
+                      ) : wordTranslation ? (
+                        <div className="mb-3">
+                          <h4 className="text-xs text-gray-500 font-medium mb-1">Translation (English)</h4>
+                          <p className="text-gray-700 font-medium">{wordTranslation}</p>
+                        </div>
+                      ) : null}
+                      
+                      {/* Definition section */}
                       <div className="text-sm text-gray-600 prose prose-sm">
                         {wordDetails === 'Loading...' ? (
                           <div className="animate-pulse space-y-2">
@@ -841,9 +875,12 @@ function App() {
                             <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                             <div className="h-4 bg-gray-200 rounded w-5/6"></div>
                           </div>
-                        ) : (
-                          <div dangerouslySetInnerHTML={{ __html: wordDetails.replace(/\n/g, '<br>') }} />
-                        )}
+                        ) : wordDetails ? (
+                          <>
+                            <h4 className="text-xs text-gray-500 font-medium mb-1">Definition</h4>
+                            <div dangerouslySetInnerHTML={{ __html: wordDetails.replace(/\n/g, '<br>') }} />
+                          </>
+                        ) : null}
                       </div>
                     </div>
                   ) : (
