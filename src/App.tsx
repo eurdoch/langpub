@@ -207,7 +207,6 @@ function App() {
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
   
   // State for audio playback
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState<boolean>(false)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -266,10 +265,9 @@ function App() {
             setDetectedLanguage(detectedLang)
           }
           
-          // Release previous audio URL if it exists
-          if (audioUrl) {
-            URL.revokeObjectURL(audioUrl)
-            setAudioUrl(null)
+          // Stop any currently playing audio
+          if (audioRef.current) {
+            audioRef.current.pause()
           }
           
           // Start generating speech
@@ -332,14 +330,12 @@ function App() {
     }
   }, [handleMouseUp])
   
-  // Clean up audio URLs when component unmounts
+  // Clean up any resources when component unmounts
   useEffect(() => {
     return () => {
-      if (audioUrl) {
-        URL.revokeObjectURL(audioUrl)
-      }
+      // No cleanup needed since we're directly using Audio objects now
     }
-  }, [audioUrl])
+  }, [])
   
   // Function to toggle audio playback
   const toggleAudio = useCallback(async () => {
@@ -398,7 +394,7 @@ function App() {
     } catch (error) {
       console.error('Unexpected error in toggleAudio:', error)
     }
-  }, [audioUrl, isPlaying])
+  }, [isPlaying])
   
   // Function to parse HTML content in the browser
   const parseHtmlContent = (result: SpineItemContent): ParsedContent => {
@@ -644,13 +640,14 @@ function App() {
                     ) : (
                       <button 
                         type="button"
-                        className={`text-white text-xs px-3 py-1 rounded-full flex items-center gap-1 ${audioUrl ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'}`}
+                        className={`text-white text-xs px-3 py-1 rounded-full flex items-center gap-1 ${audioRef.current ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'}`}
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           toggleAudio();
                         }}
                         title={isPlaying ? "Pause audio" : "Play audio"}
+                        disabled={!audioRef.current}
                       >
                         {isPlaying ? (
                           <>
@@ -672,20 +669,6 @@ function App() {
                 <div>
                   <h3 className="text-sm text-gray-500 font-medium mb-1">Translation (English)</h3>
                   <p className="text-gray-800 break-words">{translatedText}</p>
-                  
-                  {/* Debug: Alternative direct audio player */}
-                  {audioUrl && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="text-xs text-gray-500 mb-1">Alternative Audio Player</h4>
-                      <audio 
-                        src={audioUrl} 
-                        controls 
-                        className="w-full h-8 mt-1"
-                        onPlay={() => console.log('Debug player: Playing')}
-                        onError={(e) => console.log('Debug player error:', e.currentTarget.error)}
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
