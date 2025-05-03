@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 
 interface ParsedContent {
@@ -16,6 +16,44 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [spineItemsContent, setSpineItemsContent] = useState<Record<string, ParsedContent>>({})
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
+  
+  // Handle text selection
+  const handleMouseUp = useCallback(() => {
+    const selection = window.getSelection()
+    if (selection && selection.toString().trim().length > 0) {
+      const selectedText = selection.toString().trim()
+      console.log('Selected text:', selectedText)
+      
+      // Get the range and its bounding rectangle for position information
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        const rect = range.getBoundingClientRect()
+        console.log('Selection position:', {
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height
+        })
+        
+        // Get selection context (parent element information)
+        const parentNode = range.startContainer.parentNode as HTMLElement
+        if (parentNode) {
+          console.log('Selection parent element:', parentNode.tagName)
+          console.log('Selection parent classes:', parentNode.className)
+        }
+      }
+    }
+  }, [])
+  
+  // Add a document-level listener as a fallback
+  useEffect(() => {
+    // This handles selections that might happen outside our main content area
+    document.addEventListener('mouseup', handleMouseUp)
+    
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [handleMouseUp])
   
   // Function to parse HTML content in the browser
   const parseHtmlContent = (result: SpineItemContent): ParsedContent => {
@@ -172,7 +210,10 @@ function App() {
         </header>
 
         {/* Content area */}
-        <main className="flex-1 overflow-auto p-4">
+        <main 
+          className="flex-1 overflow-auto p-4"
+          onMouseUp={handleMouseUp}
+        >
           {isLoading ? (
             <div className="h-full flex items-center justify-center">
               <p className="text-lg">Loading EPUB...</p>
