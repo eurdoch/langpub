@@ -44,3 +44,17 @@
 }
 
 /* Allow specific EPUB styles to override these base styles */
+
+/* Line clamping for translation history */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+#root {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
