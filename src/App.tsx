@@ -41,6 +41,27 @@ async function translateText(text: string, language: string): Promise<string> {
   }
 }
 
+// Function to get details about a word
+async function explainWord(word: string, language: string): Promise<string> {
+  try {
+    console.log(`Looking up details for "${word}" in ${language}`)
+    
+    const data = await window.electron.apiRequest(
+      `${API_BASE_URL}/explain`,
+      'POST',
+      {
+        word,
+        language,
+      }
+    )
+    
+    return data.explanation || 'No explanation available'
+  } catch (error) {
+    console.error('Error explaining word:', error)
+    return `Unable to get details for "${word}": ${error}`
+  }
+}
+
 // Function to generate speech audio for text using Electron's net module
 async function generateSpeech(text: string, language: string): Promise<HTMLAudioElement | null> {
   try {
@@ -210,6 +231,10 @@ function App() {
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState<boolean>(false)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  
+  // State for word selection
+  const [selectedWord, setSelectedWord] = useState<string>('')
+  const [wordDetails, setWordDetails] = useState<string>('')
   
   // Handle text selection with language detection and translation
   const handleMouseUp = useCallback(async (event?: React.MouseEvent) => {
@@ -671,6 +696,86 @@ function App() {
                 <div>
                   <h3 className="text-sm text-gray-500 font-medium mb-1">Translation (English)</h3>
                   <p className="text-gray-800 break-words">{translatedText}</p>
+                </div>
+                
+                {/* Interactive words display */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm text-gray-500 font-medium mb-2">Word Explorer</h3>
+                  
+                  {/* Original text words */}
+                  <div className="mb-2">
+                    <h4 className="text-xs text-gray-600 mb-1">Original ({detectedLanguage}):</h4>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {selectedText.split(/\s+/).map((word, index) => (
+                        <button
+                          key={`orig-${index}`}
+                          className={`px-2 py-1 text-sm rounded-md ${selectedWord === word 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
+                          }`}
+                          onClick={async () => {
+                            setSelectedWord(word);
+                            setWordDetails('Loading...');
+                            try {
+                              const details = await explainWord(word, detectedLanguage);
+                              setWordDetails(details);
+                            } catch (error) {
+                              setWordDetails(`Error: ${error}`);
+                            }
+                          }}
+                        >
+                          {word}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Translated text words */}
+                  <div>
+                    <h4 className="text-xs text-gray-600 mb-1">Translated (English):</h4>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {translatedText.split(/\s+/).map((word, index) => (
+                        <button
+                          key={`trans-${index}`}
+                          className={`px-2 py-1 text-sm rounded-md ${selectedWord === word 
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                          }`}
+                          onClick={async () => {
+                            setSelectedWord(word);
+                            setWordDetails('Loading...');
+                            try {
+                              const details = await explainWord(word, 'English');
+                              setWordDetails(details);
+                            } catch (error) {
+                              setWordDetails(`Error: ${error}`);
+                            }
+                          }}
+                        >
+                          {word}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Word details box */}
+                  {selectedWord && (
+                    <div className="bg-white rounded-md p-3 border border-gray-200">
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-sm font-bold text-gray-700">{selectedWord}</h4>
+                        {wordDetails === 'Loading...' && (
+                          <span className="text-xs text-blue-500 animate-pulse">Looking up...</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-600 prose prose-sm">
+                        {wordDetails === 'Loading...' ? (
+                          <div className="animate-pulse h-16 bg-gray-100 rounded"></div>
+                        ) : (
+                          <div dangerouslySetInnerHTML={{ __html: wordDetails.replace(/\n/g, '<br>') }} />
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
