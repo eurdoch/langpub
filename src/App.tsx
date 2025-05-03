@@ -743,21 +743,17 @@ function App() {
                           className={`cursor-pointer ${selectedWord === word ? 'bg-blue-100 font-bold' : 'hover:bg-gray-100'}`}
                           onClick={async () => {
                             setSelectedWord(word);
-                            setWordDetails('Loading...');
+                            setWordDetails(''); // Clear any previous explanation
+                            
                             try {
                               setIsGeneratingWordSpeech(true);
                               
-                              // Fetch word details and generate speech in parallel
-                              const [details, audio] = await Promise.all([
-                                explainWord(word, detectedLanguage),
-                                generateSpeech(word, detectedLanguage)
-                              ]);
-                              
-                              setWordDetails(details);
+                              // Only generate speech, don't fetch explanation yet
+                              const audio = await generateSpeech(word, detectedLanguage);
                               setWordAudio(audio);
                               setIsGeneratingWordSpeech(false);
                             } catch (error) {
-                              setWordDetails(`Error: ${error}`);
+                              console.error('Error generating speech for word:', error);
                               setIsGeneratingWordSpeech(false);
                             }
                           }}
@@ -812,9 +808,31 @@ function App() {
                           ) : null}
                         </div>
                         
-                        {wordDetails === 'Loading...' && (
-                          <span className="text-xs text-blue-500 animate-pulse">Looking up...</span>
-                        )}
+                        <div>
+                          {wordDetails === 'Loading...' ? (
+                            <span className="text-xs text-blue-500 animate-pulse">Looking up...</span>
+                          ) : (
+                            <button 
+                              type="button"
+                              className="text-xs text-white bg-green-600 hover:bg-green-700 px-2 py-1 rounded-md flex items-center gap-1"
+                              onClick={async () => {
+                                if (!selectedWord) return;
+                                
+                                setWordDetails('Loading...');
+                                try {
+                                  const details = await explainWord(selectedWord, detectedLanguage);
+                                  setWordDetails(details);
+                                } catch (error) {
+                                  setWordDetails(`Error: ${error}`);
+                                }
+                              }}
+                              disabled={!selectedWord || wordDetails === 'Loading...'}
+                              title="Get explanation for this word"
+                            >
+                              <span>Explain</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className="text-sm text-gray-600 prose prose-sm">
                         {wordDetails === 'Loading...' ? (
