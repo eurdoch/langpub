@@ -249,6 +249,7 @@ app.whenReady().then(() => {
               // Get a list of all entries for debugging
               const allEntries = zip.getEntries()
               console.log(`EPUB contains ${allEntries.length} files, looking for: ${spineItemPath}`)
+              console.log(`File basename: ${path.basename(spineItemPath)}, directory: ${path.dirname(spineItemPath)}`)
               
               // First try the exact path provided
               let itemEntry = zip.getEntry(spineItemPath)
@@ -298,21 +299,68 @@ app.whenReady().then(() => {
                     }
                   })
                   
-                  // Search all entries for a matching filename
-                  const matchingEntries = allEntries.filter(entry => 
-                    !entry.isDirectory && 
-                    (entry.entryName.endsWith('/' + filename) || entry.entryName === filename)
-                  )
+                  // Search all entries for a matching filename with enhanced matching:
+                  // 1. Case-insensitive matching for all comparisons
+                  // 2. Handle .xhtml vs .html extension variations
+                  // 3. Improved path resolution with dirname/basename handling
+                  const matchingEntries = allEntries.filter(entry => {
+                    if (entry.isDirectory) return false;
+                    
+                    const entryBaseName = path.basename(entry.entryName).toLowerCase();
+                    const entryDirname = path.dirname(entry.entryName).toLowerCase();
+                    const searchFilename = filename.toLowerCase();
+                    const searchDirname = path.dirname(spineItemPath).toLowerCase();
+                    
+                    // Direct case-insensitive match
+                    if (entryBaseName === searchFilename) return true;
+                    
+                    // Match with path ending (case-insensitive)
+                    if (entry.entryName.toLowerCase().endsWith('/' + searchFilename)) return true;
+                    
+                    // Check if the directory structure matches partially
+                    const entryDirParts = entryDirname.split('/');
+                    const searchDirParts = searchDirname.split('/');
+                    const dirMatches = searchDirParts.some(part => 
+                      part.length > 0 && entryDirParts.includes(part)
+                    );
+                    
+                    // Handle .xhtml vs .html extension variations with more robust handling
+                    const fileWithoutExt = searchFilename.replace(/\.(x?html|htm)$/i, '');
+                    const entryWithoutExt = entryBaseName.replace(/\.(x?html|htm)$/i, '');
+                    
+                    if (fileWithoutExt === entryWithoutExt) {
+                      // Base filenames match without extensions
+                      return true;
+                    }
+                    
+                    // Try to match with partial path and filename
+                    if (dirMatches && entryBaseName.includes(fileWithoutExt)) {
+                      return true;
+                    }
+                    
+                    return false;
+                  });
                   
                   if (matchingEntries.length > 0) {
                     itemEntry = matchingEntries[0]
                     console.log(`Found matching file by filename: ${itemEntry.entryName}`)
+                    console.log(`Match details: requested=${filename}, found=${path.basename(itemEntry.entryName)}`)
+                    console.log(`Full paths: requested=${spineItemPath}, found=${itemEntry.entryName}`)
                     
                     // If multiple matches, log them all
                     if (matchingEntries.length > 1) {
                       console.log(`Note: Multiple matches found for ${filename}:`)
                       matchingEntries.forEach(entry => console.log(`- ${entry.entryName}`))
                     }
+                  } else {
+                    console.log(`⚠️ No matching files found for ${filename} after trying all resolution methods`)
+                    // List some sample entries for debugging
+                    console.log(`Sample of available files:`)
+                    allEntries.slice(0, 10).forEach(entry => {
+                      if (!entry.isDirectory) {
+                        console.log(`- ${entry.entryName} (${path.basename(entry.entryName)})`)
+                      }
+                    })
                   }
                 }
               }
@@ -394,7 +442,9 @@ app.whenReady().then(() => {
                 console.error(`Spine item file not found: ${spineItemPath} (tried multiple variations)`)
                 return {
                   success: false,
-                  error: 'File not found in EPUB'
+                  error: `File not found in EPUB: ${spineItemPath}. The file may be missing, have a different path, or use a different file extension (.html/.xhtml).`,
+                  requestedPath: spineItemPath,
+                  availableFiles: allEntries.slice(0, 10).map(e => e.entryName)
                 }
               }
             } catch (error) {
