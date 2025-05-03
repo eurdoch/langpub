@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, net } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -4982,6 +4982,47 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error("Error parsing EPUB:", error);
       throw new Error(`Failed to parse EPUB: ${error.message}`);
+    }
+  });
+  ipcMain.handle("api-request", async (_event, url, method, data) => {
+    try {
+      return new Promise((resolve, reject) => {
+        const request = net.request({
+          method,
+          url,
+          redirect: "follow"
+        });
+        request.setHeader("Content-Type", "application/json");
+        request.on("response", (response) => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`Request failed with status code ${response.statusCode}`));
+            return;
+          }
+          let responseData = "";
+          response.on("data", (chunk) => {
+            responseData += chunk.toString();
+          });
+          response.on("end", () => {
+            try {
+              const parsedData = JSON.parse(responseData);
+              resolve(parsedData);
+            } catch (error) {
+              resolve(responseData);
+            }
+          });
+        });
+        request.on("error", (error) => {
+          reject(error);
+        });
+        if (data) {
+          const postData = JSON.stringify(data);
+          request.write(postData);
+        }
+        request.end();
+      });
+    } catch (error) {
+      console.error("Error making API request:", error);
+      throw error;
     }
   });
 });

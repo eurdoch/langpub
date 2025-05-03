@@ -21,8 +21,11 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   // ...
 });
 electron.contextBridge.exposeInMainWorld("electron", {
+  // File operations
   openFile: (filePath) => electron.ipcRenderer.invoke("open-file", filePath),
   openFileDialog: (filters) => electron.ipcRenderer.invoke("open-file-dialog", filters),
   unzipEpub: (filePath) => electron.ipcRenderer.invoke("unzip-epub", filePath),
-  getSpineItemContent: (spineItemPath) => electron.ipcRenderer.invoke("get-spine-item-content", spineItemPath)
+  getSpineItemContent: (spineItemPath) => electron.ipcRenderer.invoke("get-spine-item-content", spineItemPath),
+  // Network requests (bypassing CORS)
+  apiRequest: (url, method, data) => electron.ipcRenderer.invoke("api-request", url, method, data)
 });
