@@ -235,6 +235,9 @@ function App() {
   // State for word selection
   const [selectedWord, setSelectedWord] = useState<string>('')
   const [wordDetails, setWordDetails] = useState<string>('')
+  const [wordAudio, setWordAudio] = useState<HTMLAudioElement | null>(null)
+  const [isGeneratingWordSpeech, setIsGeneratingWordSpeech] = useState<boolean>(false)
+  const [isPlayingWordAudio, setIsPlayingWordAudio] = useState<boolean>(false)
   
   // Handle text selection with language detection and translation
   const handleMouseUp = useCallback(async (event?: React.MouseEvent) => {
@@ -367,9 +370,9 @@ function App() {
     }
   }, [])
   
-  // Function to toggle audio playback
+  // Function to toggle audio playback for full text
   const toggleAudio = useCallback(async () => {
-    console.log('Toggle audio called')
+    console.log('Toggle full text audio called')
     
     if (!audioRef.current) {
       console.error('Cannot play audio: No audio reference available')
@@ -422,6 +425,49 @@ function App() {
       console.error('Unexpected error in toggleAudio:', error)
     }
   }, [isPlaying])
+  
+  // Function to toggle word audio playback
+  const toggleWordAudio = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    console.log('Toggle word audio called')
+    
+    if (!wordAudio) {
+      console.error('Cannot play word audio: No audio reference available')
+      return
+    }
+    
+    try {
+      if (isPlayingWordAudio) {
+        console.log('Pausing word audio playback')
+        wordAudio.pause()
+        setIsPlayingWordAudio(false)
+      } else {
+        console.log('Starting word audio playback')
+        
+        // Make sure the word audio is at the beginning
+        wordAudio.currentTime = 0
+        
+        try {
+          await wordAudio.play()
+          console.log('Word audio playback started successfully')
+          setIsPlayingWordAudio(true)
+          
+          // Auto-reset when audio ends
+          wordAudio.onended = () => {
+            console.log('Word audio playback ended')
+            setIsPlayingWordAudio(false)
+          }
+        } catch (playError) {
+          console.error('Error playing word audio:', playError)
+          setIsPlayingWordAudio(false)
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error in toggleWordAudio:', error)
+    }
+  }, [wordAudio, isPlayingWordAudio])
   
   // Function to parse HTML content in the browser
   const parseHtmlContent = (result: SpineItemContent): ParsedContent => {
@@ -699,10 +745,20 @@ function App() {
                             setSelectedWord(word);
                             setWordDetails('Loading...');
                             try {
-                              const details = await explainWord(word, detectedLanguage);
+                              setIsGeneratingWordSpeech(true);
+                              
+                              // Fetch word details and generate speech in parallel
+                              const [details, audio] = await Promise.all([
+                                explainWord(word, detectedLanguage),
+                                generateSpeech(word, detectedLanguage)
+                              ]);
+                              
                               setWordDetails(details);
+                              setWordAudio(audio);
+                              setIsGeneratingWordSpeech(false);
                             } catch (error) {
                               setWordDetails(`Error: ${error}`);
+                              setIsGeneratingWordSpeech(false);
                             }
                           }}
                         >
@@ -727,9 +783,35 @@ function App() {
                   {selectedWord ? (
                     <div className="bg-white rounded-md p-4 border border-gray-200 shadow-sm">
                       <div className="flex justify-between items-center mb-3">
-                        <div className="px-3 py-1 bg-blue-100 rounded-md">
-                          <h4 className="text-md font-bold text-blue-800">{selectedWord}</h4>
+                        <div className="flex items-center gap-2">
+                          <div className="px-3 py-1 bg-blue-100 rounded-md">
+                            <h4 className="text-md font-bold text-blue-800">{selectedWord}</h4>
+                          </div>
+                          
+                          {isGeneratingWordSpeech ? (
+                            <span className="text-xs text-blue-500 animate-pulse">Generating audio...</span>
+                          ) : wordAudio ? (
+                            <button 
+                              type="button"
+                              className={`text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
+                                isPlayingWordAudio ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'
+                              }`}
+                              onClick={toggleWordAudio}
+                              title={isPlayingWordAudio ? "Pause word audio" : "Play word audio"}
+                            >
+                              {isPlayingWordAudio ? (
+                                <>
+                                  <span className="text-sm">❚❚</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-sm">▶</span>
+                                </>
+                              )}
+                            </button>
+                          ) : null}
                         </div>
+                        
                         {wordDetails === 'Loading...' && (
                           <span className="text-xs text-blue-500 animate-pulse">Looking up...</span>
                         )}
