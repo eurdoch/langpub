@@ -1,6 +1,59 @@
 import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 
+// Base URL for API calls
+const API_BASE_URL = 'http://localhost:3004'
+
+// Function to detect language of text
+async function detectLanguage(text: string): Promise<string> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/language`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ text }),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Language detection failed: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    console.log('Detected language:', data.language)
+    return data.language
+  } catch (error) {
+    console.error('Error detecting language:', error)
+    return 'Unknown' // Default fallback
+  }
+}
+
+// Function to translate text to English
+async function translateText(text: string, language: string): Promise<string> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/translate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
+        text,
+        language,
+      }),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Translation failed: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data.translated_text
+  } catch (error) {
+    console.error('Error translating text:', error)
+    return `[Translation failed: ${error}]` // Error message as fallback
+  }
+}
+
 interface ParsedContent {
   title: string
   bodyText: string | null
@@ -17,8 +70,8 @@ function App() {
   const [spineItemsContent, setSpineItemsContent] = useState<Record<string, ParsedContent>>({})
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({})
   
-  // Handle text selection
-  const handleMouseUp = useCallback(() => {
+  // Handle text selection with language detection and translation
+  const handleMouseUp = useCallback(async () => {
     const selection = window.getSelection()
     if (selection && selection.toString().trim().length > 0) {
       const selectedText = selection.toString().trim()
@@ -41,9 +94,43 @@ function App() {
           console.log('Selection parent element:', parentNode.tagName)
           console.log('Selection parent classes:', parentNode.className)
         }
+        
+        try {
+          // Check if we have language info from the EPUB metadata
+          let detectedLanguage = 'Unknown'
+          
+          if (epubContents?.metadata?.language) {
+            // Use language from EPUB metadata if available
+            detectedLanguage = epubContents.metadata.language
+            console.log('Using language from EPUB metadata:', detectedLanguage)
+          } else {
+            // Detect language using API
+            console.log('Detecting language...')
+            detectedLanguage = await detectLanguage(selectedText)
+          }
+          
+          // Only translate if not already English
+          if (detectedLanguage.toLowerCase() !== 'english' && 
+              detectedLanguage.toLowerCase() !== 'en' && 
+              detectedLanguage.toLowerCase() !== 'en-us') {
+            
+            console.log('Translating from', detectedLanguage, 'to English...')
+            const translatedText = await translateText(selectedText, detectedLanguage)
+            
+            console.log('Translation:', {
+              original: selectedText,
+              language: detectedLanguage,
+              translated: translatedText
+            })
+          } else {
+            console.log('Text is already in English, no translation needed')
+          }
+        } catch (error) {
+          console.error('Error processing text selection:', error)
+        }
       }
     }
-  }, [])
+  }, [epubContents?.metadata?.language])
   
   // Add a document-level listener as a fallback
   useEffect(() => {
