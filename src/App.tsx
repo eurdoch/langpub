@@ -690,29 +690,11 @@ function App() {
                       </button>
                     )}
                   </div>
-                  <p className="text-gray-800 break-words">{selectedText}</p>
-                </div>
-                
-                <div>
-                  <h3 className="text-sm text-gray-500 font-medium mb-1">Translation (English)</h3>
-                  <p className="text-gray-800 break-words">{translatedText}</p>
-                </div>
-                
-                {/* Interactive words display */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="text-sm text-gray-500 font-medium mb-2">Word Explorer</h3>
-                  
-                  {/* Original text words */}
-                  <div className="mb-2">
-                    <h4 className="text-xs text-gray-600 mb-1">Original ({detectedLanguage}):</h4>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {selectedText.split(/\s+/).map((word, index) => (
-                        <button
-                          key={`orig-${index}`}
-                          className={`px-2 py-1 text-sm rounded-md ${selectedWord === word 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-blue-100 hover:bg-blue-200 text-blue-800'
-                          }`}
+                  <p className="text-gray-800 break-words">
+                    {selectedText.split(/\s+/).map((word, index) => (
+                      <span key={`word-${index}`}>
+                        <span 
+                          className={`cursor-pointer ${selectedWord === word ? 'bg-blue-100 font-bold' : 'hover:bg-gray-100'}`}
                           onClick={async () => {
                             setSelectedWord(word);
                             setWordDetails('Loading...');
@@ -725,55 +707,48 @@ function App() {
                           }}
                         >
                           {word}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Translated text words */}
-                  <div>
-                    <h4 className="text-xs text-gray-600 mb-1">Translated (English):</h4>
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {translatedText.split(/\s+/).map((word, index) => (
-                        <button
-                          key={`trans-${index}`}
-                          className={`px-2 py-1 text-sm rounded-md ${selectedWord === word 
-                            ? 'bg-blue-600 text-white' 
-                            : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                          }`}
-                          onClick={async () => {
-                            setSelectedWord(word);
-                            setWordDetails('Loading...');
-                            try {
-                              const details = await explainWord(word, 'English');
-                              setWordDetails(details);
-                            } catch (error) {
-                              setWordDetails(`Error: ${error}`);
-                            }
-                          }}
-                        >
-                          {word}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                        </span>
+                        {index < selectedText.split(/\s+/).length - 1 ? ' ' : ''}
+                      </span>
+                    ))}
+                  </p>
+                </div>
+                
+                <div>
+                  <h3 className="text-sm text-gray-500 font-medium mb-1">Translation (English)</h3>
+                  <p className="text-gray-800 break-words">{translatedText}</p>
+                </div>
+                
+                {/* Word Explorer display */}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="text-sm text-gray-500 font-medium mb-2">Word Explorer</h3>
                   
                   {/* Word details box */}
-                  {selectedWord && (
-                    <div className="bg-white rounded-md p-3 border border-gray-200">
-                      <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-sm font-bold text-gray-700">{selectedWord}</h4>
+                  {selectedWord ? (
+                    <div className="bg-white rounded-md p-4 border border-gray-200 shadow-sm">
+                      <div className="flex justify-between items-center mb-3">
+                        <div className="px-3 py-1 bg-blue-100 rounded-md">
+                          <h4 className="text-md font-bold text-blue-800">{selectedWord}</h4>
+                        </div>
                         {wordDetails === 'Loading...' && (
                           <span className="text-xs text-blue-500 animate-pulse">Looking up...</span>
                         )}
                       </div>
                       <div className="text-sm text-gray-600 prose prose-sm">
                         {wordDetails === 'Loading...' ? (
-                          <div className="animate-pulse h-16 bg-gray-100 rounded"></div>
+                          <div className="animate-pulse space-y-2">
+                            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                          </div>
                         ) : (
                           <div dangerouslySetInnerHTML={{ __html: wordDetails.replace(/\n/g, '<br>') }} />
                         )}
                       </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-100 rounded-md p-4 text-center text-gray-500">
+                      <p>Click any word in the original text to see details</p>
                     </div>
                   )}
                 </div>
