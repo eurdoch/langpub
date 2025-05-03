@@ -33,6 +33,6 @@ contextBridge.exposeInMainWorld('electron', {
   getSpineItemContent: (spineItemPath: string) => ipcRenderer.invoke('get-spine-item-content', spineItemPath),
   
   // Network requests (bypassing CORS)
-  apiRequest: (url: string, method: string, data?: any) => 
-    ipcRenderer.invoke('api-request', url, method, data)
+  apiRequest: (url: string, method: string, data?: any, isBinary: boolean = false) => 
+    ipcRenderer.invoke('api-request', url, method, data, isBinary)
 })

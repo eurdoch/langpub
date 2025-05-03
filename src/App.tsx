@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import './App.css'
 
 // Base URL for API calls
@@ -42,6 +42,106 @@ async function translateText(text: string, language: string): Promise<string> {
   }
 }
 
+// Function to generate speech audio for text using Electron's net module
+async function generateSpeech(text: string, language: string): Promise<string | null> {
+  try {
+    console.log('Generating speech for text:', text.substring(0, 50) + '...')
+    console.log('Language for speech:', language)
+    
+    // Check if language is in expected format (likely the cause of 400 error)
+    let processedLanguage = language
+    
+    // Handle common language code formats and convert to expected language names
+    const languageMap: Record<string, string> = {
+      'en': 'English',
+      'en-us': 'English',
+      'en-gb': 'English',
+      'fr': 'French',
+      'fr-fr': 'French',
+      'de': 'German',
+      'de-de': 'German',
+      'es': 'Spanish',
+      'es-es': 'Spanish',
+      'it': 'Italian',
+      'it-it': 'Italian',
+      'ja': 'Japanese',
+      'jp': 'Japanese',
+      'zh': 'Chinese',
+      'zh-cn': 'Chinese',
+      'pt': 'Portuguese',
+      'pt-br': 'Portuguese',
+      'nl': 'Dutch'
+    }
+    
+    // Convert language code to language name if needed
+    const lowerLang = language.toLowerCase()
+    if (languageMap[lowerLang]) {
+      processedLanguage = languageMap[lowerLang]
+      console.log(`Converting language code "${language}" to language name "${processedLanguage}"`)
+    }
+    
+    // Speech API URL
+    const speechApiUrl = `${API_BASE_URL}/speech`
+    console.log('Speech API URL:', speechApiUrl)
+    
+    try {
+      // Make request to speech API using Electron's net module
+      const response = await window.electron.apiRequest(
+        speechApiUrl,
+        'POST',
+        { 
+          text,
+          language: processedLanguage,
+        },
+        true // Signal that we expect binary data
+      )
+      
+      if (!response) {
+        console.error('Speech generation failed: No response data received')
+        return null
+      }
+      
+      // Try to create a blob URL from the base64 data
+      try {
+        const audioBlob = base64ToBlob(response, 'audio/mpeg')
+        const audioUrl = URL.createObjectURL(audioBlob)
+        console.log('Speech audio generated successfully')
+        return audioUrl
+      } catch (blobError) {
+        console.error('Error creating audio blob:', blobError)
+        console.error('Response data type:', typeof response)
+        if (typeof response === 'string') {
+          console.error('Response data preview:', response.substring(0, 100))
+        }
+        return null
+      }
+    } catch (apiError) {
+      console.error('Error calling speech API:', apiError)
+      
+      // Implement fallback behavior
+      console.log('Using fallback method for speech generation')
+      
+      // For demonstration, we'll return null for now
+      // In a production app, you might implement additional fallback methods
+      return null
+    }
+  } catch (error) {
+    console.error('Error in generateSpeech function:', error)
+    return null
+  }
+}
+
+// Helper function to convert base64 to Blob
+function base64ToBlob(base64: string, mimeType: string): Blob {
+  const byteCharacters = atob(base64)
+  const byteNumbers = new Array(byteCharacters.length)
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  }
+  const byteArray = new Uint8Array(byteNumbers)
+  return new Blob([byteArray], { type: mimeType })
+}
+
 interface ParsedContent {
   title: string
   bodyText: string | null
@@ -72,6 +172,12 @@ function App() {
   const [translatedText, setTranslatedText] = useState<string>('')
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
   const [translationHistory, setTranslationHistory] = useState<TranslationInfo[]>([])
+  
+  // State for audio playback
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const [isGeneratingSpeech, setIsGeneratingSpeech] = useState<boolean>(false)
+  const [isPlaying, setIsPlaying] = useState<boolean>(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   
   // Handle text selection with language detection and translation
   const handleMouseUp = useCallback(async () => {
@@ -120,16 +226,27 @@ function App() {
             setDetectedLanguage(detectedLang)
           }
           
+          // Release previous audio URL if it exists
+          if (audioUrl) {
+            URL.revokeObjectURL(audioUrl)
+            setAudioUrl(null)
+          }
+          
+          // Start generating speech
+          setIsGeneratingSpeech(true)
+          
+          // Generate speech in parallel with translation
+          const speechPromise = generateSpeech(selectedTextContent, detectedLang)
+          
           // Only translate if not already English
+          let translated = selectedTextContent // Default to original text
+          
           if (detectedLang.toLowerCase() !== 'english' && 
               detectedLang.toLowerCase() !== 'en' && 
               detectedLang.toLowerCase() !== 'en-us') {
             
             console.log('Translating from', detectedLang, 'to English...')
-            const translated = await translateText(selectedTextContent, detectedLang)
-            
-            // Update state with translation
-            setTranslatedText(translated)
+            translated = await translateText(selectedTextContent, detectedLang)
             
             // Add to translation history
             setTranslationHistory(prev => [
@@ -149,13 +266,21 @@ function App() {
             })
           } else {
             console.log('Text is already in English, no translation needed')
-            setTranslatedText(selectedTextContent) // Same text since it's already English
           }
           
+          // Update state with translation
+          setTranslatedText(translated)
           setIsTranslating(false)
+          
+          // Wait for speech generation to complete
+          const speechUrl = await speechPromise
+          setAudioUrl(speechUrl)
+          setIsGeneratingSpeech(false)
+          
         } catch (error) {
           console.error('Error processing text selection:', error)
           setIsTranslating(false)
+          setIsGeneratingSpeech(false)
         }
       }
     }
@@ -170,6 +295,42 @@ function App() {
       document.removeEventListener('mouseup', handleMouseUp)
     }
   }, [handleMouseUp])
+  
+  // Clean up audio URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl)
+      }
+    }
+  }, [audioUrl])
+  
+  // Function to toggle audio playback
+  const toggleAudio = useCallback(() => {
+    if (!audioRef.current || !audioUrl) {
+      console.log('Cannot play audio: No audio reference or URL available')
+      return
+    }
+    
+    if (isPlaying) {
+      console.log('Pausing audio playback')
+      audioRef.current.pause()
+      setIsPlaying(false)
+    } else {
+      console.log('Starting audio playback')
+      audioRef.current.play()
+      .then(() => {
+        setIsPlaying(true)
+      })
+      .catch(error => {
+        console.error('Error playing audio:', error)
+        // Check if the audio element has a valid source
+        console.log('Audio source:', audioRef.current?.src)
+        // Check if audio data is loaded
+        console.log('Audio ready state:', audioRef.current?.readyState)
+      })
+    }
+  }, [audioUrl, isPlaying])
   
   // Function to parse HTML content in the browser
   const parseHtmlContent = (result: SpineItemContent): ParsedContent => {
@@ -407,9 +568,44 @@ function App() {
               </div>
             ) : selectedText ? (
               <div className="p-4 rounded-lg bg-white shadow mb-4">
-                <div className="mb-3">
-                  <h3 className="text-sm text-gray-500 font-medium mb-1">Original ({detectedLanguage})</h3>
+                <div className="mb-4">
+                  <div className="flex justify-between items-center mb-1">
+                    <h3 className="text-sm text-gray-500 font-medium">Original ({detectedLanguage})</h3>
+                    {isGeneratingSpeech ? (
+                      <span className="text-xs text-blue-500">Generating audio...</span>
+                    ) : audioUrl ? (
+                      <button 
+                        className="bg-blue-600 text-white text-xs px-2 py-1 rounded flex items-center gap-1"
+                        onClick={toggleAudio}
+                        title={isPlaying ? "Pause audio" : "Play audio"}
+                      >
+                        {isPlaying ? (
+                          <>
+                            <span>❚❚</span>
+                            <span>Pause</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>▶</span>
+                            <span>Play</span>
+                          </>
+                        )}
+                      </button>
+                    ) : null}
+                  </div>
                   <p className="text-gray-800 break-words">{selectedText}</p>
+                  
+                  {/* Hidden audio element */}
+                  {audioUrl && (
+                    <audio 
+                      ref={audioRef}
+                      src={audioUrl}
+                      onEnded={() => setIsPlaying(false)}
+                      onPause={() => setIsPlaying(false)}
+                      onPlay={() => setIsPlaying(true)}
+                      className="hidden"
+                    />
+                  )}
                 </div>
                 
                 <div>

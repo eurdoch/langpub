@@ -492,8 +492,12 @@ app.whenReady().then(() => {
   })
   
   // Handle API requests (bypass CORS)
-  ipcMain.handle('api-request', async (_event, url, method, data) => {
+  ipcMain.handle('api-request', async (_event, url, method, data, isBinary = false) => {
     try {
+      console.log(`API Request: ${method} ${url}`)
+      console.log('Request data:', data)
+      console.log('Binary mode:', isBinary)
+      
       return new Promise((resolve, reject) => {
         const request = net.request({
           method: method,
@@ -505,25 +509,49 @@ app.whenReady().then(() => {
         request.setHeader('Content-Type', 'application/json')
         
         request.on('response', (response) => {
+          console.log(`Response status: ${response.statusCode}`)
+          console.log('Response headers:', response.headers)
+          
           if (response.statusCode !== 200) {
             reject(new Error(`Request failed with status code ${response.statusCode}`))
             return
           }
           
-          let responseData = ''
-          
-          response.on('data', (chunk) => {
-            responseData += chunk.toString()
-          })
-          
-          response.on('end', () => {
-            try {
-              const parsedData = JSON.parse(responseData)
-              resolve(parsedData)
-            } catch (error) {
-              resolve(responseData) // Return raw data if not JSON
-            }
-          })
+          // Check if handling binary data
+          if (isBinary) {
+            const chunks: Buffer[] = []
+            
+            response.on('data', (chunk) => {
+              chunks.push(Buffer.from(chunk))
+            })
+            
+            response.on('end', () => {
+              try {
+                // For binary data, concatenate buffers and convert to base64
+                const buffer = Buffer.concat(chunks)
+                const base64Data = buffer.toString('base64')
+                resolve(base64Data)
+              } catch (error) {
+                reject(error)
+              }
+            })
+          } else {
+            // Handle text/JSON data
+            let responseData = ''
+            
+            response.on('data', (chunk) => {
+              responseData += chunk.toString()
+            })
+            
+            response.on('end', () => {
+              try {
+                const parsedData = JSON.parse(responseData)
+                resolve(parsedData)
+              } catch (error) {
+                resolve(responseData) // Return raw data if not JSON
+              }
+            })
+          }
         })
         
         request.on('error', (error) => {
