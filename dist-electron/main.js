@@ -1,16 +1,15 @@
-import { app, BrowserWindow, ipcMain, dialog, net } from "electron";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import fs from "node:fs";
-import require$$0 from "fs";
-import require$$1 from "path";
-import require$$0$1 from "zlib";
-import require$$0$2 from "crypto";
-function getDefaultExportFromCjs(x) {
-  return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
+import { app as be, BrowserWindow as Ct, ipcMain as De, dialog as nn, net as rn } from "electron";
+import { fileURLToPath as on } from "node:url";
+import z from "node:path";
+import xe from "node:fs";
+import sn from "fs";
+import qe from "path";
+import Tt from "zlib";
+import an from "crypto";
+function fn(e) {
+  return e && e.__esModule && Object.prototype.hasOwnProperty.call(e, "default") ? e.default : e;
 }
-var util = { exports: {} };
-var constants = {
+var ge = { exports: {} }, St = {
   /* The local file header */
   LOCHDR: 30,
   // LOC header size
@@ -222,10 +221,9 @@ var constants = {
   EF_ZIP64_SCOMP: 8,
   EF_ZIP64_RHO: 16,
   EF_ZIP64_DSN: 24
-};
-var errors = {};
-(function(exports) {
-  const errors2 = {
+}, ze = {};
+(function(e) {
+  const t = {
     /* Header error messages */
     INVALID_LOC: "Invalid LOC header (bad signature)",
     INVALID_CEN: "Invalid CEN header (bad signature)",
@@ -268,308 +266,226 @@ var errors = {};
     // Comment can be max 65535 bytes long (NOTE: some non-US characters may take more space)
     EXTRA_FIELD_PARSE_ERROR: "Extra field parsing error"
   };
-  function E(message) {
-    return function(...args) {
-      if (args.length) {
-        message = message.replace(/\{(\d)\}/g, (_, n) => args[n] || "");
-      }
-      return new Error("ADM-ZIP: " + message);
+  function n(r) {
+    return function(...i) {
+      return i.length && (r = r.replace(/\{(\d)\}/g, (o, u) => i[u] || "")), new Error("ADM-ZIP: " + r);
     };
   }
-  for (const msg of Object.keys(errors2)) {
-    exports[msg] = E(errors2[msg]);
-  }
-})(errors);
-const fsystem = require$$0;
-const pth$2 = require$$1;
-const Constants$3 = constants;
-const Errors$1 = errors;
-const isWin = typeof process === "object" && "win32" === process.platform;
-const is_Obj = (obj) => typeof obj === "object" && obj !== null;
-const crcTable = new Uint32Array(256).map((t, c) => {
-  for (let k = 0; k < 8; k++) {
-    if ((c & 1) !== 0) {
-      c = 3988292384 ^ c >>> 1;
-    } else {
-      c >>>= 1;
-    }
-  }
-  return c >>> 0;
+  for (const r of Object.keys(t))
+    e[r] = n(t[r]);
+})(ze);
+const cn = sn, Z = qe, ft = St, ln = ze, un = typeof process == "object" && process.platform === "win32", ct = (e) => typeof e == "object" && e !== null, wt = new Uint32Array(256).map((e, t) => {
+  for (let n = 0; n < 8; n++)
+    t & 1 ? t = 3988292384 ^ t >>> 1 : t >>>= 1;
+  return t >>> 0;
 });
-function Utils$5(opts) {
-  this.sep = pth$2.sep;
-  this.fs = fsystem;
-  if (is_Obj(opts)) {
-    if (is_Obj(opts.fs) && typeof opts.fs.statSync === "function") {
-      this.fs = opts.fs;
-    }
-  }
+function P(e) {
+  this.sep = Z.sep, this.fs = cn, ct(e) && ct(e.fs) && typeof e.fs.statSync == "function" && (this.fs = e.fs);
 }
-var utils = Utils$5;
-Utils$5.prototype.makeDir = function(folder) {
-  const self = this;
-  function mkdirSync(fpath) {
-    let resolvedPath = fpath.split(self.sep)[0];
-    fpath.split(self.sep).forEach(function(name) {
-      if (!name || name.substr(-1, 1) === ":") return;
-      resolvedPath += self.sep + name;
-      var stat;
-      try {
-        stat = self.fs.statSync(resolvedPath);
-      } catch (e) {
-        self.fs.mkdirSync(resolvedPath);
+var mn = P;
+P.prototype.makeDir = function(e) {
+  const t = this;
+  function n(r) {
+    let i = r.split(t.sep)[0];
+    r.split(t.sep).forEach(function(o) {
+      if (!(!o || o.substr(-1, 1) === ":")) {
+        i += t.sep + o;
+        var u;
+        try {
+          u = t.fs.statSync(i);
+        } catch {
+          t.fs.mkdirSync(i);
+        }
+        if (u && u.isFile()) throw ln.FILE_IN_THE_WAY(`"${i}"`);
       }
-      if (stat && stat.isFile()) throw Errors$1.FILE_IN_THE_WAY(`"${resolvedPath}"`);
     });
   }
-  mkdirSync(folder);
+  n(e);
 };
-Utils$5.prototype.writeFileTo = function(path2, content, overwrite, attr) {
-  const self = this;
-  if (self.fs.existsSync(path2)) {
-    if (!overwrite) return false;
-    var stat = self.fs.statSync(path2);
-    if (stat.isDirectory()) {
-      return false;
-    }
+P.prototype.writeFileTo = function(e, t, n, r) {
+  const i = this;
+  if (i.fs.existsSync(e)) {
+    if (!n) return !1;
+    var o = i.fs.statSync(e);
+    if (o.isDirectory())
+      return !1;
   }
-  var folder = pth$2.dirname(path2);
-  if (!self.fs.existsSync(folder)) {
-    self.makeDir(folder);
-  }
-  var fd;
+  var u = Z.dirname(e);
+  i.fs.existsSync(u) || i.makeDir(u);
+  var N;
   try {
-    fd = self.fs.openSync(path2, "w", 438);
-  } catch (e) {
-    self.fs.chmodSync(path2, 438);
-    fd = self.fs.openSync(path2, "w", 438);
+    N = i.fs.openSync(e, "w", 438);
+  } catch {
+    i.fs.chmodSync(e, 438), N = i.fs.openSync(e, "w", 438);
   }
-  if (fd) {
+  if (N)
     try {
-      self.fs.writeSync(fd, content, 0, content.length, 0);
+      i.fs.writeSync(N, t, 0, t.length, 0);
     } finally {
-      self.fs.closeSync(fd);
+      i.fs.closeSync(N);
     }
-  }
-  self.fs.chmodSync(path2, attr || 438);
-  return true;
+  return i.fs.chmodSync(e, r || 438), !0;
 };
-Utils$5.prototype.writeFileToAsync = function(path2, content, overwrite, attr, callback) {
-  if (typeof attr === "function") {
-    callback = attr;
-    attr = void 0;
-  }
-  const self = this;
-  self.fs.exists(path2, function(exist) {
-    if (exist && !overwrite) return callback(false);
-    self.fs.stat(path2, function(err, stat) {
-      if (exist && stat.isDirectory()) {
-        return callback(false);
-      }
-      var folder = pth$2.dirname(path2);
-      self.fs.exists(folder, function(exists) {
-        if (!exists) self.makeDir(folder);
-        self.fs.open(path2, "w", 438, function(err2, fd) {
-          if (err2) {
-            self.fs.chmod(path2, 438, function() {
-              self.fs.open(path2, "w", 438, function(err3, fd2) {
-                self.fs.write(fd2, content, 0, content.length, 0, function() {
-                  self.fs.close(fd2, function() {
-                    self.fs.chmod(path2, attr || 438, function() {
-                      callback(true);
-                    });
+P.prototype.writeFileToAsync = function(e, t, n, r, i) {
+  typeof r == "function" && (i = r, r = void 0);
+  const o = this;
+  o.fs.exists(e, function(u) {
+    if (u && !n) return i(!1);
+    o.fs.stat(e, function(N, d) {
+      if (u && d.isDirectory())
+        return i(!1);
+      var E = Z.dirname(e);
+      o.fs.exists(E, function(D) {
+        D || o.makeDir(E), o.fs.open(e, "w", 438, function(C, _) {
+          C ? o.fs.chmod(e, 438, function() {
+            o.fs.open(e, "w", 438, function(f, m) {
+              o.fs.write(m, t, 0, t.length, 0, function() {
+                o.fs.close(m, function() {
+                  o.fs.chmod(e, r || 438, function() {
+                    i(!0);
                   });
                 });
               });
             });
-          } else if (fd) {
-            self.fs.write(fd, content, 0, content.length, 0, function() {
-              self.fs.close(fd, function() {
-                self.fs.chmod(path2, attr || 438, function() {
-                  callback(true);
-                });
+          }) : _ ? o.fs.write(_, t, 0, t.length, 0, function() {
+            o.fs.close(_, function() {
+              o.fs.chmod(e, r || 438, function() {
+                i(!0);
               });
             });
-          } else {
-            self.fs.chmod(path2, attr || 438, function() {
-              callback(true);
-            });
-          }
+          }) : o.fs.chmod(e, r || 438, function() {
+            i(!0);
+          });
         });
       });
     });
   });
 };
-Utils$5.prototype.findFiles = function(path2) {
-  const self = this;
-  function findSync(dir, pattern, recursive) {
-    let files = [];
-    self.fs.readdirSync(dir).forEach(function(file) {
-      const path3 = pth$2.join(dir, file);
-      const stat = self.fs.statSync(path3);
-      {
-        files.push(pth$2.normalize(path3) + (stat.isDirectory() ? self.sep : ""));
-      }
-      if (stat.isDirectory() && recursive) files = files.concat(findSync(path3, pattern, recursive));
-    });
-    return files;
+P.prototype.findFiles = function(e) {
+  const t = this;
+  function n(r, i, o) {
+    let u = [];
+    return t.fs.readdirSync(r).forEach(function(N) {
+      const d = Z.join(r, N), E = t.fs.statSync(d);
+      u.push(Z.normalize(d) + (E.isDirectory() ? t.sep : "")), E.isDirectory() && o && (u = u.concat(n(d, i, o)));
+    }), u;
   }
-  return findSync(path2, void 0, true);
+  return n(e, void 0, !0);
 };
-Utils$5.prototype.findFilesAsync = function(dir, cb) {
-  const self = this;
-  let results = [];
-  self.fs.readdir(dir, function(err, list) {
-    if (err) return cb(err);
-    let list_length = list.length;
-    if (!list_length) return cb(null, results);
-    list.forEach(function(file) {
-      file = pth$2.join(dir, file);
-      self.fs.stat(file, function(err2, stat) {
-        if (err2) return cb(err2);
-        if (stat) {
-          results.push(pth$2.normalize(file) + (stat.isDirectory() ? self.sep : ""));
-          if (stat.isDirectory()) {
-            self.findFilesAsync(file, function(err3, res) {
-              if (err3) return cb(err3);
-              results = results.concat(res);
-              if (!--list_length) cb(null, results);
-            });
-          } else {
-            if (!--list_length) cb(null, results);
-          }
-        }
+P.prototype.findFilesAsync = function(e, t) {
+  const n = this;
+  let r = [];
+  n.fs.readdir(e, function(i, o) {
+    if (i) return t(i);
+    let u = o.length;
+    if (!u) return t(null, r);
+    o.forEach(function(N) {
+      N = Z.join(e, N), n.fs.stat(N, function(d, E) {
+        if (d) return t(d);
+        E && (r.push(Z.normalize(N) + (E.isDirectory() ? n.sep : "")), E.isDirectory() ? n.findFilesAsync(N, function(D, C) {
+          if (D) return t(D);
+          r = r.concat(C), --u || t(null, r);
+        }) : --u || t(null, r));
       });
     });
   });
 };
-Utils$5.prototype.getAttributes = function() {
+P.prototype.getAttributes = function() {
 };
-Utils$5.prototype.setAttributes = function() {
+P.prototype.setAttributes = function() {
 };
-Utils$5.crc32update = function(crc, byte) {
-  return crcTable[(crc ^ byte) & 255] ^ crc >>> 8;
+P.crc32update = function(e, t) {
+  return wt[(e ^ t) & 255] ^ e >>> 8;
 };
-Utils$5.crc32 = function(buf) {
-  if (typeof buf === "string") {
-    buf = Buffer.from(buf, "utf8");
-  }
-  let len = buf.length;
-  let crc = -1;
-  for (let off = 0; off < len; ) crc = Utils$5.crc32update(crc, buf[off++]);
-  return ~crc >>> 0;
+P.crc32 = function(e) {
+  typeof e == "string" && (e = Buffer.from(e, "utf8"));
+  let t = e.length, n = -1;
+  for (let r = 0; r < t; ) n = P.crc32update(n, e[r++]);
+  return ~n >>> 0;
 };
-Utils$5.methodToString = function(method) {
-  switch (method) {
-    case Constants$3.STORED:
-      return "STORED (" + method + ")";
-    case Constants$3.DEFLATED:
-      return "DEFLATED (" + method + ")";
+P.methodToString = function(e) {
+  switch (e) {
+    case ft.STORED:
+      return "STORED (" + e + ")";
+    case ft.DEFLATED:
+      return "DEFLATED (" + e + ")";
     default:
-      return "UNSUPPORTED (" + method + ")";
+      return "UNSUPPORTED (" + e + ")";
   }
 };
-Utils$5.canonical = function(path2) {
-  if (!path2) return "";
-  const safeSuffix = pth$2.posix.normalize("/" + path2.split("\\").join("/"));
-  return pth$2.join(".", safeSuffix);
+P.canonical = function(e) {
+  if (!e) return "";
+  const t = Z.posix.normalize("/" + e.split("\\").join("/"));
+  return Z.join(".", t);
 };
-Utils$5.zipnamefix = function(path2) {
-  if (!path2) return "";
-  const safeSuffix = pth$2.posix.normalize("/" + path2.split("\\").join("/"));
-  return pth$2.posix.join(".", safeSuffix);
+P.zipnamefix = function(e) {
+  if (!e) return "";
+  const t = Z.posix.normalize("/" + e.split("\\").join("/"));
+  return Z.posix.join(".", t);
 };
-Utils$5.findLast = function(arr, callback) {
-  if (!Array.isArray(arr)) throw new TypeError("arr is not array");
-  const len = arr.length >>> 0;
-  for (let i = len - 1; i >= 0; i--) {
-    if (callback(arr[i], i, arr)) {
-      return arr[i];
-    }
+P.findLast = function(e, t) {
+  if (!Array.isArray(e)) throw new TypeError("arr is not array");
+  const n = e.length >>> 0;
+  for (let r = n - 1; r >= 0; r--)
+    if (t(e[r], r, e))
+      return e[r];
+};
+P.sanitize = function(e, t) {
+  e = Z.resolve(Z.normalize(e));
+  for (var n = t.split("/"), r = 0, i = n.length; r < i; r++) {
+    var o = Z.normalize(Z.join(e, n.slice(r, i).join(Z.sep)));
+    if (o.indexOf(e) === 0)
+      return o;
   }
-  return void 0;
+  return Z.normalize(Z.join(e, Z.basename(t)));
 };
-Utils$5.sanitize = function(prefix, name) {
-  prefix = pth$2.resolve(pth$2.normalize(prefix));
-  var parts = name.split("/");
-  for (var i = 0, l = parts.length; i < l; i++) {
-    var path2 = pth$2.normalize(pth$2.join(prefix, parts.slice(i, l).join(pth$2.sep)));
-    if (path2.indexOf(prefix) === 0) {
-      return path2;
-    }
-  }
-  return pth$2.normalize(pth$2.join(prefix, pth$2.basename(name)));
+P.toBuffer = function(t, n) {
+  return Buffer.isBuffer(t) ? t : t instanceof Uint8Array ? Buffer.from(t) : typeof t == "string" ? n(t) : Buffer.alloc(0);
 };
-Utils$5.toBuffer = function toBuffer(input, encoder) {
-  if (Buffer.isBuffer(input)) {
-    return input;
-  } else if (input instanceof Uint8Array) {
-    return Buffer.from(input);
-  } else {
-    return typeof input === "string" ? encoder(input) : Buffer.alloc(0);
-  }
+P.readBigUInt64LE = function(e, t) {
+  var n = Buffer.from(e.slice(t, t + 8));
+  return n.swap64(), parseInt(`0x${n.toString("hex")}`);
 };
-Utils$5.readBigUInt64LE = function(buffer, index) {
-  var slice = Buffer.from(buffer.slice(index, index + 8));
-  slice.swap64();
-  return parseInt(`0x${slice.toString("hex")}`);
+P.fromDOS2Date = function(e) {
+  return new Date((e >> 25 & 127) + 1980, Math.max((e >> 21 & 15) - 1, 0), Math.max(e >> 16 & 31, 1), e >> 11 & 31, e >> 5 & 63, (e & 31) << 1);
 };
-Utils$5.fromDOS2Date = function(val) {
-  return new Date((val >> 25 & 127) + 1980, Math.max((val >> 21 & 15) - 1, 0), Math.max(val >> 16 & 31, 1), val >> 11 & 31, val >> 5 & 63, (val & 31) << 1);
+P.fromDate2DOS = function(e) {
+  let t = 0, n = 0;
+  return e.getFullYear() > 1979 && (t = (e.getFullYear() - 1980 & 127) << 9 | e.getMonth() + 1 << 5 | e.getDate(), n = e.getHours() << 11 | e.getMinutes() << 5 | e.getSeconds() >> 1), t << 16 | n;
 };
-Utils$5.fromDate2DOS = function(val) {
-  let date = 0;
-  let time = 0;
-  if (val.getFullYear() > 1979) {
-    date = (val.getFullYear() - 1980 & 127) << 9 | val.getMonth() + 1 << 5 | val.getDate();
-    time = val.getHours() << 11 | val.getMinutes() << 5 | val.getSeconds() >> 1;
-  }
-  return date << 16 | time;
-};
-Utils$5.isWin = isWin;
-Utils$5.crcTable = crcTable;
-const pth$1 = require$$1;
-var fattr = function(path2, { fs: fs2 }) {
-  var _path = path2 || "", _obj = newAttr(), _stat = null;
-  function newAttr() {
+P.isWin = un;
+P.crcTable = wt;
+const dn = qe;
+var hn = function(e, { fs: t }) {
+  var n = e || "", r = o(), i = null;
+  function o() {
     return {
-      directory: false,
-      readonly: false,
-      hidden: false,
-      executable: false,
+      directory: !1,
+      readonly: !1,
+      hidden: !1,
+      executable: !1,
       mtime: 0,
       atime: 0
     };
   }
-  if (_path && fs2.existsSync(_path)) {
-    _stat = fs2.statSync(_path);
-    _obj.directory = _stat.isDirectory();
-    _obj.mtime = _stat.mtime;
-    _obj.atime = _stat.atime;
-    _obj.executable = (73 & _stat.mode) !== 0;
-    _obj.readonly = (128 & _stat.mode) === 0;
-    _obj.hidden = pth$1.basename(_path)[0] === ".";
-  } else {
-    console.warn("Invalid path: " + _path);
-  }
-  return {
+  return n && t.existsSync(n) ? (i = t.statSync(n), r.directory = i.isDirectory(), r.mtime = i.mtime, r.atime = i.atime, r.executable = (73 & i.mode) !== 0, r.readonly = (128 & i.mode) === 0, r.hidden = dn.basename(n)[0] === ".") : console.warn("Invalid path: " + n), {
     get directory() {
-      return _obj.directory;
+      return r.directory;
     },
     get readOnly() {
-      return _obj.readonly;
+      return r.readonly;
     },
     get hidden() {
-      return _obj.hidden;
+      return r.hidden;
     },
     get mtime() {
-      return _obj.mtime;
+      return r.mtime;
     },
     get atime() {
-      return _obj.atime;
+      return r.atime;
     },
     get executable() {
-      return _obj.executable;
+      return r.executable;
     },
     decodeAttributes: function() {
     },
@@ -577,371 +493,281 @@ var fattr = function(path2, { fs: fs2 }) {
     },
     toJSON: function() {
       return {
-        path: _path,
-        isDirectory: _obj.directory,
-        isReadOnly: _obj.readonly,
-        isHidden: _obj.hidden,
-        isExecutable: _obj.executable,
-        mTime: _obj.mtime,
-        aTime: _obj.atime
+        path: n,
+        isDirectory: r.directory,
+        isReadOnly: r.readonly,
+        isHidden: r.hidden,
+        isExecutable: r.executable,
+        mTime: r.mtime,
+        aTime: r.atime
       };
     },
     toString: function() {
       return JSON.stringify(this.toJSON(), null, "	");
     }
   };
+}, En = {
+  efs: !0,
+  encode: (e) => Buffer.from(e, "utf8"),
+  decode: (e) => e.toString("utf8")
 };
-var decoder = {
-  efs: true,
-  encode: (data) => Buffer.from(data, "utf8"),
-  decode: (data) => data.toString("utf8")
-};
-util.exports = utils;
-util.exports.Constants = constants;
-util.exports.Errors = errors;
-util.exports.FileAttr = fattr;
-util.exports.decoder = decoder;
-var utilExports = util.exports;
-var headers = {};
-var Utils$4 = utilExports, Constants$2 = Utils$4.Constants;
-var entryHeader = function() {
-  var _verMade = 20, _version = 10, _flags = 0, _method = 0, _time = 0, _crc = 0, _compressedSize = 0, _size = 0, _fnameLen = 0, _extraLen = 0, _comLen = 0, _diskStart = 0, _inattr = 0, _attr = 0, _offset = 0;
-  _verMade |= Utils$4.isWin ? 2560 : 768;
-  _flags |= Constants$2.FLG_EFS;
-  const _localHeader = {
+ge.exports = mn;
+ge.exports.Constants = St;
+ge.exports.Errors = ze;
+ge.exports.FileAttr = hn;
+ge.exports.decoder = En;
+var Te = ge.exports, Ze = {}, ee = Te, I = ee.Constants, pn = function() {
+  var e = 20, t = 10, n = 0, r = 0, i = 0, o = 0, u = 0, N = 0, d = 0, E = 0, D = 0, C = 0, _ = 0, f = 0, m = 0;
+  e |= ee.isWin ? 2560 : 768, n |= I.FLG_EFS;
+  const a = {
     extraLen: 0
-  };
-  const uint32 = (val) => Math.max(0, val) >>> 0;
-  const uint8 = (val) => Math.max(0, val) & 255;
-  _time = Utils$4.fromDate2DOS(/* @__PURE__ */ new Date());
-  return {
+  }, l = (s) => Math.max(0, s) >>> 0, p = (s) => Math.max(0, s) & 255;
+  return i = ee.fromDate2DOS(/* @__PURE__ */ new Date()), {
     get made() {
-      return _verMade;
+      return e;
     },
-    set made(val) {
-      _verMade = val;
+    set made(s) {
+      e = s;
     },
     get version() {
-      return _version;
+      return t;
     },
-    set version(val) {
-      _version = val;
+    set version(s) {
+      t = s;
     },
     get flags() {
-      return _flags;
+      return n;
     },
-    set flags(val) {
-      _flags = val;
+    set flags(s) {
+      n = s;
     },
     get flags_efs() {
-      return (_flags & Constants$2.FLG_EFS) > 0;
+      return (n & I.FLG_EFS) > 0;
     },
-    set flags_efs(val) {
-      if (val) {
-        _flags |= Constants$2.FLG_EFS;
-      } else {
-        _flags &= ~Constants$2.FLG_EFS;
-      }
+    set flags_efs(s) {
+      s ? n |= I.FLG_EFS : n &= ~I.FLG_EFS;
     },
     get flags_desc() {
-      return (_flags & Constants$2.FLG_DESC) > 0;
+      return (n & I.FLG_DESC) > 0;
     },
-    set flags_desc(val) {
-      if (val) {
-        _flags |= Constants$2.FLG_DESC;
-      } else {
-        _flags &= ~Constants$2.FLG_DESC;
-      }
+    set flags_desc(s) {
+      s ? n |= I.FLG_DESC : n &= ~I.FLG_DESC;
     },
     get method() {
-      return _method;
+      return r;
     },
-    set method(val) {
-      switch (val) {
-        case Constants$2.STORED:
+    set method(s) {
+      switch (s) {
+        case I.STORED:
           this.version = 10;
-        case Constants$2.DEFLATED:
+        case I.DEFLATED:
         default:
           this.version = 20;
       }
-      _method = val;
+      r = s;
     },
     get time() {
-      return Utils$4.fromDOS2Date(this.timeval);
+      return ee.fromDOS2Date(this.timeval);
     },
-    set time(val) {
-      this.timeval = Utils$4.fromDate2DOS(val);
+    set time(s) {
+      this.timeval = ee.fromDate2DOS(s);
     },
     get timeval() {
-      return _time;
+      return i;
     },
-    set timeval(val) {
-      _time = uint32(val);
+    set timeval(s) {
+      i = l(s);
     },
     get timeHighByte() {
-      return uint8(_time >>> 8);
+      return p(i >>> 8);
     },
     get crc() {
-      return _crc;
+      return o;
     },
-    set crc(val) {
-      _crc = uint32(val);
+    set crc(s) {
+      o = l(s);
     },
     get compressedSize() {
-      return _compressedSize;
+      return u;
     },
-    set compressedSize(val) {
-      _compressedSize = uint32(val);
+    set compressedSize(s) {
+      u = l(s);
     },
     get size() {
-      return _size;
+      return N;
     },
-    set size(val) {
-      _size = uint32(val);
+    set size(s) {
+      N = l(s);
     },
     get fileNameLength() {
-      return _fnameLen;
+      return d;
     },
-    set fileNameLength(val) {
-      _fnameLen = val;
+    set fileNameLength(s) {
+      d = s;
     },
     get extraLength() {
-      return _extraLen;
+      return E;
     },
-    set extraLength(val) {
-      _extraLen = val;
+    set extraLength(s) {
+      E = s;
     },
     get extraLocalLength() {
-      return _localHeader.extraLen;
+      return a.extraLen;
     },
-    set extraLocalLength(val) {
-      _localHeader.extraLen = val;
+    set extraLocalLength(s) {
+      a.extraLen = s;
     },
     get commentLength() {
-      return _comLen;
+      return D;
     },
-    set commentLength(val) {
-      _comLen = val;
+    set commentLength(s) {
+      D = s;
     },
     get diskNumStart() {
-      return _diskStart;
+      return C;
     },
-    set diskNumStart(val) {
-      _diskStart = uint32(val);
+    set diskNumStart(s) {
+      C = l(s);
     },
     get inAttr() {
-      return _inattr;
+      return _;
     },
-    set inAttr(val) {
-      _inattr = uint32(val);
+    set inAttr(s) {
+      _ = l(s);
     },
     get attr() {
-      return _attr;
+      return f;
     },
-    set attr(val) {
-      _attr = uint32(val);
+    set attr(s) {
+      f = l(s);
     },
     // get Unix file permissions
     get fileAttr() {
-      return (_attr || 0) >> 16 & 4095;
+      return (f || 0) >> 16 & 4095;
     },
     get offset() {
-      return _offset;
+      return m;
     },
-    set offset(val) {
-      _offset = uint32(val);
+    set offset(s) {
+      m = l(s);
     },
     get encrypted() {
-      return (_flags & Constants$2.FLG_ENC) === Constants$2.FLG_ENC;
+      return (n & I.FLG_ENC) === I.FLG_ENC;
     },
     get centralHeaderSize() {
-      return Constants$2.CENHDR + _fnameLen + _extraLen + _comLen;
+      return I.CENHDR + d + E + D;
     },
     get realDataOffset() {
-      return _offset + Constants$2.LOCHDR + _localHeader.fnameLen + _localHeader.extraLen;
+      return m + I.LOCHDR + a.fnameLen + a.extraLen;
     },
     get localHeader() {
-      return _localHeader;
+      return a;
     },
-    loadLocalHeaderFromBinary: function(input) {
-      var data = input.slice(_offset, _offset + Constants$2.LOCHDR);
-      if (data.readUInt32LE(0) !== Constants$2.LOCSIG) {
-        throw Utils$4.Errors.INVALID_LOC();
-      }
-      _localHeader.version = data.readUInt16LE(Constants$2.LOCVER);
-      _localHeader.flags = data.readUInt16LE(Constants$2.LOCFLG);
-      _localHeader.method = data.readUInt16LE(Constants$2.LOCHOW);
-      _localHeader.time = data.readUInt32LE(Constants$2.LOCTIM);
-      _localHeader.crc = data.readUInt32LE(Constants$2.LOCCRC);
-      _localHeader.compressedSize = data.readUInt32LE(Constants$2.LOCSIZ);
-      _localHeader.size = data.readUInt32LE(Constants$2.LOCLEN);
-      _localHeader.fnameLen = data.readUInt16LE(Constants$2.LOCNAM);
-      _localHeader.extraLen = data.readUInt16LE(Constants$2.LOCEXT);
-      const extraStart = _offset + Constants$2.LOCHDR + _localHeader.fnameLen;
-      const extraEnd = extraStart + _localHeader.extraLen;
-      return input.slice(extraStart, extraEnd);
+    loadLocalHeaderFromBinary: function(s) {
+      var c = s.slice(m, m + I.LOCHDR);
+      if (c.readUInt32LE(0) !== I.LOCSIG)
+        throw ee.Errors.INVALID_LOC();
+      a.version = c.readUInt16LE(I.LOCVER), a.flags = c.readUInt16LE(I.LOCFLG), a.method = c.readUInt16LE(I.LOCHOW), a.time = c.readUInt32LE(I.LOCTIM), a.crc = c.readUInt32LE(I.LOCCRC), a.compressedSize = c.readUInt32LE(I.LOCSIZ), a.size = c.readUInt32LE(I.LOCLEN), a.fnameLen = c.readUInt16LE(I.LOCNAM), a.extraLen = c.readUInt16LE(I.LOCEXT);
+      const h = m + I.LOCHDR + a.fnameLen, g = h + a.extraLen;
+      return s.slice(h, g);
     },
-    loadFromBinary: function(data) {
-      if (data.length !== Constants$2.CENHDR || data.readUInt32LE(0) !== Constants$2.CENSIG) {
-        throw Utils$4.Errors.INVALID_CEN();
-      }
-      _verMade = data.readUInt16LE(Constants$2.CENVEM);
-      _version = data.readUInt16LE(Constants$2.CENVER);
-      _flags = data.readUInt16LE(Constants$2.CENFLG);
-      _method = data.readUInt16LE(Constants$2.CENHOW);
-      _time = data.readUInt32LE(Constants$2.CENTIM);
-      _crc = data.readUInt32LE(Constants$2.CENCRC);
-      _compressedSize = data.readUInt32LE(Constants$2.CENSIZ);
-      _size = data.readUInt32LE(Constants$2.CENLEN);
-      _fnameLen = data.readUInt16LE(Constants$2.CENNAM);
-      _extraLen = data.readUInt16LE(Constants$2.CENEXT);
-      _comLen = data.readUInt16LE(Constants$2.CENCOM);
-      _diskStart = data.readUInt16LE(Constants$2.CENDSK);
-      _inattr = data.readUInt16LE(Constants$2.CENATT);
-      _attr = data.readUInt32LE(Constants$2.CENATX);
-      _offset = data.readUInt32LE(Constants$2.CENOFF);
+    loadFromBinary: function(s) {
+      if (s.length !== I.CENHDR || s.readUInt32LE(0) !== I.CENSIG)
+        throw ee.Errors.INVALID_CEN();
+      e = s.readUInt16LE(I.CENVEM), t = s.readUInt16LE(I.CENVER), n = s.readUInt16LE(I.CENFLG), r = s.readUInt16LE(I.CENHOW), i = s.readUInt32LE(I.CENTIM), o = s.readUInt32LE(I.CENCRC), u = s.readUInt32LE(I.CENSIZ), N = s.readUInt32LE(I.CENLEN), d = s.readUInt16LE(I.CENNAM), E = s.readUInt16LE(I.CENEXT), D = s.readUInt16LE(I.CENCOM), C = s.readUInt16LE(I.CENDSK), _ = s.readUInt16LE(I.CENATT), f = s.readUInt32LE(I.CENATX), m = s.readUInt32LE(I.CENOFF);
     },
     localHeaderToBinary: function() {
-      var data = Buffer.alloc(Constants$2.LOCHDR);
-      data.writeUInt32LE(Constants$2.LOCSIG, 0);
-      data.writeUInt16LE(_version, Constants$2.LOCVER);
-      data.writeUInt16LE(_flags, Constants$2.LOCFLG);
-      data.writeUInt16LE(_method, Constants$2.LOCHOW);
-      data.writeUInt32LE(_time, Constants$2.LOCTIM);
-      data.writeUInt32LE(_crc, Constants$2.LOCCRC);
-      data.writeUInt32LE(_compressedSize, Constants$2.LOCSIZ);
-      data.writeUInt32LE(_size, Constants$2.LOCLEN);
-      data.writeUInt16LE(_fnameLen, Constants$2.LOCNAM);
-      data.writeUInt16LE(_localHeader.extraLen, Constants$2.LOCEXT);
-      return data;
+      var s = Buffer.alloc(I.LOCHDR);
+      return s.writeUInt32LE(I.LOCSIG, 0), s.writeUInt16LE(t, I.LOCVER), s.writeUInt16LE(n, I.LOCFLG), s.writeUInt16LE(r, I.LOCHOW), s.writeUInt32LE(i, I.LOCTIM), s.writeUInt32LE(o, I.LOCCRC), s.writeUInt32LE(u, I.LOCSIZ), s.writeUInt32LE(N, I.LOCLEN), s.writeUInt16LE(d, I.LOCNAM), s.writeUInt16LE(a.extraLen, I.LOCEXT), s;
     },
     centralHeaderToBinary: function() {
-      var data = Buffer.alloc(Constants$2.CENHDR + _fnameLen + _extraLen + _comLen);
-      data.writeUInt32LE(Constants$2.CENSIG, 0);
-      data.writeUInt16LE(_verMade, Constants$2.CENVEM);
-      data.writeUInt16LE(_version, Constants$2.CENVER);
-      data.writeUInt16LE(_flags, Constants$2.CENFLG);
-      data.writeUInt16LE(_method, Constants$2.CENHOW);
-      data.writeUInt32LE(_time, Constants$2.CENTIM);
-      data.writeUInt32LE(_crc, Constants$2.CENCRC);
-      data.writeUInt32LE(_compressedSize, Constants$2.CENSIZ);
-      data.writeUInt32LE(_size, Constants$2.CENLEN);
-      data.writeUInt16LE(_fnameLen, Constants$2.CENNAM);
-      data.writeUInt16LE(_extraLen, Constants$2.CENEXT);
-      data.writeUInt16LE(_comLen, Constants$2.CENCOM);
-      data.writeUInt16LE(_diskStart, Constants$2.CENDSK);
-      data.writeUInt16LE(_inattr, Constants$2.CENATT);
-      data.writeUInt32LE(_attr, Constants$2.CENATX);
-      data.writeUInt32LE(_offset, Constants$2.CENOFF);
-      return data;
+      var s = Buffer.alloc(I.CENHDR + d + E + D);
+      return s.writeUInt32LE(I.CENSIG, 0), s.writeUInt16LE(e, I.CENVEM), s.writeUInt16LE(t, I.CENVER), s.writeUInt16LE(n, I.CENFLG), s.writeUInt16LE(r, I.CENHOW), s.writeUInt32LE(i, I.CENTIM), s.writeUInt32LE(o, I.CENCRC), s.writeUInt32LE(u, I.CENSIZ), s.writeUInt32LE(N, I.CENLEN), s.writeUInt16LE(d, I.CENNAM), s.writeUInt16LE(E, I.CENEXT), s.writeUInt16LE(D, I.CENCOM), s.writeUInt16LE(C, I.CENDSK), s.writeUInt16LE(_, I.CENATT), s.writeUInt32LE(f, I.CENATX), s.writeUInt32LE(m, I.CENOFF), s;
     },
     toJSON: function() {
-      const bytes = function(nr) {
-        return nr + " bytes";
+      const s = function(c) {
+        return c + " bytes";
       };
       return {
-        made: _verMade,
-        version: _version,
-        flags: _flags,
-        method: Utils$4.methodToString(_method),
+        made: e,
+        version: t,
+        flags: n,
+        method: ee.methodToString(r),
         time: this.time,
-        crc: "0x" + _crc.toString(16).toUpperCase(),
-        compressedSize: bytes(_compressedSize),
-        size: bytes(_size),
-        fileNameLength: bytes(_fnameLen),
-        extraLength: bytes(_extraLen),
-        commentLength: bytes(_comLen),
-        diskNumStart: _diskStart,
-        inAttr: _inattr,
-        attr: _attr,
-        offset: _offset,
-        centralHeaderSize: bytes(Constants$2.CENHDR + _fnameLen + _extraLen + _comLen)
+        crc: "0x" + o.toString(16).toUpperCase(),
+        compressedSize: s(u),
+        size: s(N),
+        fileNameLength: s(d),
+        extraLength: s(E),
+        commentLength: s(D),
+        diskNumStart: C,
+        inAttr: _,
+        attr: f,
+        offset: m,
+        centralHeaderSize: s(I.CENHDR + d + E + D)
       };
     },
     toString: function() {
       return JSON.stringify(this.toJSON(), null, "	");
     }
   };
-};
-var Utils$3 = utilExports, Constants$1 = Utils$3.Constants;
-var mainHeader = function() {
-  var _volumeEntries = 0, _totalEntries = 0, _size = 0, _offset = 0, _commentLength = 0;
+}, ue = Te, U = ue.Constants, gn = function() {
+  var e = 0, t = 0, n = 0, r = 0, i = 0;
   return {
     get diskEntries() {
-      return _volumeEntries;
+      return e;
     },
-    set diskEntries(val) {
-      _volumeEntries = _totalEntries = val;
+    set diskEntries(o) {
+      e = t = o;
     },
     get totalEntries() {
-      return _totalEntries;
+      return t;
     },
-    set totalEntries(val) {
-      _totalEntries = _volumeEntries = val;
+    set totalEntries(o) {
+      t = e = o;
     },
     get size() {
-      return _size;
+      return n;
     },
-    set size(val) {
-      _size = val;
+    set size(o) {
+      n = o;
     },
     get offset() {
-      return _offset;
+      return r;
     },
-    set offset(val) {
-      _offset = val;
+    set offset(o) {
+      r = o;
     },
     get commentLength() {
-      return _commentLength;
+      return i;
     },
-    set commentLength(val) {
-      _commentLength = val;
+    set commentLength(o) {
+      i = o;
     },
     get mainHeaderSize() {
-      return Constants$1.ENDHDR + _commentLength;
+      return U.ENDHDR + i;
     },
-    loadFromBinary: function(data) {
-      if ((data.length !== Constants$1.ENDHDR || data.readUInt32LE(0) !== Constants$1.ENDSIG) && (data.length < Constants$1.ZIP64HDR || data.readUInt32LE(0) !== Constants$1.ZIP64SIG)) {
-        throw Utils$3.Errors.INVALID_END();
-      }
-      if (data.readUInt32LE(0) === Constants$1.ENDSIG) {
-        _volumeEntries = data.readUInt16LE(Constants$1.ENDSUB);
-        _totalEntries = data.readUInt16LE(Constants$1.ENDTOT);
-        _size = data.readUInt32LE(Constants$1.ENDSIZ);
-        _offset = data.readUInt32LE(Constants$1.ENDOFF);
-        _commentLength = data.readUInt16LE(Constants$1.ENDCOM);
-      } else {
-        _volumeEntries = Utils$3.readBigUInt64LE(data, Constants$1.ZIP64SUB);
-        _totalEntries = Utils$3.readBigUInt64LE(data, Constants$1.ZIP64TOT);
-        _size = Utils$3.readBigUInt64LE(data, Constants$1.ZIP64SIZE);
-        _offset = Utils$3.readBigUInt64LE(data, Constants$1.ZIP64OFF);
-        _commentLength = 0;
-      }
+    loadFromBinary: function(o) {
+      if ((o.length !== U.ENDHDR || o.readUInt32LE(0) !== U.ENDSIG) && (o.length < U.ZIP64HDR || o.readUInt32LE(0) !== U.ZIP64SIG))
+        throw ue.Errors.INVALID_END();
+      o.readUInt32LE(0) === U.ENDSIG ? (e = o.readUInt16LE(U.ENDSUB), t = o.readUInt16LE(U.ENDTOT), n = o.readUInt32LE(U.ENDSIZ), r = o.readUInt32LE(U.ENDOFF), i = o.readUInt16LE(U.ENDCOM)) : (e = ue.readBigUInt64LE(o, U.ZIP64SUB), t = ue.readBigUInt64LE(o, U.ZIP64TOT), n = ue.readBigUInt64LE(o, U.ZIP64SIZE), r = ue.readBigUInt64LE(o, U.ZIP64OFF), i = 0);
     },
     toBinary: function() {
-      var b = Buffer.alloc(Constants$1.ENDHDR + _commentLength);
-      b.writeUInt32LE(Constants$1.ENDSIG, 0);
-      b.writeUInt32LE(0, 4);
-      b.writeUInt16LE(_volumeEntries, Constants$1.ENDSUB);
-      b.writeUInt16LE(_totalEntries, Constants$1.ENDTOT);
-      b.writeUInt32LE(_size, Constants$1.ENDSIZ);
-      b.writeUInt32LE(_offset, Constants$1.ENDOFF);
-      b.writeUInt16LE(_commentLength, Constants$1.ENDCOM);
-      b.fill(" ", Constants$1.ENDHDR);
-      return b;
+      var o = Buffer.alloc(U.ENDHDR + i);
+      return o.writeUInt32LE(U.ENDSIG, 0), o.writeUInt32LE(0, 4), o.writeUInt16LE(e, U.ENDSUB), o.writeUInt16LE(t, U.ENDTOT), o.writeUInt32LE(n, U.ENDSIZ), o.writeUInt32LE(r, U.ENDOFF), o.writeUInt16LE(i, U.ENDCOM), o.fill(" ", U.ENDHDR), o;
     },
     toJSON: function() {
-      const offset = function(nr, len) {
-        let offs = nr.toString(16).toUpperCase();
-        while (offs.length < len) offs = "0" + offs;
-        return "0x" + offs;
+      const o = function(u, N) {
+        let d = u.toString(16).toUpperCase();
+        for (; d.length < N; ) d = "0" + d;
+        return "0x" + d;
       };
       return {
-        diskEntries: _volumeEntries,
-        totalEntries: _totalEntries,
-        size: _size + " bytes",
-        offset: offset(_offset, 4),
-        commentLength: _commentLength
+        diskEntries: e,
+        totalEntries: t,
+        size: n + " bytes",
+        offset: o(r, 4),
+        commentLength: i
       };
     },
     toString: function() {
@@ -949,491 +775,311 @@ var mainHeader = function() {
     }
   };
 };
-headers.EntryHeader = entryHeader;
-headers.MainHeader = mainHeader;
-var methods = {};
-var deflater = function(inbuf) {
-  var zlib = require$$0$1;
-  var opts = { chunkSize: (parseInt(inbuf.length / 1024) + 1) * 1024 };
+Ze.EntryHeader = pn;
+Ze.MainHeader = gn;
+var He = {}, Nn = function(e) {
+  var t = Tt, n = { chunkSize: (parseInt(e.length / 1024) + 1) * 1024 };
   return {
     deflate: function() {
-      return zlib.deflateRawSync(inbuf, opts);
+      return t.deflateRawSync(e, n);
     },
-    deflateAsync: function(callback) {
-      var tmp = zlib.createDeflateRaw(opts), parts = [], total = 0;
-      tmp.on("data", function(data) {
-        parts.push(data);
-        total += data.length;
-      });
-      tmp.on("end", function() {
-        var buf = Buffer.alloc(total), written = 0;
-        buf.fill(0);
-        for (var i = 0; i < parts.length; i++) {
-          var part = parts[i];
-          part.copy(buf, written);
-          written += part.length;
+    deflateAsync: function(r) {
+      var i = t.createDeflateRaw(n), o = [], u = 0;
+      i.on("data", function(N) {
+        o.push(N), u += N.length;
+      }), i.on("end", function() {
+        var N = Buffer.alloc(u), d = 0;
+        N.fill(0);
+        for (var E = 0; E < o.length; E++) {
+          var D = o[E];
+          D.copy(N, d), d += D.length;
         }
-        callback && callback(buf);
-      });
-      tmp.end(inbuf);
+        r && r(N);
+      }), i.end(e);
     }
   };
 };
-const version = +(process.versions ? process.versions.node : "").split(".")[0] || 0;
-var inflater = function(inbuf, expectedLength) {
-  var zlib = require$$0$1;
-  const option = version >= 15 && expectedLength > 0 ? { maxOutputLength: expectedLength } : {};
+const Dn = +(process.versions ? process.versions.node : "").split(".")[0] || 0;
+var yn = function(e, t) {
+  var n = Tt;
+  const r = Dn >= 15 && t > 0 ? { maxOutputLength: t } : {};
   return {
     inflate: function() {
-      return zlib.inflateRawSync(inbuf, option);
+      return n.inflateRawSync(e, r);
     },
-    inflateAsync: function(callback) {
-      var tmp = zlib.createInflateRaw(option), parts = [], total = 0;
-      tmp.on("data", function(data) {
-        parts.push(data);
-        total += data.length;
-      });
-      tmp.on("end", function() {
-        var buf = Buffer.alloc(total), written = 0;
-        buf.fill(0);
-        for (var i = 0; i < parts.length; i++) {
-          var part = parts[i];
-          part.copy(buf, written);
-          written += part.length;
+    inflateAsync: function(i) {
+      var o = n.createInflateRaw(r), u = [], N = 0;
+      o.on("data", function(d) {
+        u.push(d), N += d.length;
+      }), o.on("end", function() {
+        var d = Buffer.alloc(N), E = 0;
+        d.fill(0);
+        for (var D = 0; D < u.length; D++) {
+          var C = u[D];
+          C.copy(d, E), E += C.length;
         }
-        callback && callback(buf);
-      });
-      tmp.end(inbuf);
+        i && i(d);
+      }), o.end(e);
     }
   };
 };
-const { randomFillSync } = require$$0$2;
-const Errors = errors;
-const crctable = new Uint32Array(256).map((t, crc) => {
-  for (let j = 0; j < 8; j++) {
-    if (0 !== (crc & 1)) {
-      crc = crc >>> 1 ^ 3988292384;
-    } else {
-      crc >>>= 1;
-    }
-  }
-  return crc >>> 0;
-});
-const uMul = (a, b) => Math.imul(a, b) >>> 0;
-const crc32update = (pCrc32, bval) => {
-  return crctable[(pCrc32 ^ bval) & 255] ^ pCrc32 >>> 8;
+const { randomFillSync: lt } = an, vn = ze, In = new Uint32Array(256).map((e, t) => {
+  for (let n = 0; n < 8; n++)
+    t & 1 ? t = t >>> 1 ^ 3988292384 : t >>>= 1;
+  return t >>> 0;
+}), Lt = (e, t) => Math.imul(e, t) >>> 0, ut = (e, t) => In[(e ^ t) & 255] ^ e >>> 8, _e = () => typeof lt == "function" ? lt(Buffer.alloc(12)) : _e.node();
+_e.node = () => {
+  const e = Buffer.alloc(12), t = e.length;
+  for (let n = 0; n < t; n++) e[n] = Math.random() * 256 & 255;
+  return e;
 };
-const genSalt = () => {
-  if ("function" === typeof randomFillSync) {
-    return randomFillSync(Buffer.alloc(12));
-  } else {
-    return genSalt.node();
-  }
+const Ue = {
+  genSalt: _e
 };
-genSalt.node = () => {
-  const salt = Buffer.alloc(12);
-  const len = salt.length;
-  for (let i = 0; i < len; i++) salt[i] = Math.random() * 256 & 255;
-  return salt;
-};
-const config = {
-  genSalt
-};
-function Initkeys(pw) {
-  const pass = Buffer.isBuffer(pw) ? pw : Buffer.from(pw);
+function $e(e) {
+  const t = Buffer.isBuffer(e) ? e : Buffer.from(e);
   this.keys = new Uint32Array([305419896, 591751049, 878082192]);
-  for (let i = 0; i < pass.length; i++) {
-    this.updateKeys(pass[i]);
-  }
+  for (let n = 0; n < t.length; n++)
+    this.updateKeys(t[n]);
 }
-Initkeys.prototype.updateKeys = function(byteValue) {
-  const keys = this.keys;
-  keys[0] = crc32update(keys[0], byteValue);
-  keys[1] += keys[0] & 255;
-  keys[1] = uMul(keys[1], 134775813) + 1;
-  keys[2] = crc32update(keys[2], keys[1] >>> 24);
-  return byteValue;
+$e.prototype.updateKeys = function(e) {
+  const t = this.keys;
+  return t[0] = ut(t[0], e), t[1] += t[0] & 255, t[1] = Lt(t[1], 134775813) + 1, t[2] = ut(t[2], t[1] >>> 24), e;
 };
-Initkeys.prototype.next = function() {
-  const k = (this.keys[2] | 2) >>> 0;
-  return uMul(k, k ^ 1) >> 8 & 255;
+$e.prototype.next = function() {
+  const e = (this.keys[2] | 2) >>> 0;
+  return Lt(e, e ^ 1) >> 8 & 255;
 };
-function make_decrypter(pwd) {
-  const keys = new Initkeys(pwd);
-  return function(data) {
-    const result = Buffer.alloc(data.length);
-    let pos = 0;
-    for (let c of data) {
-      result[pos++] = keys.updateKeys(c ^ keys.next());
-    }
-    return result;
+function _n(e) {
+  const t = new $e(e);
+  return function(n) {
+    const r = Buffer.alloc(n.length);
+    let i = 0;
+    for (let o of n)
+      r[i++] = t.updateKeys(o ^ t.next());
+    return r;
   };
 }
-function make_encrypter(pwd) {
-  const keys = new Initkeys(pwd);
-  return function(data, result, pos = 0) {
-    if (!result) result = Buffer.alloc(data.length);
-    for (let c of data) {
-      const k = keys.next();
-      result[pos++] = c ^ k;
-      keys.updateKeys(c);
+function Cn(e) {
+  const t = new $e(e);
+  return function(n, r, i = 0) {
+    r || (r = Buffer.alloc(n.length));
+    for (let o of n) {
+      const u = t.next();
+      r[i++] = o ^ u, t.updateKeys(o);
     }
-    return result;
+    return r;
   };
 }
-function decrypt(data, header, pwd) {
-  if (!data || !Buffer.isBuffer(data) || data.length < 12) {
+function Tn(e, t, n) {
+  if (!e || !Buffer.isBuffer(e) || e.length < 12)
     return Buffer.alloc(0);
-  }
-  const decrypter = make_decrypter(pwd);
-  const salt = decrypter(data.slice(0, 12));
-  const verifyByte = (header.flags & 8) === 8 ? header.timeHighByte : header.crc >>> 24;
-  if (salt[11] !== verifyByte) {
-    throw Errors.WRONG_PASSWORD();
-  }
-  return decrypter(data.slice(12));
+  const r = _n(n), i = r(e.slice(0, 12)), o = (t.flags & 8) === 8 ? t.timeHighByte : t.crc >>> 24;
+  if (i[11] !== o)
+    throw vn.WRONG_PASSWORD();
+  return r(e.slice(12));
 }
-function _salter(data) {
-  if (Buffer.isBuffer(data) && data.length >= 12) {
-    config.genSalt = function() {
-      return data.slice(0, 12);
-    };
-  } else if (data === "node") {
-    config.genSalt = genSalt.node;
-  } else {
-    config.genSalt = genSalt;
-  }
+function Sn(e) {
+  Buffer.isBuffer(e) && e.length >= 12 ? Ue.genSalt = function() {
+    return e.slice(0, 12);
+  } : e === "node" ? Ue.genSalt = _e.node : Ue.genSalt = _e;
 }
-function encrypt(data, header, pwd, oldlike = false) {
-  if (data == null) data = Buffer.alloc(0);
-  if (!Buffer.isBuffer(data)) data = Buffer.from(data.toString());
-  const encrypter = make_encrypter(pwd);
-  const salt = config.genSalt();
-  salt[11] = header.crc >>> 24 & 255;
-  if (oldlike) salt[10] = header.crc >>> 16 & 255;
-  const result = Buffer.alloc(data.length + 12);
-  encrypter(salt, result);
-  return encrypter(data, result, 12);
+function wn(e, t, n, r = !1) {
+  e == null && (e = Buffer.alloc(0)), Buffer.isBuffer(e) || (e = Buffer.from(e.toString()));
+  const i = Cn(n), o = Ue.genSalt();
+  o[11] = t.crc >>> 24 & 255, r && (o[10] = t.crc >>> 16 & 255);
+  const u = Buffer.alloc(e.length + 12);
+  return i(o, u), i(e, u, 12);
 }
-var zipcrypto = { decrypt, encrypt, _salter };
-methods.Deflater = deflater;
-methods.Inflater = inflater;
-methods.ZipCrypto = zipcrypto;
-var Utils$2 = utilExports, Headers$1 = headers, Constants = Utils$2.Constants, Methods = methods;
-var zipEntry = function(options, input) {
-  var _centralHeader = new Headers$1.EntryHeader(), _entryName = Buffer.alloc(0), _comment = Buffer.alloc(0), _isDirectory = false, uncompressedData = null, _extra = Buffer.alloc(0), _extralocal = Buffer.alloc(0), _efs = true;
-  const opts = options;
-  const decoder2 = typeof opts.decoder === "object" ? opts.decoder : Utils$2.decoder;
-  _efs = decoder2.hasOwnProperty("efs") ? decoder2.efs : false;
-  function getCompressedDataFromZip() {
-    if (!input || !(input instanceof Uint8Array)) {
-      return Buffer.alloc(0);
-    }
-    _extralocal = _centralHeader.loadLocalHeaderFromBinary(input);
-    return input.slice(_centralHeader.realDataOffset, _centralHeader.realDataOffset + _centralHeader.compressedSize);
+var Ln = { decrypt: Tn, encrypt: wn, _salter: Sn };
+He.Deflater = Nn;
+He.Inflater = yn;
+He.ZipCrypto = Ln;
+var x = Te, On = Ze, B = x.Constants, Xe = He, Ot = function(e, t) {
+  var n = new On.EntryHeader(), r = Buffer.alloc(0), i = Buffer.alloc(0), o = !1, u = null, N = Buffer.alloc(0), d = Buffer.alloc(0), E = !0;
+  const D = e, C = typeof D.decoder == "object" ? D.decoder : x.decoder;
+  E = C.hasOwnProperty("efs") ? C.efs : !1;
+  function _() {
+    return !t || !(t instanceof Uint8Array) ? Buffer.alloc(0) : (d = n.loadLocalHeaderFromBinary(t), t.slice(n.realDataOffset, n.realDataOffset + n.compressedSize));
   }
-  function crc32OK(data) {
-    if (!_centralHeader.flags_desc) {
-      if (Utils$2.crc32(data) !== _centralHeader.localHeader.crc) {
-        return false;
-      }
-    } else {
-      const descriptor = {};
-      const dataEndOffset = _centralHeader.realDataOffset + _centralHeader.compressedSize;
-      if (input.readUInt32LE(dataEndOffset) == Constants.LOCSIG || input.readUInt32LE(dataEndOffset) == Constants.CENSIG) {
-        throw Utils$2.Errors.DESCRIPTOR_NOT_EXIST();
-      }
-      if (input.readUInt32LE(dataEndOffset) == Constants.EXTSIG) {
-        descriptor.crc = input.readUInt32LE(dataEndOffset + Constants.EXTCRC);
-        descriptor.compressedSize = input.readUInt32LE(dataEndOffset + Constants.EXTSIZ);
-        descriptor.size = input.readUInt32LE(dataEndOffset + Constants.EXTLEN);
-      } else if (input.readUInt16LE(dataEndOffset + 12) === 19280) {
-        descriptor.crc = input.readUInt32LE(dataEndOffset + Constants.EXTCRC - 4);
-        descriptor.compressedSize = input.readUInt32LE(dataEndOffset + Constants.EXTSIZ - 4);
-        descriptor.size = input.readUInt32LE(dataEndOffset + Constants.EXTLEN - 4);
-      } else {
-        throw Utils$2.Errors.DESCRIPTOR_UNKNOWN();
-      }
-      if (descriptor.compressedSize !== _centralHeader.compressedSize || descriptor.size !== _centralHeader.size || descriptor.crc !== _centralHeader.crc) {
-        throw Utils$2.Errors.DESCRIPTOR_FAULTY();
-      }
-      if (Utils$2.crc32(data) !== descriptor.crc) {
-        return false;
-      }
-    }
-    return true;
+  function f(c) {
+    if (n.flags_desc) {
+      const h = {}, g = n.realDataOffset + n.compressedSize;
+      if (t.readUInt32LE(g) == B.LOCSIG || t.readUInt32LE(g) == B.CENSIG)
+        throw x.Errors.DESCRIPTOR_NOT_EXIST();
+      if (t.readUInt32LE(g) == B.EXTSIG)
+        h.crc = t.readUInt32LE(g + B.EXTCRC), h.compressedSize = t.readUInt32LE(g + B.EXTSIZ), h.size = t.readUInt32LE(g + B.EXTLEN);
+      else if (t.readUInt16LE(g + 12) === 19280)
+        h.crc = t.readUInt32LE(g + B.EXTCRC - 4), h.compressedSize = t.readUInt32LE(g + B.EXTSIZ - 4), h.size = t.readUInt32LE(g + B.EXTLEN - 4);
+      else
+        throw x.Errors.DESCRIPTOR_UNKNOWN();
+      if (h.compressedSize !== n.compressedSize || h.size !== n.size || h.crc !== n.crc)
+        throw x.Errors.DESCRIPTOR_FAULTY();
+      if (x.crc32(c) !== h.crc)
+        return !1;
+    } else if (x.crc32(c) !== n.localHeader.crc)
+      return !1;
+    return !0;
   }
-  function decompress(async, callback, pass) {
-    if (typeof callback === "undefined" && typeof async === "string") {
-      pass = async;
-      async = void 0;
+  function m(c, h, g) {
+    if (typeof h > "u" && typeof c == "string" && (g = c, c = void 0), o)
+      return c && h && h(Buffer.alloc(0), x.Errors.DIRECTORY_CONTENT_ERROR()), Buffer.alloc(0);
+    var y = _();
+    if (y.length === 0)
+      return c && h && h(y), y;
+    if (n.encrypted) {
+      if (typeof g != "string" && !Buffer.isBuffer(g))
+        throw x.Errors.INVALID_PASS_PARAM();
+      y = Xe.ZipCrypto.decrypt(y, n, g);
     }
-    if (_isDirectory) {
-      if (async && callback) {
-        callback(Buffer.alloc(0), Utils$2.Errors.DIRECTORY_CONTENT_ERROR());
-      }
-      return Buffer.alloc(0);
-    }
-    var compressedData = getCompressedDataFromZip();
-    if (compressedData.length === 0) {
-      if (async && callback) callback(compressedData);
-      return compressedData;
-    }
-    if (_centralHeader.encrypted) {
-      if ("string" !== typeof pass && !Buffer.isBuffer(pass)) {
-        throw Utils$2.Errors.INVALID_PASS_PARAM();
-      }
-      compressedData = Methods.ZipCrypto.decrypt(compressedData, _centralHeader, pass);
-    }
-    var data = Buffer.alloc(_centralHeader.size);
-    switch (_centralHeader.method) {
-      case Utils$2.Constants.STORED:
-        compressedData.copy(data);
-        if (!crc32OK(data)) {
-          if (async && callback) callback(data, Utils$2.Errors.BAD_CRC());
-          throw Utils$2.Errors.BAD_CRC();
-        } else {
-          if (async && callback) callback(data);
-          return data;
-        }
-      case Utils$2.Constants.DEFLATED:
-        var inflater2 = new Methods.Inflater(compressedData, _centralHeader.size);
-        if (!async) {
-          const result = inflater2.inflate(data);
-          result.copy(data, 0);
-          if (!crc32OK(data)) {
-            throw Utils$2.Errors.BAD_CRC(`"${decoder2.decode(_entryName)}"`);
-          }
-          return data;
-        } else {
-          inflater2.inflateAsync(function(result) {
-            result.copy(result, 0);
-            if (callback) {
-              if (!crc32OK(result)) {
-                callback(result, Utils$2.Errors.BAD_CRC());
-              } else {
-                callback(result);
-              }
-            }
+    var T = Buffer.alloc(n.size);
+    switch (n.method) {
+      case x.Constants.STORED:
+        if (y.copy(T), f(T))
+          return c && h && h(T), T;
+        throw c && h && h(T, x.Errors.BAD_CRC()), x.Errors.BAD_CRC();
+      case x.Constants.DEFLATED:
+        var L = new Xe.Inflater(y, n.size);
+        if (c)
+          L.inflateAsync(function(v) {
+            v.copy(v, 0), h && (f(v) ? h(v) : h(v, x.Errors.BAD_CRC()));
           });
+        else {
+          if (L.inflate(T).copy(T, 0), !f(T))
+            throw x.Errors.BAD_CRC(`"${C.decode(r)}"`);
+          return T;
         }
         break;
       default:
-        if (async && callback) callback(Buffer.alloc(0), Utils$2.Errors.UNKNOWN_METHOD());
-        throw Utils$2.Errors.UNKNOWN_METHOD();
+        throw c && h && h(Buffer.alloc(0), x.Errors.UNKNOWN_METHOD()), x.Errors.UNKNOWN_METHOD();
     }
   }
-  function compress(async, callback) {
-    if ((!uncompressedData || !uncompressedData.length) && Buffer.isBuffer(input)) {
-      if (async && callback) callback(getCompressedDataFromZip());
-      return getCompressedDataFromZip();
-    }
-    if (uncompressedData.length && !_isDirectory) {
-      var compressedData;
-      switch (_centralHeader.method) {
-        case Utils$2.Constants.STORED:
-          _centralHeader.compressedSize = _centralHeader.size;
-          compressedData = Buffer.alloc(uncompressedData.length);
-          uncompressedData.copy(compressedData);
-          if (async && callback) callback(compressedData);
-          return compressedData;
+  function a(c, h) {
+    if ((!u || !u.length) && Buffer.isBuffer(t))
+      return c && h && h(_()), _();
+    if (u.length && !o) {
+      var g;
+      switch (n.method) {
+        case x.Constants.STORED:
+          return n.compressedSize = n.size, g = Buffer.alloc(u.length), u.copy(g), c && h && h(g), g;
         default:
-        case Utils$2.Constants.DEFLATED:
-          var deflater2 = new Methods.Deflater(uncompressedData);
-          if (!async) {
-            var deflated = deflater2.deflate();
-            _centralHeader.compressedSize = deflated.length;
-            return deflated;
-          } else {
-            deflater2.deflateAsync(function(data) {
-              compressedData = Buffer.alloc(data.length);
-              _centralHeader.compressedSize = data.length;
-              data.copy(compressedData);
-              callback && callback(compressedData);
+        case x.Constants.DEFLATED:
+          var y = new Xe.Deflater(u);
+          if (c)
+            y.deflateAsync(function(L) {
+              g = Buffer.alloc(L.length), n.compressedSize = L.length, L.copy(g), h && h(g);
             });
+          else {
+            var T = y.deflate();
+            return n.compressedSize = T.length, T;
           }
-          deflater2 = null;
+          y = null;
           break;
       }
-    } else if (async && callback) {
-      callback(Buffer.alloc(0));
-    } else {
+    } else if (c && h)
+      h(Buffer.alloc(0));
+    else
       return Buffer.alloc(0);
-    }
   }
-  function readUInt64LE(buffer, offset) {
-    return (buffer.readUInt32LE(offset + 4) << 4) + buffer.readUInt32LE(offset);
+  function l(c, h) {
+    return (c.readUInt32LE(h + 4) << 4) + c.readUInt32LE(h);
   }
-  function parseExtra(data) {
+  function p(c) {
     try {
-      var offset = 0;
-      var signature, size, part;
-      while (offset + 4 < data.length) {
-        signature = data.readUInt16LE(offset);
-        offset += 2;
-        size = data.readUInt16LE(offset);
-        offset += 2;
-        part = data.slice(offset, offset + size);
-        offset += size;
-        if (Constants.ID_ZIP64 === signature) {
-          parseZip64ExtendedInformation(part);
-        }
-      }
-    } catch (error) {
-      throw Utils$2.Errors.EXTRA_FIELD_PARSE_ERROR();
+      for (var h = 0, g, y, T; h + 4 < c.length; )
+        g = c.readUInt16LE(h), h += 2, y = c.readUInt16LE(h), h += 2, T = c.slice(h, h + y), h += y, B.ID_ZIP64 === g && s(T);
+    } catch {
+      throw x.Errors.EXTRA_FIELD_PARSE_ERROR();
     }
   }
-  function parseZip64ExtendedInformation(data) {
-    var size, compressedSize, offset, diskNumStart;
-    if (data.length >= Constants.EF_ZIP64_SCOMP) {
-      size = readUInt64LE(data, Constants.EF_ZIP64_SUNCOMP);
-      if (_centralHeader.size === Constants.EF_ZIP64_OR_32) {
-        _centralHeader.size = size;
-      }
-    }
-    if (data.length >= Constants.EF_ZIP64_RHO) {
-      compressedSize = readUInt64LE(data, Constants.EF_ZIP64_SCOMP);
-      if (_centralHeader.compressedSize === Constants.EF_ZIP64_OR_32) {
-        _centralHeader.compressedSize = compressedSize;
-      }
-    }
-    if (data.length >= Constants.EF_ZIP64_DSN) {
-      offset = readUInt64LE(data, Constants.EF_ZIP64_RHO);
-      if (_centralHeader.offset === Constants.EF_ZIP64_OR_32) {
-        _centralHeader.offset = offset;
-      }
-    }
-    if (data.length >= Constants.EF_ZIP64_DSN + 4) {
-      diskNumStart = data.readUInt32LE(Constants.EF_ZIP64_DSN);
-      if (_centralHeader.diskNumStart === Constants.EF_ZIP64_OR_16) {
-        _centralHeader.diskNumStart = diskNumStart;
-      }
-    }
+  function s(c) {
+    var h, g, y, T;
+    c.length >= B.EF_ZIP64_SCOMP && (h = l(c, B.EF_ZIP64_SUNCOMP), n.size === B.EF_ZIP64_OR_32 && (n.size = h)), c.length >= B.EF_ZIP64_RHO && (g = l(c, B.EF_ZIP64_SCOMP), n.compressedSize === B.EF_ZIP64_OR_32 && (n.compressedSize = g)), c.length >= B.EF_ZIP64_DSN && (y = l(c, B.EF_ZIP64_RHO), n.offset === B.EF_ZIP64_OR_32 && (n.offset = y)), c.length >= B.EF_ZIP64_DSN + 4 && (T = c.readUInt32LE(B.EF_ZIP64_DSN), n.diskNumStart === B.EF_ZIP64_OR_16 && (n.diskNumStart = T));
   }
   return {
     get entryName() {
-      return decoder2.decode(_entryName);
+      return C.decode(r);
     },
     get rawEntryName() {
-      return _entryName;
+      return r;
     },
-    set entryName(val) {
-      _entryName = Utils$2.toBuffer(val, decoder2.encode);
-      var lastChar = _entryName[_entryName.length - 1];
-      _isDirectory = lastChar === 47 || lastChar === 92;
-      _centralHeader.fileNameLength = _entryName.length;
+    set entryName(c) {
+      r = x.toBuffer(c, C.encode);
+      var h = r[r.length - 1];
+      o = h === 47 || h === 92, n.fileNameLength = r.length;
     },
     get efs() {
-      if (typeof _efs === "function") {
-        return _efs(this.entryName);
-      } else {
-        return _efs;
-      }
+      return typeof E == "function" ? E(this.entryName) : E;
     },
     get extra() {
-      return _extra;
+      return N;
     },
-    set extra(val) {
-      _extra = val;
-      _centralHeader.extraLength = val.length;
-      parseExtra(val);
+    set extra(c) {
+      N = c, n.extraLength = c.length, p(c);
     },
     get comment() {
-      return decoder2.decode(_comment);
+      return C.decode(i);
     },
-    set comment(val) {
-      _comment = Utils$2.toBuffer(val, decoder2.encode);
-      _centralHeader.commentLength = _comment.length;
-      if (_comment.length > 65535) throw Utils$2.Errors.COMMENT_TOO_LONG();
+    set comment(c) {
+      if (i = x.toBuffer(c, C.encode), n.commentLength = i.length, i.length > 65535) throw x.Errors.COMMENT_TOO_LONG();
     },
     get name() {
-      var n = decoder2.decode(_entryName);
-      return _isDirectory ? n.substr(n.length - 1).split("/").pop() : n.split("/").pop();
+      var c = C.decode(r);
+      return o ? c.substr(c.length - 1).split("/").pop() : c.split("/").pop();
     },
     get isDirectory() {
-      return _isDirectory;
+      return o;
     },
     getCompressedData: function() {
-      return compress(false, null);
+      return a(!1, null);
     },
-    getCompressedDataAsync: function(callback) {
-      compress(true, callback);
+    getCompressedDataAsync: function(c) {
+      a(!0, c);
     },
-    setData: function(value) {
-      uncompressedData = Utils$2.toBuffer(value, Utils$2.decoder.encode);
-      if (!_isDirectory && uncompressedData.length) {
-        _centralHeader.size = uncompressedData.length;
-        _centralHeader.method = Utils$2.Constants.DEFLATED;
-        _centralHeader.crc = Utils$2.crc32(value);
-        _centralHeader.changed = true;
-      } else {
-        _centralHeader.method = Utils$2.Constants.STORED;
-      }
+    setData: function(c) {
+      u = x.toBuffer(c, x.decoder.encode), !o && u.length ? (n.size = u.length, n.method = x.Constants.DEFLATED, n.crc = x.crc32(c), n.changed = !0) : n.method = x.Constants.STORED;
     },
-    getData: function(pass) {
-      if (_centralHeader.changed) {
-        return uncompressedData;
-      } else {
-        return decompress(false, null, pass);
-      }
+    getData: function(c) {
+      return n.changed ? u : m(!1, null, c);
     },
-    getDataAsync: function(callback, pass) {
-      if (_centralHeader.changed) {
-        callback(uncompressedData);
-      } else {
-        decompress(true, callback, pass);
-      }
+    getDataAsync: function(c, h) {
+      n.changed ? c(u) : m(!0, c, h);
     },
-    set attr(attr) {
-      _centralHeader.attr = attr;
+    set attr(c) {
+      n.attr = c;
     },
     get attr() {
-      return _centralHeader.attr;
+      return n.attr;
     },
-    set header(data) {
-      _centralHeader.loadFromBinary(data);
+    set header(c) {
+      n.loadFromBinary(c);
     },
     get header() {
-      return _centralHeader;
+      return n;
     },
     packCentralHeader: function() {
-      _centralHeader.flags_efs = this.efs;
-      _centralHeader.extraLength = _extra.length;
-      var header = _centralHeader.centralHeaderToBinary();
-      var addpos = Utils$2.Constants.CENHDR;
-      _entryName.copy(header, addpos);
-      addpos += _entryName.length;
-      _extra.copy(header, addpos);
-      addpos += _centralHeader.extraLength;
-      _comment.copy(header, addpos);
-      return header;
+      n.flags_efs = this.efs, n.extraLength = N.length;
+      var c = n.centralHeaderToBinary(), h = x.Constants.CENHDR;
+      return r.copy(c, h), h += r.length, N.copy(c, h), h += n.extraLength, i.copy(c, h), c;
     },
     packLocalHeader: function() {
-      let addpos = 0;
-      _centralHeader.flags_efs = this.efs;
-      _centralHeader.extraLocalLength = _extralocal.length;
-      const localHeaderBuf = _centralHeader.localHeaderToBinary();
-      const localHeader = Buffer.alloc(localHeaderBuf.length + _entryName.length + _centralHeader.extraLocalLength);
-      localHeaderBuf.copy(localHeader, addpos);
-      addpos += localHeaderBuf.length;
-      _entryName.copy(localHeader, addpos);
-      addpos += _entryName.length;
-      _extralocal.copy(localHeader, addpos);
-      addpos += _extralocal.length;
-      return localHeader;
+      let c = 0;
+      n.flags_efs = this.efs, n.extraLocalLength = d.length;
+      const h = n.localHeaderToBinary(), g = Buffer.alloc(h.length + r.length + n.extraLocalLength);
+      return h.copy(g, c), c += h.length, r.copy(g, c), c += r.length, d.copy(g, c), c += d.length, g;
     },
     toJSON: function() {
-      const bytes = function(nr) {
-        return "<" + (nr && nr.length + " bytes buffer" || "null") + ">";
+      const c = function(h) {
+        return "<" + (h && h.length + " bytes buffer" || "null") + ">";
       };
       return {
         entryName: this.entryName,
         name: this.name,
         comment: this.comment,
         isDirectory: this.isDirectory,
-        header: _centralHeader.toJSON(),
-        compressedData: bytes(input),
-        data: bytes(uncompressedData)
+        header: n.toJSON(),
+        compressedData: c(t),
+        data: c(u)
       };
     },
     toString: function() {
@@ -1441,99 +1087,59 @@ var zipEntry = function(options, input) {
     }
   };
 };
-const ZipEntry$1 = zipEntry;
-const Headers = headers;
-const Utils$1 = utilExports;
-var zipFile = function(inBuffer, options) {
-  var entryList = [], entryTable = {}, _comment = Buffer.alloc(0), mainHeader2 = new Headers.MainHeader(), loadedEntries = false;
-  const temporary = /* @__PURE__ */ new Set();
-  const opts = options;
-  const { noSort, decoder: decoder2 } = opts;
-  if (inBuffer) {
-    readMainHeader(opts.readEntries);
-  } else {
-    loadedEntries = true;
+const mt = Ot, An = Ze, V = Te;
+var xn = function(e, t) {
+  var n = [], r = {}, i = Buffer.alloc(0), o = new An.MainHeader(), u = !1;
+  const N = /* @__PURE__ */ new Set(), d = t, { noSort: E, decoder: D } = d;
+  e ? f(d.readEntries) : u = !0;
+  function C() {
+    const a = /* @__PURE__ */ new Set();
+    for (const l of Object.keys(r)) {
+      const p = l.split("/");
+      if (p.pop(), !!p.length)
+        for (let s = 0; s < p.length; s++) {
+          const c = p.slice(0, s + 1).join("/") + "/";
+          a.add(c);
+        }
+    }
+    for (const l of a)
+      if (!(l in r)) {
+        const p = new mt(d);
+        p.entryName = l, p.attr = 16, p.temporary = !0, n.push(p), r[p.entryName] = p, N.add(p);
+      }
   }
-  function makeTemporaryFolders() {
-    const foldersList = /* @__PURE__ */ new Set();
-    for (const elem of Object.keys(entryTable)) {
-      const elements = elem.split("/");
-      elements.pop();
-      if (!elements.length) continue;
-      for (let i = 0; i < elements.length; i++) {
-        const sub = elements.slice(0, i + 1).join("/") + "/";
-        foldersList.add(sub);
-      }
+  function _() {
+    if (u = !0, r = {}, o.diskEntries > (e.length - o.offset) / V.Constants.CENHDR)
+      throw V.Errors.DISK_ENTRY_TOO_LARGE();
+    n = new Array(o.diskEntries);
+    for (var a = o.offset, l = 0; l < n.length; l++) {
+      var p = a, s = new mt(d, e);
+      s.header = e.slice(p, p += V.Constants.CENHDR), s.entryName = e.slice(p, p += s.header.fileNameLength), s.header.extraLength && (s.extra = e.slice(p, p += s.header.extraLength)), s.header.commentLength && (s.comment = e.slice(p, p + s.header.commentLength)), a += s.header.centralHeaderSize, n[l] = s, r[s.entryName] = s;
     }
-    for (const elem of foldersList) {
-      if (!(elem in entryTable)) {
-        const tempfolder = new ZipEntry$1(opts);
-        tempfolder.entryName = elem;
-        tempfolder.attr = 16;
-        tempfolder.temporary = true;
-        entryList.push(tempfolder);
-        entryTable[tempfolder.entryName] = tempfolder;
-        temporary.add(tempfolder);
-      }
-    }
+    N.clear(), C();
   }
-  function readEntries() {
-    loadedEntries = true;
-    entryTable = {};
-    if (mainHeader2.diskEntries > (inBuffer.length - mainHeader2.offset) / Utils$1.Constants.CENHDR) {
-      throw Utils$1.Errors.DISK_ENTRY_TOO_LARGE();
-    }
-    entryList = new Array(mainHeader2.diskEntries);
-    var index = mainHeader2.offset;
-    for (var i = 0; i < entryList.length; i++) {
-      var tmp = index, entry = new ZipEntry$1(opts, inBuffer);
-      entry.header = inBuffer.slice(tmp, tmp += Utils$1.Constants.CENHDR);
-      entry.entryName = inBuffer.slice(tmp, tmp += entry.header.fileNameLength);
-      if (entry.header.extraLength) {
-        entry.extra = inBuffer.slice(tmp, tmp += entry.header.extraLength);
+  function f(a) {
+    var l = e.length - V.Constants.ENDHDR, p = Math.max(0, l - 65535), s = p, c = e.length, h = -1, g = 0;
+    for ((typeof d.trailingSpace == "boolean" ? d.trailingSpace : !1) && (p = 0), l; l >= s; l--)
+      if (e[l] === 80) {
+        if (e.readUInt32LE(l) === V.Constants.ENDSIG) {
+          h = l, g = l, c = l + V.Constants.ENDHDR, s = l - V.Constants.END64HDR;
+          continue;
+        }
+        if (e.readUInt32LE(l) === V.Constants.END64SIG) {
+          s = p;
+          continue;
+        }
+        if (e.readUInt32LE(l) === V.Constants.ZIP64SIG) {
+          h = l, c = l + V.readBigUInt64LE(e, l + V.Constants.ZIP64SIZE) + V.Constants.ZIP64LEAD;
+          break;
+        }
       }
-      if (entry.header.commentLength) entry.comment = inBuffer.slice(tmp, tmp + entry.header.commentLength);
-      index += entry.header.centralHeaderSize;
-      entryList[i] = entry;
-      entryTable[entry.entryName] = entry;
-    }
-    temporary.clear();
-    makeTemporaryFolders();
+    if (h == -1) throw V.Errors.INVALID_FORMAT();
+    o.loadFromBinary(e.slice(h, c)), o.commentLength && (i = e.slice(g + V.Constants.ENDHDR)), a && _();
   }
-  function readMainHeader(readNow) {
-    var i = inBuffer.length - Utils$1.Constants.ENDHDR, max = Math.max(0, i - 65535), n = max, endStart = inBuffer.length, endOffset = -1, commentEnd = 0;
-    const trailingSpace = typeof opts.trailingSpace === "boolean" ? opts.trailingSpace : false;
-    if (trailingSpace) max = 0;
-    for (i; i >= n; i--) {
-      if (inBuffer[i] !== 80) continue;
-      if (inBuffer.readUInt32LE(i) === Utils$1.Constants.ENDSIG) {
-        endOffset = i;
-        commentEnd = i;
-        endStart = i + Utils$1.Constants.ENDHDR;
-        n = i - Utils$1.Constants.END64HDR;
-        continue;
-      }
-      if (inBuffer.readUInt32LE(i) === Utils$1.Constants.END64SIG) {
-        n = max;
-        continue;
-      }
-      if (inBuffer.readUInt32LE(i) === Utils$1.Constants.ZIP64SIG) {
-        endOffset = i;
-        endStart = i + Utils$1.readBigUInt64LE(inBuffer, i + Utils$1.Constants.ZIP64SIZE) + Utils$1.Constants.ZIP64LEAD;
-        break;
-      }
-    }
-    if (endOffset == -1) throw Utils$1.Errors.INVALID_FORMAT();
-    mainHeader2.loadFromBinary(inBuffer.slice(endOffset, endStart));
-    if (mainHeader2.commentLength) {
-      _comment = inBuffer.slice(commentEnd + Utils$1.Constants.ENDHDR);
-    }
-    if (readNow) readEntries();
-  }
-  function sortEntries() {
-    if (entryList.length > 1 && !noSort) {
-      entryList.sort((a, b) => a.entryName.toLowerCase().localeCompare(b.entryName.toLowerCase()));
-    }
+  function m() {
+    n.length > 1 && !E && n.sort((a, l) => a.entryName.toLowerCase().localeCompare(l.entryName.toLowerCase()));
   }
   return {
     /**
@@ -1541,30 +1147,23 @@ var zipFile = function(inBuffer, options) {
      * @return Array
      */
     get entries() {
-      if (!loadedEntries) {
-        readEntries();
-      }
-      return entryList.filter((e) => !temporary.has(e));
+      return u || _(), n.filter((a) => !N.has(a));
     },
     /**
      * Archive comment
      * @return {String}
      */
     get comment() {
-      return decoder2.decode(_comment);
+      return D.decode(i);
     },
-    set comment(val) {
-      _comment = Utils$1.toBuffer(val, decoder2.encode);
-      mainHeader2.commentLength = _comment.length;
+    set comment(a) {
+      i = V.toBuffer(a, D.encode), o.commentLength = i.length;
     },
     getEntryCount: function() {
-      if (!loadedEntries) {
-        return mainHeader2.diskEntries;
-      }
-      return entryList.length;
+      return u ? n.length : o.diskEntries;
     },
-    forEach: function(callback) {
-      this.entries.forEach(callback);
+    forEach: function(a) {
+      this.entries.forEach(a);
     },
     /**
      * Returns a reference to the entry with the given name or null if entry is inexistent
@@ -1572,24 +1171,16 @@ var zipFile = function(inBuffer, options) {
      * @param entryName
      * @return ZipEntry
      */
-    getEntry: function(entryName) {
-      if (!loadedEntries) {
-        readEntries();
-      }
-      return entryTable[entryName] || null;
+    getEntry: function(a) {
+      return u || _(), r[a] || null;
     },
     /**
      * Adds the given entry to the entry list
      *
      * @param entry
      */
-    setEntry: function(entry) {
-      if (!loadedEntries) {
-        readEntries();
-      }
-      entryList.push(entry);
-      entryTable[entry.entryName] = entry;
-      mainHeader2.totalEntries = entryList.length;
+    setEntry: function(a) {
+      u || _(), n.push(a), r[a.entryName] = a, o.totalEntries = n.length;
     },
     /**
      * Removes the file with the given name from the entry list.
@@ -1598,13 +1189,10 @@ var zipFile = function(inBuffer, options) {
      * @param entryName
      * @returns {void}
      */
-    deleteFile: function(entryName, withsubfolders = true) {
-      if (!loadedEntries) {
-        readEntries();
-      }
-      const entry = entryTable[entryName];
-      const list = this.getEntryChildren(entry, withsubfolders).map((child) => child.entryName);
-      list.forEach(this.deleteEntry);
+    deleteFile: function(a, l = !0) {
+      u || _();
+      const p = r[a];
+      this.getEntryChildren(p, l).map((c) => c.entryName).forEach(this.deleteEntry);
     },
     /**
      * Removes the entry with the given name from the entry list.
@@ -1612,17 +1200,10 @@ var zipFile = function(inBuffer, options) {
      * @param {string} entryName
      * @returns {void}
      */
-    deleteEntry: function(entryName) {
-      if (!loadedEntries) {
-        readEntries();
-      }
-      const entry = entryTable[entryName];
-      const index = entryList.indexOf(entry);
-      if (index >= 0) {
-        entryList.splice(index, 1);
-        delete entryTable[entryName];
-        mainHeader2.totalEntries = entryList.length;
-      }
+    deleteEntry: function(a) {
+      u || _();
+      const l = r[a], p = n.indexOf(l);
+      p >= 0 && (n.splice(p, 1), delete r[a], o.totalEntries = n.length);
     },
     /**
      *  Iterates and returns all nested files and directories of the given entry
@@ -1630,24 +1211,15 @@ var zipFile = function(inBuffer, options) {
      * @param entry
      * @return Array
      */
-    getEntryChildren: function(entry, subfolders = true) {
-      if (!loadedEntries) {
-        readEntries();
-      }
-      if (typeof entry === "object") {
-        if (entry.isDirectory && subfolders) {
-          const list = [];
-          const name = entry.entryName;
-          for (const zipEntry2 of entryList) {
-            if (zipEntry2.entryName.startsWith(name)) {
-              list.push(zipEntry2);
-            }
-          }
-          return list;
-        } else {
-          return [entry];
-        }
-      }
+    getEntryChildren: function(a, l = !0) {
+      if (u || _(), typeof a == "object")
+        if (a.isDirectory && l) {
+          const p = [], s = a.entryName;
+          for (const c of n)
+            c.entryName.startsWith(s) && p.push(c);
+          return p;
+        } else
+          return [a];
       return [];
     },
     /**
@@ -1656,10 +1228,10 @@ var zipFile = function(inBuffer, options) {
      * @param {ZipEntry} entry
      * @return {integer}
      */
-    getChildCount: function(entry) {
-      if (entry && entry.isDirectory) {
-        const list = this.getEntryChildren(entry);
-        return list.includes(entry) ? list.length - 1 : list.length;
+    getChildCount: function(a) {
+      if (a && a.isDirectory) {
+        const l = this.getEntryChildren(a);
+        return l.includes(a) ? l.length - 1 : l.length;
       }
       return 0;
     },
@@ -1669,196 +1241,106 @@ var zipFile = function(inBuffer, options) {
      * @return Buffer
      */
     compressToBuffer: function() {
-      if (!loadedEntries) {
-        readEntries();
+      u || _(), m();
+      const a = [], l = [];
+      let p = 0, s = 0;
+      o.size = 0, o.offset = 0;
+      let c = 0;
+      for (const y of this.entries) {
+        const T = y.getCompressedData();
+        y.header.offset = s;
+        const L = y.packLocalHeader(), v = L.length + T.length;
+        s += v, a.push(L), a.push(T);
+        const w = y.packCentralHeader();
+        l.push(w), o.size += w.length, p += v + w.length, c++;
       }
-      sortEntries();
-      const dataBlock = [];
-      const headerBlocks = [];
-      let totalSize = 0;
-      let dindex = 0;
-      mainHeader2.size = 0;
-      mainHeader2.offset = 0;
-      let totalEntries = 0;
-      for (const entry of this.entries) {
-        const compressedData = entry.getCompressedData();
-        entry.header.offset = dindex;
-        const localHeader = entry.packLocalHeader();
-        const dataLength = localHeader.length + compressedData.length;
-        dindex += dataLength;
-        dataBlock.push(localHeader);
-        dataBlock.push(compressedData);
-        const centralHeader = entry.packCentralHeader();
-        headerBlocks.push(centralHeader);
-        mainHeader2.size += centralHeader.length;
-        totalSize += dataLength + centralHeader.length;
-        totalEntries++;
-      }
-      totalSize += mainHeader2.mainHeaderSize;
-      mainHeader2.offset = dindex;
-      mainHeader2.totalEntries = totalEntries;
-      dindex = 0;
-      const outBuffer = Buffer.alloc(totalSize);
-      for (const content of dataBlock) {
-        content.copy(outBuffer, dindex);
-        dindex += content.length;
-      }
-      for (const content of headerBlocks) {
-        content.copy(outBuffer, dindex);
-        dindex += content.length;
-      }
-      const mh = mainHeader2.toBinary();
-      if (_comment) {
-        _comment.copy(mh, Utils$1.Constants.ENDHDR);
-      }
-      mh.copy(outBuffer, dindex);
-      inBuffer = outBuffer;
-      loadedEntries = false;
-      return outBuffer;
+      p += o.mainHeaderSize, o.offset = s, o.totalEntries = c, s = 0;
+      const h = Buffer.alloc(p);
+      for (const y of a)
+        y.copy(h, s), s += y.length;
+      for (const y of l)
+        y.copy(h, s), s += y.length;
+      const g = o.toBinary();
+      return i && i.copy(g, V.Constants.ENDHDR), g.copy(h, s), e = h, u = !1, h;
     },
-    toAsyncBuffer: function(onSuccess, onFail, onItemStart, onItemEnd) {
+    toAsyncBuffer: function(a, l, p, s) {
       try {
-        if (!loadedEntries) {
-          readEntries();
-        }
-        sortEntries();
-        const dataBlock = [];
-        const centralHeaders = [];
-        let totalSize = 0;
-        let dindex = 0;
-        let totalEntries = 0;
-        mainHeader2.size = 0;
-        mainHeader2.offset = 0;
-        const compress2Buffer = function(entryLists) {
-          if (entryLists.length > 0) {
-            const entry = entryLists.shift();
-            const name = entry.entryName + entry.extra.toString();
-            if (onItemStart) onItemStart(name);
-            entry.getCompressedDataAsync(function(compressedData) {
-              if (onItemEnd) onItemEnd(name);
-              entry.header.offset = dindex;
-              const localHeader = entry.packLocalHeader();
-              const dataLength = localHeader.length + compressedData.length;
-              dindex += dataLength;
-              dataBlock.push(localHeader);
-              dataBlock.push(compressedData);
-              const centalHeader = entry.packCentralHeader();
-              centralHeaders.push(centalHeader);
-              mainHeader2.size += centalHeader.length;
-              totalSize += dataLength + centalHeader.length;
-              totalEntries++;
-              compress2Buffer(entryLists);
+        u || _(), m();
+        const c = [], h = [];
+        let g = 0, y = 0, T = 0;
+        o.size = 0, o.offset = 0;
+        const L = function(v) {
+          if (v.length > 0) {
+            const w = v.shift(), S = w.entryName + w.extra.toString();
+            p && p(S), w.getCompressedDataAsync(function(O) {
+              s && s(S), w.header.offset = y;
+              const R = w.packLocalHeader(), $ = R.length + O.length;
+              y += $, c.push(R), c.push(O);
+              const F = w.packCentralHeader();
+              h.push(F), o.size += F.length, g += $ + F.length, T++, L(v);
             });
           } else {
-            totalSize += mainHeader2.mainHeaderSize;
-            mainHeader2.offset = dindex;
-            mainHeader2.totalEntries = totalEntries;
-            dindex = 0;
-            const outBuffer = Buffer.alloc(totalSize);
-            dataBlock.forEach(function(content) {
-              content.copy(outBuffer, dindex);
-              dindex += content.length;
+            g += o.mainHeaderSize, o.offset = y, o.totalEntries = T, y = 0;
+            const w = Buffer.alloc(g);
+            c.forEach(function(O) {
+              O.copy(w, y), y += O.length;
+            }), h.forEach(function(O) {
+              O.copy(w, y), y += O.length;
             });
-            centralHeaders.forEach(function(content) {
-              content.copy(outBuffer, dindex);
-              dindex += content.length;
-            });
-            const mh = mainHeader2.toBinary();
-            if (_comment) {
-              _comment.copy(mh, Utils$1.Constants.ENDHDR);
-            }
-            mh.copy(outBuffer, dindex);
-            inBuffer = outBuffer;
-            loadedEntries = false;
-            onSuccess(outBuffer);
+            const S = o.toBinary();
+            i && i.copy(S, V.Constants.ENDHDR), S.copy(w, y), e = w, u = !1, a(w);
           }
         };
-        compress2Buffer(Array.from(this.entries));
-      } catch (e) {
-        onFail(e);
+        L(Array.from(this.entries));
+      } catch (c) {
+        l(c);
       }
     }
   };
 };
-const Utils = utilExports;
-const pth = require$$1;
-const ZipEntry = zipEntry;
-const ZipFile = zipFile;
-const get_Bool = (...val) => Utils.findLast(val, (c) => typeof c === "boolean");
-const get_Str = (...val) => Utils.findLast(val, (c) => typeof c === "string");
-const get_Fun = (...val) => Utils.findLast(val, (c) => typeof c === "function");
-const defaultOptions = {
+const b = Te, M = qe, Rn = Ot, Fn = xn, oe = (...e) => b.findLast(e, (t) => typeof t == "boolean"), dt = (...e) => b.findLast(e, (t) => typeof t == "string"), Un = (...e) => b.findLast(e, (t) => typeof t == "function"), bn = {
   // option "noSort" : if true it disables files sorting
-  noSort: false,
+  noSort: !1,
   // read entries during load (initial loading may be slower)
-  readEntries: false,
+  readEntries: !1,
   // default method is none
-  method: Utils.Constants.NONE,
+  method: b.Constants.NONE,
   // file system
   fs: null
 };
-var admZip = function(input, options) {
-  let inBuffer = null;
-  const opts = Object.assign(/* @__PURE__ */ Object.create(null), defaultOptions);
-  if (input && "object" === typeof input) {
-    if (!(input instanceof Uint8Array)) {
-      Object.assign(opts, input);
-      input = opts.input ? opts.input : void 0;
-      if (opts.input) delete opts.input;
-    }
-    if (Buffer.isBuffer(input)) {
-      inBuffer = input;
-      opts.method = Utils.Constants.BUFFER;
-      input = void 0;
-    }
-  }
-  Object.assign(opts, options);
-  const filetools = new Utils(opts);
-  if (typeof opts.decoder !== "object" || typeof opts.decoder.encode !== "function" || typeof opts.decoder.decode !== "function") {
-    opts.decoder = Utils.decoder;
-  }
-  if (input && "string" === typeof input) {
-    if (filetools.fs.existsSync(input)) {
-      opts.method = Utils.Constants.FILE;
-      opts.filename = input;
-      inBuffer = filetools.fs.readFileSync(input);
-    } else {
-      throw Utils.Errors.INVALID_FILENAME();
-    }
-  }
-  const _zip = new ZipFile(inBuffer, opts);
-  const { canonical, sanitize, zipnamefix } = Utils;
-  function getEntry(entry) {
-    if (entry && _zip) {
-      var item;
-      if (typeof entry === "string") item = _zip.getEntry(pth.posix.normalize(entry));
-      if (typeof entry === "object" && typeof entry.entryName !== "undefined" && typeof entry.header !== "undefined") item = _zip.getEntry(entry.entryName);
-      if (item) {
-        return item;
-      }
+var Bn = function(e, t) {
+  let n = null;
+  const r = Object.assign(/* @__PURE__ */ Object.create(null), bn);
+  e && typeof e == "object" && (e instanceof Uint8Array || (Object.assign(r, e), e = r.input ? r.input : void 0, r.input && delete r.input), Buffer.isBuffer(e) && (n = e, r.method = b.Constants.BUFFER, e = void 0)), Object.assign(r, t);
+  const i = new b(r);
+  if ((typeof r.decoder != "object" || typeof r.decoder.encode != "function" || typeof r.decoder.decode != "function") && (r.decoder = b.decoder), e && typeof e == "string")
+    if (i.fs.existsSync(e))
+      r.method = b.Constants.FILE, r.filename = e, n = i.fs.readFileSync(e);
+    else
+      throw b.Errors.INVALID_FILENAME();
+  const o = new Fn(n, r), { canonical: u, sanitize: N, zipnamefix: d } = b;
+  function E(f) {
+    if (f && o) {
+      var m;
+      if (typeof f == "string" && (m = o.getEntry(M.posix.normalize(f))), typeof f == "object" && typeof f.entryName < "u" && typeof f.header < "u" && (m = o.getEntry(f.entryName)), m)
+        return m;
     }
     return null;
   }
-  function fixPath(zipPath) {
-    const { join, normalize, sep } = pth.posix;
-    return join(".", normalize(sep + zipPath.split("\\").join(sep) + sep));
+  function D(f) {
+    const { join: m, normalize: a, sep: l } = M.posix;
+    return m(".", a(l + f.split("\\").join(l) + l));
   }
-  function filenameFilter(filterfn) {
-    if (filterfn instanceof RegExp) {
-      return /* @__PURE__ */ function(rx) {
-        return function(filename) {
-          return rx.test(filename);
-        };
-      }(filterfn);
-    } else if ("function" !== typeof filterfn) {
-      return () => true;
-    }
-    return filterfn;
+  function C(f) {
+    return f instanceof RegExp ? /* @__PURE__ */ function(m) {
+      return function(a) {
+        return m.test(a);
+      };
+    }(f) : typeof f != "function" ? () => !0 : f;
   }
-  const relativePath = (local, entry) => {
-    let lastChar = entry.slice(-1);
-    lastChar = lastChar === filetools.sep ? filetools.sep : "";
-    return pth.relative(local, entry) + lastChar;
+  const _ = (f, m) => {
+    let a = m.slice(-1);
+    return a = a === i.sep ? i.sep : "", M.relative(f, m) + a;
   };
   return {
     /**
@@ -1867,20 +1349,19 @@ var admZip = function(input, options) {
      * @param {Buffer|string} [pass] - password
      * @return Buffer or Null in case of error
      */
-    readFile: function(entry, pass) {
-      var item = getEntry(entry);
-      return item && item.getData(pass) || null;
+    readFile: function(f, m) {
+      var a = E(f);
+      return a && a.getData(m) || null;
     },
     /**
      * Returns how many child elements has on entry (directories) on files it is always 0
      * @param {ZipEntry|string} entry ZipEntry object or String with the full path of the entry
      * @returns {integer}
      */
-    childCount: function(entry) {
-      const item = getEntry(entry);
-      if (item) {
-        return _zip.getChildCount(item);
-      }
+    childCount: function(f) {
+      const m = E(f);
+      if (m)
+        return o.getChildCount(m);
     },
     /**
      * Asynchronous readFile
@@ -1889,13 +1370,9 @@ var admZip = function(input, options) {
      *
      * @return Buffer or Null in case of error
      */
-    readFileAsync: function(entry, callback) {
-      var item = getEntry(entry);
-      if (item) {
-        item.getDataAsync(callback);
-      } else {
-        callback(null, "getEntry failed for:" + entry);
-      }
+    readFileAsync: function(f, m) {
+      var a = E(f);
+      a ? a.getDataAsync(m) : m(null, "getEntry failed for:" + f);
     },
     /**
      * Extracts the given entry from the archive and returns the content as plain text in the given encoding
@@ -1904,13 +1381,12 @@ var admZip = function(input, options) {
      *
      * @return String
      */
-    readAsText: function(entry, encoding) {
-      var item = getEntry(entry);
-      if (item) {
-        var data = item.getData();
-        if (data && data.length) {
-          return data.toString(encoding || "utf8");
-        }
+    readAsText: function(f, m) {
+      var a = E(f);
+      if (a) {
+        var l = a.getData();
+        if (l && l.length)
+          return l.toString(m || "utf8");
       }
       return "";
     },
@@ -1922,23 +1398,15 @@ var admZip = function(input, options) {
      *
      * @return String
      */
-    readAsTextAsync: function(entry, callback, encoding) {
-      var item = getEntry(entry);
-      if (item) {
-        item.getDataAsync(function(data, err) {
-          if (err) {
-            callback(data, err);
-            return;
-          }
-          if (data && data.length) {
-            callback(data.toString(encoding || "utf8"));
-          } else {
-            callback("");
-          }
-        });
-      } else {
-        callback("");
-      }
+    readAsTextAsync: function(f, m, a) {
+      var l = E(f);
+      l ? l.getDataAsync(function(p, s) {
+        if (s) {
+          m(p, s);
+          return;
+        }
+        p && p.length ? m(p.toString(a || "utf8")) : m("");
+      }) : m("");
     },
     /**
      * Remove the entry from the file or the entry and all it's nested directories and files if the given entry is a directory
@@ -1946,11 +1414,9 @@ var admZip = function(input, options) {
      * @param {ZipEntry|string} entry
      * @returns {void}
      */
-    deleteFile: function(entry, withsubfolders = true) {
-      var item = getEntry(entry);
-      if (item) {
-        _zip.deleteFile(item.entryName, withsubfolders);
-      }
+    deleteFile: function(f, m = !0) {
+      var a = E(f);
+      a && o.deleteFile(a.entryName, m);
     },
     /**
      * Remove the entry from the file or directory without affecting any nested entries
@@ -1958,19 +1424,17 @@ var admZip = function(input, options) {
      * @param {ZipEntry|string} entry
      * @returns {void}
      */
-    deleteEntry: function(entry) {
-      var item = getEntry(entry);
-      if (item) {
-        _zip.deleteEntry(item.entryName);
-      }
+    deleteEntry: function(f) {
+      var m = E(f);
+      m && o.deleteEntry(m.entryName);
     },
     /**
      * Adds a comment to the zip. The zip must be rewritten after adding the comment.
      *
      * @param {string} comment
      */
-    addZipComment: function(comment) {
-      _zip.comment = comment;
+    addZipComment: function(f) {
+      o.comment = f;
     },
     /**
      * Returns the zip comment
@@ -1978,7 +1442,7 @@ var admZip = function(input, options) {
      * @return String
      */
     getZipComment: function() {
-      return _zip.comment || "";
+      return o.comment || "";
     },
     /**
      * Adds a comment to a specified zipEntry. The zip must be rewritten after adding the comment
@@ -1987,11 +1451,9 @@ var admZip = function(input, options) {
      * @param {ZipEntry} entry
      * @param {string} comment
      */
-    addZipEntryComment: function(entry, comment) {
-      var item = getEntry(entry);
-      if (item) {
-        item.comment = comment;
-      }
+    addZipEntryComment: function(f, m) {
+      var a = E(f);
+      a && (a.comment = m);
     },
     /**
      * Returns the comment of the specified entry
@@ -1999,12 +1461,9 @@ var admZip = function(input, options) {
      * @param {ZipEntry} entry
      * @return String
      */
-    getZipEntryComment: function(entry) {
-      var item = getEntry(entry);
-      if (item) {
-        return item.comment || "";
-      }
-      return "";
+    getZipEntryComment: function(f) {
+      var m = E(f);
+      return m && m.comment || "";
     },
     /**
      * Updates the content of an existing entry inside the archive. The zip must be rewritten after updating the content
@@ -2012,11 +1471,9 @@ var admZip = function(input, options) {
      * @param {ZipEntry} entry
      * @param {Buffer} content
      */
-    updateFile: function(entry, content) {
-      var item = getEntry(entry);
-      if (item) {
-        item.setData(content);
-      }
+    updateFile: function(f, m) {
+      var a = E(f);
+      a && a.setData(m);
     },
     /**
      * Adds a file from the disk to the archive
@@ -2026,18 +1483,15 @@ var admZip = function(input, options) {
      * @param {string} [zipName] Optional name for the file
      * @param {string} [comment] Optional file comment
      */
-    addLocalFile: function(localPath2, zipPath, zipName, comment) {
-      if (filetools.fs.existsSync(localPath2)) {
-        zipPath = zipPath ? fixPath(zipPath) : "";
-        const p = pth.win32.basename(pth.win32.normalize(localPath2));
-        zipPath += zipName ? zipName : p;
-        const _attr = filetools.fs.statSync(localPath2);
-        const data = _attr.isFile() ? filetools.fs.readFileSync(localPath2) : Buffer.alloc(0);
-        if (_attr.isDirectory()) zipPath += filetools.sep;
-        this.addFile(zipPath, data, comment, _attr);
-      } else {
-        throw Utils.Errors.FILE_NOT_FOUND(localPath2);
-      }
+    addLocalFile: function(f, m, a, l) {
+      if (i.fs.existsSync(f)) {
+        m = m ? D(m) : "";
+        const p = M.win32.basename(M.win32.normalize(f));
+        m += a || p;
+        const s = i.fs.statSync(f), c = s.isFile() ? i.fs.readFileSync(f) : Buffer.alloc(0);
+        s.isDirectory() && (m += i.sep), this.addFile(m, c, l, s);
+      } else
+        throw b.Errors.FILE_NOT_FOUND(f);
     },
     /**
      * Callback for showing if everything was done.
@@ -2056,28 +1510,21 @@ var admZip = function(input, options) {
      * @param {string} [options.zipName] - Optional name for the file
      * @param {doneCallback} callback - The callback that handles the response.
      */
-    addLocalFileAsync: function(options2, callback) {
-      options2 = typeof options2 === "object" ? options2 : { localPath: options2 };
-      const localPath2 = pth.resolve(options2.localPath);
-      const { comment } = options2;
-      let { zipPath, zipName } = options2;
-      const self = this;
-      filetools.fs.stat(localPath2, function(err, stats) {
-        if (err) return callback(err, false);
-        zipPath = zipPath ? fixPath(zipPath) : "";
-        const p = pth.win32.basename(pth.win32.normalize(localPath2));
-        zipPath += zipName ? zipName : p;
-        if (stats.isFile()) {
-          filetools.fs.readFile(localPath2, function(err2, data) {
-            if (err2) return callback(err2, false);
-            self.addFile(zipPath, data, comment, stats);
-            return setImmediate(callback, void 0, true);
+    addLocalFileAsync: function(f, m) {
+      f = typeof f == "object" ? f : { localPath: f };
+      const a = M.resolve(f.localPath), { comment: l } = f;
+      let { zipPath: p, zipName: s } = f;
+      const c = this;
+      i.fs.stat(a, function(h, g) {
+        if (h) return m(h, !1);
+        p = p ? D(p) : "";
+        const y = M.win32.basename(M.win32.normalize(a));
+        if (p += s || y, g.isFile())
+          i.fs.readFile(a, function(T, L) {
+            return T ? m(T, !1) : (c.addFile(p, L, l, g), setImmediate(m, void 0, !0));
           });
-        } else if (stats.isDirectory()) {
-          zipPath += filetools.sep;
-          self.addFile(zipPath, Buffer.alloc(0), comment, stats);
-          return setImmediate(callback, void 0, true);
-        }
+        else if (g.isDirectory())
+          return p += i.sep, c.addFile(p, Buffer.alloc(0), l, g), setImmediate(m, void 0, !0);
       });
     },
     /**
@@ -2087,24 +1534,16 @@ var admZip = function(input, options) {
      * @param {string} [zipPath] - optional path inside zip
      * @param {(RegExp|function)} [filter] - optional RegExp or Function if files match will be included.
      */
-    addLocalFolder: function(localPath2, zipPath, filter) {
-      filter = filenameFilter(filter);
-      zipPath = zipPath ? fixPath(zipPath) : "";
-      localPath2 = pth.normalize(localPath2);
-      if (filetools.fs.existsSync(localPath2)) {
-        const items = filetools.findFiles(localPath2);
-        const self = this;
-        if (items.length) {
-          for (const filepath of items) {
-            const p = pth.join(zipPath, relativePath(localPath2, filepath));
-            if (filter(p)) {
-              self.addLocalFile(filepath, pth.dirname(p));
-            }
+    addLocalFolder: function(f, m, a) {
+      if (a = C(a), m = m ? D(m) : "", f = M.normalize(f), i.fs.existsSync(f)) {
+        const l = i.findFiles(f), p = this;
+        if (l.length)
+          for (const s of l) {
+            const c = M.join(m, _(f, s));
+            a(c) && p.addLocalFile(s, M.dirname(c));
           }
-        }
-      } else {
-        throw Utils.Errors.FILE_NOT_FOUND(localPath2);
-      }
+      } else
+        throw b.Errors.FILE_NOT_FOUND(f);
     },
     /**
      * Asynchronous addLocalFolder
@@ -2114,52 +1553,29 @@ var admZip = function(input, options) {
      * @param {RegExp|function} [filter] optional RegExp or Function if files match will
      *               be included.
      */
-    addLocalFolderAsync: function(localPath2, callback, zipPath, filter) {
-      filter = filenameFilter(filter);
-      zipPath = zipPath ? fixPath(zipPath) : "";
-      localPath2 = pth.normalize(localPath2);
-      var self = this;
-      filetools.fs.open(localPath2, "r", function(err) {
-        if (err && err.code === "ENOENT") {
-          callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath2));
-        } else if (err) {
-          callback(void 0, err);
-        } else {
-          var items = filetools.findFiles(localPath2);
-          var i = -1;
-          var next = function() {
-            i += 1;
-            if (i < items.length) {
-              var filepath = items[i];
-              var p = relativePath(localPath2, filepath).split("\\").join("/");
-              p = p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "");
-              if (filter(p)) {
-                filetools.fs.stat(filepath, function(er0, stats) {
-                  if (er0) callback(void 0, er0);
-                  if (stats.isFile()) {
-                    filetools.fs.readFile(filepath, function(er1, data) {
-                      if (er1) {
-                        callback(void 0, er1);
-                      } else {
-                        self.addFile(zipPath + p, data, "", stats);
-                        next();
-                      }
-                    });
-                  } else {
-                    self.addFile(zipPath + p + "/", Buffer.alloc(0), "", stats);
-                    next();
-                  }
-                });
-              } else {
-                process.nextTick(() => {
-                  next();
-                });
-              }
-            } else {
-              callback(true, void 0);
-            }
+    addLocalFolderAsync: function(f, m, a, l) {
+      l = C(l), a = a ? D(a) : "", f = M.normalize(f);
+      var p = this;
+      i.fs.open(f, "r", function(s) {
+        if (s && s.code === "ENOENT")
+          m(void 0, b.Errors.FILE_NOT_FOUND(f));
+        else if (s)
+          m(void 0, s);
+        else {
+          var c = i.findFiles(f), h = -1, g = function() {
+            if (h += 1, h < c.length) {
+              var y = c[h], T = _(f, y).split("\\").join("/");
+              T = T.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, ""), l(T) ? i.fs.stat(y, function(L, v) {
+                L && m(void 0, L), v.isFile() ? i.fs.readFile(y, function(w, S) {
+                  w ? m(void 0, w) : (p.addFile(a + T, S, "", v), g());
+                }) : (p.addFile(a + T + "/", Buffer.alloc(0), "", v), g());
+              }) : process.nextTick(() => {
+                g();
+              });
+            } else
+              m(!0, void 0);
           };
-          next();
+          g();
         }
       });
     },
@@ -2174,56 +1590,37 @@ var admZip = function(input, options) {
      * @param {doneCallback} callback - The callback that handles the response.
      *
      */
-    addLocalFolderAsync2: function(options2, callback) {
-      const self = this;
-      options2 = typeof options2 === "object" ? options2 : { localPath: options2 };
-      localPath = pth.resolve(fixPath(options2.localPath));
-      let { zipPath, filter, namefix } = options2;
-      if (filter instanceof RegExp) {
-        filter = /* @__PURE__ */ function(rx) {
-          return function(filename) {
-            return rx.test(filename);
-          };
-        }(filter);
-      } else if ("function" !== typeof filter) {
-        filter = function() {
-          return true;
+    addLocalFolderAsync2: function(f, m) {
+      const a = this;
+      f = typeof f == "object" ? f : { localPath: f }, localPath = M.resolve(D(f.localPath));
+      let { zipPath: l, filter: p, namefix: s } = f;
+      p instanceof RegExp ? p = /* @__PURE__ */ function(g) {
+        return function(y) {
+          return g.test(y);
         };
-      }
-      zipPath = zipPath ? fixPath(zipPath) : "";
-      if (namefix == "latin1") {
-        namefix = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "");
-      }
-      if (typeof namefix !== "function") namefix = (str) => str;
-      const relPathFix = (entry) => pth.join(zipPath, namefix(relativePath(localPath, entry)));
-      const fileNameFix = (entry) => pth.win32.basename(pth.win32.normalize(namefix(entry)));
-      filetools.fs.open(localPath, "r", function(err) {
-        if (err && err.code === "ENOENT") {
-          callback(void 0, Utils.Errors.FILE_NOT_FOUND(localPath));
-        } else if (err) {
-          callback(void 0, err);
-        } else {
-          filetools.findFilesAsync(localPath, function(err2, fileEntries) {
-            if (err2) return callback(err2);
-            fileEntries = fileEntries.filter((dir) => filter(relPathFix(dir)));
-            if (!fileEntries.length) callback(void 0, false);
-            setImmediate(
-              fileEntries.reverse().reduce(function(next, entry) {
-                return function(err3, done) {
-                  if (err3 || done === false) return setImmediate(next, err3, false);
-                  self.addLocalFileAsync(
-                    {
-                      localPath: entry,
-                      zipPath: pth.dirname(relPathFix(entry)),
-                      zipName: fileNameFix(entry)
-                    },
-                    next
-                  );
-                };
-              }, callback)
-            );
-          });
-        }
+      }(p) : typeof p != "function" && (p = function() {
+        return !0;
+      }), l = l ? D(l) : "", s == "latin1" && (s = (g) => g.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\x20-\x7E]/g, "")), typeof s != "function" && (s = (g) => g);
+      const c = (g) => M.join(l, s(_(localPath, g))), h = (g) => M.win32.basename(M.win32.normalize(s(g)));
+      i.fs.open(localPath, "r", function(g) {
+        g && g.code === "ENOENT" ? m(void 0, b.Errors.FILE_NOT_FOUND(localPath)) : g ? m(void 0, g) : i.findFilesAsync(localPath, function(y, T) {
+          if (y) return m(y);
+          T = T.filter((L) => p(c(L))), T.length || m(void 0, !1), setImmediate(
+            T.reverse().reduce(function(L, v) {
+              return function(w, S) {
+                if (w || S === !1) return setImmediate(L, w, !1);
+                a.addLocalFileAsync(
+                  {
+                    localPath: v,
+                    zipPath: M.dirname(c(v)),
+                    zipName: h(v)
+                  },
+                  L
+                );
+              };
+            }, m)
+          );
+        });
       });
     },
     /**
@@ -2235,11 +1632,10 @@ var admZip = function(input, options) {
      * @param {RegExp|function} [props.filter] - optional RegExp or Function if files match will be included.
      * @param {function|string} [props.namefix] - optional function to help fix filename
      */
-    addLocalFolderPromise: function(localPath2, props) {
-      return new Promise((resolve, reject) => {
-        this.addLocalFolderAsync2(Object.assign({ localPath: localPath2 }, props), (err, done) => {
-          if (err) reject(err);
-          if (done) resolve(this);
+    addLocalFolderPromise: function(f, m) {
+      return new Promise((a, l) => {
+        this.addLocalFolderAsync2(Object.assign({ localPath: f }, m), (p, s) => {
+          p && l(p), s && a(this);
         });
       });
     },
@@ -2253,33 +1649,16 @@ var admZip = function(input, options) {
      * @param {string} [comment] - file comment
      * @param {number | object} [attr] - number as unix file permissions, object as filesystem Stats object
      */
-    addFile: function(entryName, content, comment, attr) {
-      entryName = zipnamefix(entryName);
-      let entry = getEntry(entryName);
-      const update = entry != null;
-      if (!update) {
-        entry = new ZipEntry(opts);
-        entry.entryName = entryName;
-      }
-      entry.comment = comment || "";
-      const isStat = "object" === typeof attr && attr instanceof filetools.fs.Stats;
-      if (isStat) {
-        entry.header.time = attr.mtime;
-      }
-      var fileattr = entry.isDirectory ? 16 : 0;
-      let unix = entry.isDirectory ? 16384 : 32768;
-      if (isStat) {
-        unix |= 4095 & attr.mode;
-      } else if ("number" === typeof attr) {
-        unix |= 4095 & attr;
-      } else {
-        unix |= entry.isDirectory ? 493 : 420;
-      }
-      fileattr = (fileattr | unix << 16) >>> 0;
-      entry.attr = fileattr;
-      entry.setData(content);
-      if (!update) _zip.setEntry(entry);
-      return entry;
+    addFile: function(f, m, a, l) {
+      f = d(f);
+      let p = E(f);
+      const s = p != null;
+      s || (p = new Rn(r), p.entryName = f), p.comment = a || "";
+      const c = typeof l == "object" && l instanceof i.fs.Stats;
+      c && (p.header.time = l.mtime);
+      var h = p.isDirectory ? 16 : 0;
+      let g = p.isDirectory ? 16384 : 32768;
+      return c ? g |= 4095 & l.mode : typeof l == "number" ? g |= 4095 & l : g |= p.isDirectory ? 493 : 420, h = (h | g << 16) >>> 0, p.attr = h, p.setData(m), s || o.setEntry(p), p;
     },
     /**
      * Returns an array of ZipEntry objects representing the files and folders inside the archive
@@ -2287,9 +1666,8 @@ var admZip = function(input, options) {
      * @param {string} [password]
      * @returns Array
      */
-    getEntries: function(password) {
-      _zip.password = password;
-      return _zip ? _zip.entries : [];
+    getEntries: function(f) {
+      return o.password = f, o ? o.entries : [];
     },
     /**
      * Returns a ZipEntry object representing the file or folder specified by ``name``.
@@ -2297,14 +1675,14 @@ var admZip = function(input, options) {
      * @param {string} name
      * @return ZipEntry
      */
-    getEntry: function(name) {
-      return getEntry(name);
+    getEntry: function(f) {
+      return E(f);
     },
     getEntryCount: function() {
-      return _zip.getEntryCount();
+      return o.getEntryCount();
     },
-    forEach: function(callback) {
-      return _zip.forEach(callback);
+    forEach: function(f) {
+      return o.forEach(f);
     },
     /**
      * Extracts the given entry to the given targetPath
@@ -2319,63 +1697,49 @@ var admZip = function(input, options) {
      *
      * @return Boolean
      */
-    extractEntryTo: function(entry, targetPath, maintainEntryPath, overwrite, keepOriginalPermission, outFileName) {
-      overwrite = get_Bool(false, overwrite);
-      keepOriginalPermission = get_Bool(false, keepOriginalPermission);
-      maintainEntryPath = get_Bool(true, maintainEntryPath);
-      outFileName = get_Str(keepOriginalPermission, outFileName);
-      var item = getEntry(entry);
-      if (!item) {
-        throw Utils.Errors.NO_ENTRY();
+    extractEntryTo: function(f, m, a, l, p, s) {
+      l = oe(!1, l), p = oe(!1, p), a = oe(!0, a), s = dt(p, s);
+      var c = E(f);
+      if (!c)
+        throw b.Errors.NO_ENTRY();
+      var h = u(c.entryName), g = N(m, s && !c.isDirectory ? s : a ? h : M.basename(h));
+      if (c.isDirectory) {
+        var y = o.getEntryChildren(c);
+        return y.forEach(function(v) {
+          if (v.isDirectory) return;
+          var w = v.getData();
+          if (!w)
+            throw b.Errors.CANT_EXTRACT_FILE();
+          var S = u(v.entryName), O = N(m, a ? S : M.basename(S));
+          const R = p ? v.header.fileAttr : void 0;
+          i.writeFileTo(O, w, l, R);
+        }), !0;
       }
-      var entryName = canonical(item.entryName);
-      var target = sanitize(targetPath, outFileName && !item.isDirectory ? outFileName : maintainEntryPath ? entryName : pth.basename(entryName));
-      if (item.isDirectory) {
-        var children = _zip.getEntryChildren(item);
-        children.forEach(function(child) {
-          if (child.isDirectory) return;
-          var content2 = child.getData();
-          if (!content2) {
-            throw Utils.Errors.CANT_EXTRACT_FILE();
-          }
-          var name = canonical(child.entryName);
-          var childName = sanitize(targetPath, maintainEntryPath ? name : pth.basename(name));
-          const fileAttr2 = keepOriginalPermission ? child.header.fileAttr : void 0;
-          filetools.writeFileTo(childName, content2, overwrite, fileAttr2);
-        });
-        return true;
-      }
-      var content = item.getData(_zip.password);
-      if (!content) throw Utils.Errors.CANT_EXTRACT_FILE();
-      if (filetools.fs.existsSync(target) && !overwrite) {
-        throw Utils.Errors.CANT_OVERRIDE();
-      }
-      const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-      filetools.writeFileTo(target, content, overwrite, fileAttr);
-      return true;
+      var T = c.getData(o.password);
+      if (!T) throw b.Errors.CANT_EXTRACT_FILE();
+      if (i.fs.existsSync(g) && !l)
+        throw b.Errors.CANT_OVERRIDE();
+      const L = p ? f.header.fileAttr : void 0;
+      return i.writeFileTo(g, T, l, L), !0;
     },
     /**
      * Test the archive
      * @param {string} [pass]
      */
-    test: function(pass) {
-      if (!_zip) {
-        return false;
-      }
-      for (var entry in _zip.entries) {
+    test: function(f) {
+      if (!o)
+        return !1;
+      for (var m in o.entries)
         try {
-          if (entry.isDirectory) {
+          if (m.isDirectory)
             continue;
-          }
-          var content = _zip.entries[entry].getData(pass);
-          if (!content) {
-            return false;
-          }
-        } catch (err) {
-          return false;
+          var a = o.entries[m].getData(f);
+          if (!a)
+            return !1;
+        } catch {
+          return !1;
         }
-      }
-      return true;
+      return !0;
     },
     /**
      * Extracts the entire archive to the given location
@@ -2387,27 +1751,23 @@ var admZip = function(input, options) {
      *                  Default is FALSE
      * @param {string|Buffer} [pass] password
      */
-    extractAllTo: function(targetPath, overwrite, keepOriginalPermission, pass) {
-      keepOriginalPermission = get_Bool(false, keepOriginalPermission);
-      pass = get_Str(keepOriginalPermission, pass);
-      overwrite = get_Bool(false, overwrite);
-      if (!_zip) throw Utils.Errors.NO_ZIP();
-      _zip.entries.forEach(function(entry) {
-        var entryName = sanitize(targetPath, canonical(entry.entryName));
-        if (entry.isDirectory) {
-          filetools.makeDir(entryName);
+    extractAllTo: function(f, m, a, l) {
+      if (a = oe(!1, a), l = dt(a, l), m = oe(!1, m), !o) throw b.Errors.NO_ZIP();
+      o.entries.forEach(function(p) {
+        var s = N(f, u(p.entryName));
+        if (p.isDirectory) {
+          i.makeDir(s);
           return;
         }
-        var content = entry.getData(pass);
-        if (!content) {
-          throw Utils.Errors.CANT_EXTRACT_FILE();
-        }
-        const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-        filetools.writeFileTo(entryName, content, overwrite, fileAttr);
+        var c = p.getData(l);
+        if (!c)
+          throw b.Errors.CANT_EXTRACT_FILE();
+        const h = a ? p.header.fileAttr : void 0;
+        i.writeFileTo(s, c, m, h);
         try {
-          filetools.fs.utimesSync(entryName, entry.header.time, entry.header.time);
-        } catch (err) {
-          throw Utils.Errors.CANT_EXTRACT_FILE();
+          i.fs.utimesSync(s, p.header.time, p.header.time);
+        } catch {
+          throw b.Errors.CANT_EXTRACT_FILE();
         }
       });
     },
@@ -2421,79 +1781,53 @@ var admZip = function(input, options) {
      *                  Default is FALSE
      * @param {function} callback The callback will be executed when all entries are extracted successfully or any error is thrown.
      */
-    extractAllToAsync: function(targetPath, overwrite, keepOriginalPermission, callback) {
-      callback = get_Fun(overwrite, keepOriginalPermission, callback);
-      keepOriginalPermission = get_Bool(false, keepOriginalPermission);
-      overwrite = get_Bool(false, overwrite);
-      if (!callback) {
-        return new Promise((resolve, reject) => {
-          this.extractAllToAsync(targetPath, overwrite, keepOriginalPermission, function(err) {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(this);
-            }
+    extractAllToAsync: function(f, m, a, l) {
+      if (l = Un(m, a, l), a = oe(!1, a), m = oe(!1, m), !l)
+        return new Promise((g, y) => {
+          this.extractAllToAsync(f, m, a, function(T) {
+            T ? y(T) : g(this);
           });
         });
-      }
-      if (!_zip) {
-        callback(Utils.Errors.NO_ZIP());
+      if (!o) {
+        l(b.Errors.NO_ZIP());
         return;
       }
-      targetPath = pth.resolve(targetPath);
-      const getPath = (entry) => sanitize(targetPath, pth.normalize(canonical(entry.entryName)));
-      const getError = (msg, file) => new Error(msg + ': "' + file + '"');
-      const dirEntries = [];
-      const fileEntries = [];
-      _zip.entries.forEach((e) => {
-        if (e.isDirectory) {
-          dirEntries.push(e);
-        } else {
-          fileEntries.push(e);
-        }
+      f = M.resolve(f);
+      const p = (g) => N(f, M.normalize(u(g.entryName))), s = (g, y) => new Error(g + ': "' + y + '"'), c = [], h = [];
+      o.entries.forEach((g) => {
+        g.isDirectory ? c.push(g) : h.push(g);
       });
-      for (const entry of dirEntries) {
-        const dirPath = getPath(entry);
-        const dirAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
+      for (const g of c) {
+        const y = p(g), T = a ? g.header.fileAttr : void 0;
         try {
-          filetools.makeDir(dirPath);
-          if (dirAttr) filetools.fs.chmodSync(dirPath, dirAttr);
-          filetools.fs.utimesSync(dirPath, entry.header.time, entry.header.time);
-        } catch (er) {
-          callback(getError("Unable to create folder", dirPath));
+          i.makeDir(y), T && i.fs.chmodSync(y, T), i.fs.utimesSync(y, g.header.time, g.header.time);
+        } catch {
+          l(s("Unable to create folder", y));
         }
       }
-      fileEntries.reverse().reduce(function(next, entry) {
-        return function(err) {
-          if (err) {
-            next(err);
-          } else {
-            const entryName = pth.normalize(canonical(entry.entryName));
-            const filePath = sanitize(targetPath, entryName);
-            entry.getDataAsync(function(content, err_1) {
-              if (err_1) {
-                next(err_1);
-              } else if (!content) {
-                next(Utils.Errors.CANT_EXTRACT_FILE());
-              } else {
-                const fileAttr = keepOriginalPermission ? entry.header.fileAttr : void 0;
-                filetools.writeFileToAsync(filePath, content, overwrite, fileAttr, function(succ) {
-                  if (!succ) {
-                    next(getError("Unable to write file", filePath));
-                  }
-                  filetools.fs.utimes(filePath, entry.header.time, entry.header.time, function(err_2) {
-                    if (err_2) {
-                      next(getError("Unable to set times", filePath));
-                    } else {
-                      next();
-                    }
+      h.reverse().reduce(function(g, y) {
+        return function(T) {
+          if (T)
+            g(T);
+          else {
+            const L = M.normalize(u(y.entryName)), v = N(f, L);
+            y.getDataAsync(function(w, S) {
+              if (S)
+                g(S);
+              else if (!w)
+                g(b.Errors.CANT_EXTRACT_FILE());
+              else {
+                const O = a ? y.header.fileAttr : void 0;
+                i.writeFileToAsync(v, w, m, O, function(R) {
+                  R || g(s("Unable to write file", v)), i.fs.utimes(v, y.header.time, y.header.time, function($) {
+                    $ ? g(s("Unable to set times", v)) : g();
                   });
                 });
               }
             });
           }
         };
-      }, callback)();
+      }, l)();
     },
     /**
      * Writes the newly created zip file to disk at the specified location or if a zip was opened and no ``targetFileName`` is provided, it will overwrite the opened zip
@@ -2501,21 +1835,13 @@ var admZip = function(input, options) {
      * @param {string} targetFileName
      * @param {function} callback
      */
-    writeZip: function(targetFileName, callback) {
-      if (arguments.length === 1) {
-        if (typeof targetFileName === "function") {
-          callback = targetFileName;
-          targetFileName = "";
+    writeZip: function(f, m) {
+      if (arguments.length === 1 && typeof f == "function" && (m = f, f = ""), !f && r.filename && (f = r.filename), !!f) {
+        var a = o.compressToBuffer();
+        if (a) {
+          var l = i.writeFileTo(f, a, !0);
+          typeof m == "function" && m(l ? null : new Error("failed"), "");
         }
-      }
-      if (!targetFileName && opts.filename) {
-        targetFileName = opts.filename;
-      }
-      if (!targetFileName) return;
-      var zipData = _zip.compressToBuffer();
-      if (zipData) {
-        var ok = filetools.writeFileTo(targetFileName, zipData, true);
-        if (typeof callback === "function") callback(!ok ? new Error("failed") : null, "");
       }
     },
     /**
@@ -2527,23 +1853,21 @@ var admZip = function(input, options) {
     
              * @returns {Promise<void>}
              */
-    writeZipPromise: function(targetFileName, props) {
-      const { overwrite, perm } = Object.assign({ overwrite: true }, props);
-      return new Promise((resolve, reject) => {
-        if (!targetFileName && opts.filename) targetFileName = opts.filename;
-        if (!targetFileName) reject("ADM-ZIP: ZIP File Name Missing");
-        this.toBufferPromise().then((zipData) => {
-          const ret = (done) => done ? resolve(done) : reject("ADM-ZIP: Wasn't able to write zip file");
-          filetools.writeFileToAsync(targetFileName, zipData, overwrite, perm, ret);
-        }, reject);
+    writeZipPromise: function(f, m) {
+      const { overwrite: a, perm: l } = Object.assign({ overwrite: !0 }, m);
+      return new Promise((p, s) => {
+        !f && r.filename && (f = r.filename), f || s("ADM-ZIP: ZIP File Name Missing"), this.toBufferPromise().then((c) => {
+          const h = (g) => g ? p(g) : s("ADM-ZIP: Wasn't able to write zip file");
+          i.writeFileToAsync(f, c, a, l, h);
+        }, s);
       });
     },
     /**
      * @returns {Promise<Buffer>} A promise to the Buffer.
      */
     toBufferPromise: function() {
-      return new Promise((resolve, reject) => {
-        _zip.toAsyncBuffer(resolve, reject);
+      return new Promise((f, m) => {
+        o.toAsyncBuffer(f, m);
       });
     },
     /**
@@ -2555,18 +1879,14 @@ var admZip = function(input, options) {
      * @prop {function} [onItemEnd]
      * @returns {Buffer}
      */
-    toBuffer: function(onSuccess, onFail, onItemStart, onItemEnd) {
-      if (typeof onSuccess === "function") {
-        _zip.toAsyncBuffer(onSuccess, onFail, onItemStart, onItemEnd);
-        return null;
-      }
-      return _zip.compressToBuffer();
+    toBuffer: function(f, m, a, l) {
+      return typeof f == "function" ? (o.toAsyncBuffer(f, m, a, l), null) : o.compressToBuffer();
     }
   };
 };
-const AdmZip = /* @__PURE__ */ getDefaultExportFromCjs(admZip);
-var entities = {};
-entities.entityMap = {
+const Mn = /* @__PURE__ */ fn(Bn);
+var At = {};
+At.entityMap = {
   lt: "<",
   gt: ">",
   amp: "&",
@@ -2688,7 +2008,7 @@ entities.entityMap = {
   or: "∨",
   cap: "∩",
   cup: "∪",
-  "int": "∫",
+  int: "∫",
   there4: "∴",
   sim: "∼",
   cong: "≅",
@@ -2809,538 +2129,306 @@ entities.entityMap = {
   hearts: "♥",
   diams: "♦"
 };
-var sax$1 = {};
-var nameStartChar = /[A-Z_a-z\xC0-\xD6\xD8-\xF6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]/;
-var nameChar = new RegExp("[\\-\\.0-9" + nameStartChar.source.slice(1, -1) + "\\u00B7\\u0300-\\u036F\\u203F-\\u2040]");
-var tagNamePattern = new RegExp("^" + nameStartChar.source + nameChar.source + "*(?::" + nameStartChar.source + nameChar.source + "*)?$");
-var S_TAG = 0;
-var S_ATTR = 1;
-var S_ATTR_SPACE = 2;
-var S_EQ = 3;
-var S_ATTR_NOQUOT_VALUE = 4;
-var S_ATTR_END = 5;
-var S_TAG_SPACE = 6;
-var S_TAG_CLOSE = 7;
-function ParseError$1(message, locator) {
-  this.message = message;
-  this.locator = locator;
-  if (Error.captureStackTrace) Error.captureStackTrace(this, ParseError$1);
+var Je = {}, ke = /[A-Z_a-z\xC0-\xD6\xD8-\xF6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]/, ht = new RegExp("[\\-\\.0-9" + ke.source.slice(1, -1) + "\\u00B7\\u0300-\\u036F\\u203F-\\u2040]"), Et = new RegExp("^" + ke.source + ht.source + "*(?::" + ke.source + ht.source + "*)?$"), ye = 0, Q = 1, ae = 2, ve = 3, fe = 4, ce = 5, Ie = 6, Re = 7;
+function de(e, t) {
+  this.message = e, this.locator = t, Error.captureStackTrace && Error.captureStackTrace(this, de);
 }
-ParseError$1.prototype = new Error();
-ParseError$1.prototype.name = ParseError$1.name;
-function XMLReader$1() {
+de.prototype = new Error();
+de.prototype.name = de.name;
+function xt() {
 }
-XMLReader$1.prototype = {
-  parse: function(source, defaultNSMap, entityMap) {
-    var domBuilder = this.domBuilder;
-    domBuilder.startDocument();
-    _copy(defaultNSMap, defaultNSMap = {});
-    parse(
-      source,
-      defaultNSMap,
-      entityMap,
-      domBuilder,
+xt.prototype = {
+  parse: function(e, t, n) {
+    var r = this.domBuilder;
+    r.startDocument(), Rt(t, t = {}), Pn(
+      e,
+      t,
+      n,
+      r,
       this.errorHandler
-    );
-    domBuilder.endDocument();
+    ), r.endDocument();
   }
 };
-function parse(source, defaultNSMapCopy, entityMap, domBuilder, errorHandler) {
-  function fixedFromCharCode(code) {
-    if (code > 65535) {
-      code -= 65536;
-      var surrogate1 = 55296 + (code >> 10), surrogate2 = 56320 + (code & 1023);
-      return String.fromCharCode(surrogate1, surrogate2);
-    } else {
-      return String.fromCharCode(code);
+function Pn(e, t, n, r, i) {
+  function o(A) {
+    if (A > 65535) {
+      A -= 65536;
+      var G = 55296 + (A >> 10), re = 56320 + (A & 1023);
+      return String.fromCharCode(G, re);
+    } else
+      return String.fromCharCode(A);
+  }
+  function u(A) {
+    var G = A.slice(1, -1);
+    return G in n ? n[G] : G.charAt(0) === "#" ? o(parseInt(G.substr(1).replace("x", "0x"))) : (i.error("entity not found:" + A), A);
+  }
+  function N(A) {
+    if (A > a) {
+      var G = e.substring(a, A).replace(/&#?\w+;/g, u);
+      _ && d(a), r.characters(G, 0, A - a), a = A;
     }
   }
-  function entityReplacer(a2) {
-    var k = a2.slice(1, -1);
-    if (k in entityMap) {
-      return entityMap[k];
-    } else if (k.charAt(0) === "#") {
-      return fixedFromCharCode(parseInt(k.substr(1).replace("x", "0x")));
-    } else {
-      errorHandler.error("entity not found:" + a2);
-      return a2;
-    }
+  function d(A, G) {
+    for (; A >= D && (G = C.exec(e)); )
+      E = G.index, D = E + G[0].length, _.lineNumber++;
+    _.columnNumber = A - E + 1;
   }
-  function appendText(end2) {
-    if (end2 > start) {
-      var xt = source.substring(start, end2).replace(/&#?\w+;/g, entityReplacer);
-      locator && position2(start);
-      domBuilder.characters(xt, 0, end2 - start);
-      start = end2;
-    }
-  }
-  function position2(p, m) {
-    while (p >= lineEnd && (m = linePattern.exec(source))) {
-      lineStart = m.index;
-      lineEnd = lineStart + m[0].length;
-      locator.lineNumber++;
-    }
-    locator.columnNumber = p - lineStart + 1;
-  }
-  var lineStart = 0;
-  var lineEnd = 0;
-  var linePattern = /.*(?:\r\n?|\n)|.*$/g;
-  var locator = domBuilder.locator;
-  var parseStack = [{ currentNSMap: defaultNSMapCopy }];
-  var closeMap = {};
-  var start = 0;
-  while (true) {
+  for (var E = 0, D = 0, C = /.*(?:\r\n?|\n)|.*$/g, _ = r.locator, f = [{ currentNSMap: t }], m = {}, a = 0; ; ) {
     try {
-      var tagStart = source.indexOf("<", start);
-      if (tagStart < 0) {
-        if (!source.substr(start).match(/^\s*$/)) {
-          var doc = domBuilder.doc;
-          var text = doc.createTextNode(source.substr(start));
-          doc.appendChild(text);
-          domBuilder.currentElement = text;
+      var l = e.indexOf("<", a);
+      if (l < 0) {
+        if (!e.substr(a).match(/^\s*$/)) {
+          var p = r.doc, s = p.createTextNode(e.substr(a));
+          p.appendChild(s), r.currentElement = s;
         }
         return;
       }
-      if (tagStart > start) {
-        appendText(tagStart);
-      }
-      switch (source.charAt(tagStart + 1)) {
+      switch (l > a && N(l), e.charAt(l + 1)) {
         case "/":
-          var end = source.indexOf(">", tagStart + 3);
-          var tagName = source.substring(tagStart + 2, end);
-          var config2 = parseStack.pop();
-          if (end < 0) {
-            tagName = source.substring(tagStart + 2).replace(/[\s<].*/, "");
-            errorHandler.error("end tag name: " + tagName + " is not complete:" + config2.tagName);
-            end = tagStart + 1 + tagName.length;
-          } else if (tagName.match(/\s</)) {
-            tagName = tagName.replace(/[\s<].*/, "");
-            errorHandler.error("end tag name: " + tagName + " maybe not complete");
-            end = tagStart + 1 + tagName.length;
-          }
-          var localNSMap = config2.localNSMap;
-          var endMatch = config2.tagName == tagName;
-          var endIgnoreCaseMach = endMatch || config2.tagName && config2.tagName.toLowerCase() == tagName.toLowerCase();
-          if (endIgnoreCaseMach) {
-            domBuilder.endElement(config2.uri, config2.localName, tagName);
-            if (localNSMap) {
-              for (var prefix in localNSMap) {
-                domBuilder.endPrefixMapping(prefix);
-              }
-            }
-            if (!endMatch) {
-              errorHandler.fatalError("end tag name: " + tagName + " is not match the current start tagName:" + config2.tagName);
-            }
-          } else {
-            parseStack.push(config2);
-          }
-          end++;
+          var S = e.indexOf(">", l + 3), c = e.substring(l + 2, S), h = f.pop();
+          S < 0 ? (c = e.substring(l + 2).replace(/[\s<].*/, ""), i.error("end tag name: " + c + " is not complete:" + h.tagName), S = l + 1 + c.length) : c.match(/\s</) && (c = c.replace(/[\s<].*/, ""), i.error("end tag name: " + c + " maybe not complete"), S = l + 1 + c.length);
+          var g = h.localNSMap, y = h.tagName == c, T = y || h.tagName && h.tagName.toLowerCase() == c.toLowerCase();
+          if (T) {
+            if (r.endElement(h.uri, h.localName, c), g)
+              for (var L in g)
+                r.endPrefixMapping(L);
+            y || i.fatalError("end tag name: " + c + " is not match the current start tagName:" + h.tagName);
+          } else
+            f.push(h);
+          S++;
           break;
         case "?":
-          locator && position2(tagStart);
-          end = parseInstruction(source, tagStart, domBuilder);
+          _ && d(l), S = Vn(e, l, r);
           break;
         case "!":
-          locator && position2(tagStart);
-          end = parseDCC(source, tagStart, domBuilder, errorHandler);
+          _ && d(l), S = $n(e, l, r, i);
           break;
         default:
-          locator && position2(tagStart);
-          var el = new ElementAttributes();
-          var currentNSMap = parseStack[parseStack.length - 1].currentNSMap;
-          var end = parseElementStartPart(source, tagStart, el, currentNSMap, entityReplacer, errorHandler);
-          var len = el.length;
-          if (!el.closed && fixSelfClosed(source, end, el.tagName, closeMap)) {
-            el.closed = true;
-            if (!entityMap.nbsp) {
-              errorHandler.warning("unclosed xml attribute");
+          _ && d(l);
+          var v = new Ft(), w = f[f.length - 1].currentNSMap, S = zn(e, l, v, w, u, i), O = v.length;
+          if (!v.closed && Hn(e, S, v.tagName, m) && (v.closed = !0, n.nbsp || i.warning("unclosed xml attribute")), _ && O) {
+            for (var R = pt(_, {}), $ = 0; $ < O; $++) {
+              var F = v[$];
+              d(F.offset), F.locator = pt(_, {});
             }
-          }
-          if (locator && len) {
-            var locator2 = copyLocator(locator, {});
-            for (var i = 0; i < len; i++) {
-              var a = el[i];
-              position2(a.offset);
-              a.locator = copyLocator(locator, {});
-            }
-            domBuilder.locator = locator2;
-            if (appendElement$1(el, domBuilder, currentNSMap)) {
-              parseStack.push(el);
-            }
-            domBuilder.locator = locator;
-          } else {
-            if (appendElement$1(el, domBuilder, currentNSMap)) {
-              parseStack.push(el);
-            }
-          }
-          if (el.uri === "http://www.w3.org/1999/xhtml" && !el.closed) {
-            end = parseHtmlSpecialContent(source, end, el.tagName, entityReplacer, domBuilder);
-          } else {
-            end++;
-          }
+            r.locator = R, gt(v, r, w) && f.push(v), r.locator = _;
+          } else
+            gt(v, r, w) && f.push(v);
+          v.uri === "http://www.w3.org/1999/xhtml" && !v.closed ? S = Zn(e, S, v.tagName, u, r) : S++;
       }
-    } catch (e) {
-      if (e instanceof ParseError$1) {
-        throw e;
-      }
-      errorHandler.error("element parse error: " + e);
-      end = -1;
+    } catch (A) {
+      if (A instanceof de)
+        throw A;
+      i.error("element parse error: " + A), S = -1;
     }
-    if (end > start) {
-      start = end;
-    } else {
-      appendText(Math.max(tagStart, start) + 1);
-    }
+    S > a ? a = S : N(Math.max(l, a) + 1);
   }
 }
-function copyLocator(f, t) {
-  t.lineNumber = f.lineNumber;
-  t.columnNumber = f.columnNumber;
-  return t;
+function pt(e, t) {
+  return t.lineNumber = e.lineNumber, t.columnNumber = e.columnNumber, t;
 }
-function parseElementStartPart(source, start, el, currentNSMap, entityReplacer, errorHandler) {
-  function addAttribute(qname, value2, startIndex) {
-    if (qname in el.attributeNames) errorHandler.fatalError("Attribute " + qname + " redefined");
-    el.addValue(qname, value2, startIndex);
+function zn(e, t, n, r, i, o) {
+  function u(_, f, m) {
+    _ in n.attributeNames && o.fatalError("Attribute " + _ + " redefined"), n.addValue(_, f, m);
   }
-  var attrName;
-  var value;
-  var p = ++start;
-  var s = S_TAG;
-  while (true) {
-    var c = source.charAt(p);
-    switch (c) {
+  for (var N, d, E = ++t, D = ye; ; ) {
+    var C = e.charAt(E);
+    switch (C) {
       case "=":
-        if (s === S_ATTR) {
-          attrName = source.slice(start, p);
-          s = S_EQ;
-        } else if (s === S_ATTR_SPACE) {
-          s = S_EQ;
-        } else {
+        if (D === Q)
+          N = e.slice(t, E), D = ve;
+        else if (D === ae)
+          D = ve;
+        else
           throw new Error("attribute equal must after attrName");
-        }
         break;
       case "'":
       case '"':
-        if (s === S_EQ || s === S_ATTR) {
-          if (s === S_ATTR) {
-            errorHandler.warning('attribute value must after "="');
-            attrName = source.slice(start, p);
-          }
-          start = p + 1;
-          p = source.indexOf(c, start);
-          if (p > 0) {
-            value = source.slice(start, p).replace(/&#?\w+;/g, entityReplacer);
-            addAttribute(attrName, value, start - 1);
-            s = S_ATTR_END;
-          } else {
-            throw new Error("attribute value no end '" + c + "' match");
-          }
-        } else if (s == S_ATTR_NOQUOT_VALUE) {
-          value = source.slice(start, p).replace(/&#?\w+;/g, entityReplacer);
-          addAttribute(attrName, value, start);
-          errorHandler.warning('attribute "' + attrName + '" missed start quot(' + c + ")!!");
-          start = p + 1;
-          s = S_ATTR_END;
-        } else {
+        if (D === ve || D === Q)
+          if (D === Q && (o.warning('attribute value must after "="'), N = e.slice(t, E)), t = E + 1, E = e.indexOf(C, t), E > 0)
+            d = e.slice(t, E).replace(/&#?\w+;/g, i), u(N, d, t - 1), D = ce;
+          else
+            throw new Error("attribute value no end '" + C + "' match");
+        else if (D == fe)
+          d = e.slice(t, E).replace(/&#?\w+;/g, i), u(N, d, t), o.warning('attribute "' + N + '" missed start quot(' + C + ")!!"), t = E + 1, D = ce;
+        else
           throw new Error('attribute value must after "="');
-        }
         break;
       case "/":
-        switch (s) {
-          case S_TAG:
-            el.setTagName(source.slice(start, p));
-          case S_ATTR_END:
-          case S_TAG_SPACE:
-          case S_TAG_CLOSE:
-            s = S_TAG_CLOSE;
-            el.closed = true;
-          case S_ATTR_NOQUOT_VALUE:
-          case S_ATTR:
-          case S_ATTR_SPACE:
+        switch (D) {
+          case ye:
+            n.setTagName(e.slice(t, E));
+          case ce:
+          case Ie:
+          case Re:
+            D = Re, n.closed = !0;
+          case fe:
+          case Q:
+          case ae:
             break;
           default:
             throw new Error("attribute invalid close char('/')");
         }
         break;
       case "":
-        errorHandler.error("unexpected end of input");
-        if (s == S_TAG) {
-          el.setTagName(source.slice(start, p));
-        }
-        return p;
+        return o.error("unexpected end of input"), D == ye && n.setTagName(e.slice(t, E)), E;
       case ">":
-        switch (s) {
-          case S_TAG:
-            el.setTagName(source.slice(start, p));
-          case S_ATTR_END:
-          case S_TAG_SPACE:
-          case S_TAG_CLOSE:
+        switch (D) {
+          case ye:
+            n.setTagName(e.slice(t, E));
+          case ce:
+          case Ie:
+          case Re:
             break;
-          case S_ATTR_NOQUOT_VALUE:
-          case S_ATTR:
-            value = source.slice(start, p);
-            if (value.slice(-1) === "/") {
-              el.closed = true;
-              value = value.slice(0, -1);
-            }
-          case S_ATTR_SPACE:
-            if (s === S_ATTR_SPACE) {
-              value = attrName;
-            }
-            if (s == S_ATTR_NOQUOT_VALUE) {
-              errorHandler.warning('attribute "' + value + '" missed quot(")!');
-              addAttribute(attrName, value.replace(/&#?\w+;/g, entityReplacer), start);
-            } else {
-              if (currentNSMap[""] !== "http://www.w3.org/1999/xhtml" || !value.match(/^(?:disabled|checked|selected)$/i)) {
-                errorHandler.warning('attribute "' + value + '" missed value!! "' + value + '" instead!!');
-              }
-              addAttribute(value, value, start);
-            }
+          case fe:
+          case Q:
+            d = e.slice(t, E), d.slice(-1) === "/" && (n.closed = !0, d = d.slice(0, -1));
+          case ae:
+            D === ae && (d = N), D == fe ? (o.warning('attribute "' + d + '" missed quot(")!'), u(N, d.replace(/&#?\w+;/g, i), t)) : ((r[""] !== "http://www.w3.org/1999/xhtml" || !d.match(/^(?:disabled|checked|selected)$/i)) && o.warning('attribute "' + d + '" missed value!! "' + d + '" instead!!'), u(d, d, t));
             break;
-          case S_EQ:
+          case ve:
             throw new Error("attribute value missed!!");
         }
-        return p;
+        return E;
       case "":
-        c = " ";
+        C = " ";
       default:
-        if (c <= " ") {
-          switch (s) {
-            case S_TAG:
-              el.setTagName(source.slice(start, p));
-              s = S_TAG_SPACE;
+        if (C <= " ")
+          switch (D) {
+            case ye:
+              n.setTagName(e.slice(t, E)), D = Ie;
               break;
-            case S_ATTR:
-              attrName = source.slice(start, p);
-              s = S_ATTR_SPACE;
+            case Q:
+              N = e.slice(t, E), D = ae;
               break;
-            case S_ATTR_NOQUOT_VALUE:
-              var value = source.slice(start, p).replace(/&#?\w+;/g, entityReplacer);
-              errorHandler.warning('attribute "' + value + '" missed quot(")!!');
-              addAttribute(attrName, value, start);
-            case S_ATTR_END:
-              s = S_TAG_SPACE;
+            case fe:
+              var d = e.slice(t, E).replace(/&#?\w+;/g, i);
+              o.warning('attribute "' + d + '" missed quot(")!!'), u(N, d, t);
+            case ce:
+              D = Ie;
               break;
           }
-        } else {
-          switch (s) {
-            case S_ATTR_SPACE:
-              el.tagName;
-              if (currentNSMap[""] !== "http://www.w3.org/1999/xhtml" || !attrName.match(/^(?:disabled|checked|selected)$/i)) {
-                errorHandler.warning('attribute "' + attrName + '" missed value!! "' + attrName + '" instead2!!');
-              }
-              addAttribute(attrName, attrName, start);
-              start = p;
-              s = S_ATTR;
+        else
+          switch (D) {
+            case ae:
+              n.tagName, (r[""] !== "http://www.w3.org/1999/xhtml" || !N.match(/^(?:disabled|checked|selected)$/i)) && o.warning('attribute "' + N + '" missed value!! "' + N + '" instead2!!'), u(N, N, t), t = E, D = Q;
               break;
-            case S_ATTR_END:
-              errorHandler.warning('attribute space is required"' + attrName + '"!!');
-            case S_TAG_SPACE:
-              s = S_ATTR;
-              start = p;
+            case ce:
+              o.warning('attribute space is required"' + N + '"!!');
+            case Ie:
+              D = Q, t = E;
               break;
-            case S_EQ:
-              s = S_ATTR_NOQUOT_VALUE;
-              start = p;
+            case ve:
+              D = fe, t = E;
               break;
-            case S_TAG_CLOSE:
+            case Re:
               throw new Error("elements closed character '/' and '>' must be connected to");
           }
-        }
     }
-    p++;
+    E++;
   }
 }
-function appendElement$1(el, domBuilder, currentNSMap) {
-  var tagName = el.tagName;
-  var localNSMap = null;
-  var i = el.length;
-  while (i--) {
-    var a = el[i];
-    var qName = a.qName;
-    var value = a.value;
-    var nsp = qName.indexOf(":");
-    if (nsp > 0) {
-      var prefix = a.prefix = qName.slice(0, nsp);
-      var localName = qName.slice(nsp + 1);
-      var nsPrefix = prefix === "xmlns" && localName;
-    } else {
-      localName = qName;
-      prefix = null;
-      nsPrefix = qName === "xmlns" && "";
-    }
-    a.localName = localName;
-    if (nsPrefix !== false) {
-      if (localNSMap == null) {
-        localNSMap = {};
-        _copy(currentNSMap, currentNSMap = {});
-      }
-      currentNSMap[nsPrefix] = localNSMap[nsPrefix] = value;
-      a.uri = "http://www.w3.org/2000/xmlns/";
-      domBuilder.startPrefixMapping(nsPrefix, value);
-    }
+function gt(e, t, n) {
+  for (var r = e.tagName, i = null, C = e.length; C--; ) {
+    var o = e[C], u = o.qName, N = o.value, _ = u.indexOf(":");
+    if (_ > 0)
+      var d = o.prefix = u.slice(0, _), E = u.slice(_ + 1), D = d === "xmlns" && E;
+    else
+      E = u, d = null, D = u === "xmlns" && "";
+    o.localName = E, D !== !1 && (i == null && (i = {}, Rt(n, n = {})), n[D] = i[D] = N, o.uri = "http://www.w3.org/2000/xmlns/", t.startPrefixMapping(D, N));
   }
-  var i = el.length;
-  while (i--) {
-    a = el[i];
-    var prefix = a.prefix;
-    if (prefix) {
-      if (prefix === "xml") {
-        a.uri = "http://www.w3.org/XML/1998/namespace";
-      }
-      if (prefix !== "xmlns") {
-        a.uri = currentNSMap[prefix || ""];
-      }
-    }
+  for (var C = e.length; C--; ) {
+    o = e[C];
+    var d = o.prefix;
+    d && (d === "xml" && (o.uri = "http://www.w3.org/XML/1998/namespace"), d !== "xmlns" && (o.uri = n[d || ""]));
   }
-  var nsp = tagName.indexOf(":");
-  if (nsp > 0) {
-    prefix = el.prefix = tagName.slice(0, nsp);
-    localName = el.localName = tagName.slice(nsp + 1);
-  } else {
-    prefix = null;
-    localName = el.localName = tagName;
-  }
-  var ns = el.uri = currentNSMap[prefix || ""];
-  domBuilder.startElement(ns, localName, tagName, el);
-  if (el.closed) {
-    domBuilder.endElement(ns, localName, tagName);
-    if (localNSMap) {
-      for (prefix in localNSMap) {
-        domBuilder.endPrefixMapping(prefix);
-      }
-    }
-  } else {
-    el.currentNSMap = currentNSMap;
-    el.localNSMap = localNSMap;
-    return true;
-  }
+  var _ = r.indexOf(":");
+  _ > 0 ? (d = e.prefix = r.slice(0, _), E = e.localName = r.slice(_ + 1)) : (d = null, E = e.localName = r);
+  var f = e.uri = n[d || ""];
+  if (t.startElement(f, E, r, e), e.closed) {
+    if (t.endElement(f, E, r), i)
+      for (d in i)
+        t.endPrefixMapping(d);
+  } else
+    return e.currentNSMap = n, e.localNSMap = i, !0;
 }
-function parseHtmlSpecialContent(source, elStartEnd, tagName, entityReplacer, domBuilder) {
-  if (/^(?:script|textarea)$/i.test(tagName)) {
-    var elEndStart = source.indexOf("</" + tagName + ">", elStartEnd);
-    var text = source.substring(elStartEnd + 1, elEndStart);
-    if (/[&<]/.test(text)) {
-      if (/^script$/i.test(tagName)) {
-        domBuilder.characters(text, 0, text.length);
-        return elEndStart;
-      }
-      text = text.replace(/&#?\w+;/g, entityReplacer);
-      domBuilder.characters(text, 0, text.length);
-      return elEndStart;
-    }
+function Zn(e, t, n, r, i) {
+  if (/^(?:script|textarea)$/i.test(n)) {
+    var o = e.indexOf("</" + n + ">", t), u = e.substring(t + 1, o);
+    if (/[&<]/.test(u))
+      return /^script$/i.test(n) ? (i.characters(u, 0, u.length), o) : (u = u.replace(/&#?\w+;/g, r), i.characters(u, 0, u.length), o);
   }
-  return elStartEnd + 1;
+  return t + 1;
 }
-function fixSelfClosed(source, elStartEnd, tagName, closeMap) {
-  var pos = closeMap[tagName];
-  if (pos == null) {
-    pos = source.lastIndexOf("</" + tagName + ">");
-    if (pos < elStartEnd) {
-      pos = source.lastIndexOf("</" + tagName);
-    }
-    closeMap[tagName] = pos;
-  }
-  return pos < elStartEnd;
+function Hn(e, t, n, r) {
+  var i = r[n];
+  return i == null && (i = e.lastIndexOf("</" + n + ">"), i < t && (i = e.lastIndexOf("</" + n)), r[n] = i), i < t;
 }
-function _copy(source, target) {
-  for (var n in source) {
-    target[n] = source[n];
-  }
+function Rt(e, t) {
+  for (var n in e)
+    t[n] = e[n];
 }
-function parseDCC(source, start, domBuilder, errorHandler) {
-  var next = source.charAt(start + 2);
-  switch (next) {
+function $n(e, t, n, r) {
+  var i = e.charAt(t + 2);
+  switch (i) {
     case "-":
-      if (source.charAt(start + 3) === "-") {
-        var end = source.indexOf("-->", start + 4);
-        if (end > start) {
-          domBuilder.comment(source, start + 4, end - start - 4);
-          return end + 3;
-        } else {
-          errorHandler.error("Unclosed comment");
-          return -1;
-        }
-      } else {
+      if (e.charAt(t + 3) === "-") {
+        var o = e.indexOf("-->", t + 4);
+        return o > t ? (n.comment(e, t + 4, o - t - 4), o + 3) : (r.error("Unclosed comment"), -1);
+      } else
         return -1;
-      }
     default:
-      if (source.substr(start + 3, 6) == "CDATA[") {
-        var end = source.indexOf("]]>", start + 9);
-        domBuilder.startCDATA();
-        domBuilder.characters(source, start + 9, end - start - 9);
-        domBuilder.endCDATA();
-        return end + 3;
+      if (e.substr(t + 3, 6) == "CDATA[") {
+        var o = e.indexOf("]]>", t + 9);
+        return n.startCDATA(), n.characters(e, t + 9, o - t - 9), n.endCDATA(), o + 3;
       }
-      var matchs = split(source, start);
-      var len = matchs.length;
-      if (len > 1 && /!doctype/i.test(matchs[0][0])) {
-        var name = matchs[1][0];
-        var pubid = false;
-        var sysid = false;
-        if (len > 3) {
-          if (/^public$/i.test(matchs[2][0])) {
-            pubid = matchs[3][0];
-            sysid = len > 4 && matchs[4][0];
-          } else if (/^system$/i.test(matchs[2][0])) {
-            sysid = matchs[3][0];
-          }
-        }
-        var lastMatch = matchs[len - 1];
-        domBuilder.startDTD(name, pubid, sysid);
-        domBuilder.endDTD();
-        return lastMatch.index + lastMatch[0].length;
+      var u = Gn(e, t), N = u.length;
+      if (N > 1 && /!doctype/i.test(u[0][0])) {
+        var d = u[1][0], E = !1, D = !1;
+        N > 3 && (/^public$/i.test(u[2][0]) ? (E = u[3][0], D = N > 4 && u[4][0]) : /^system$/i.test(u[2][0]) && (D = u[3][0]));
+        var C = u[N - 1];
+        return n.startDTD(d, E, D), n.endDTD(), C.index + C[0].length;
       }
   }
   return -1;
 }
-function parseInstruction(source, start, domBuilder) {
-  var end = source.indexOf("?>", start);
-  if (end) {
-    var match = source.substring(start, end).match(/^<\?(\S*)\s*([\s\S]*?)\s*$/);
-    if (match) {
-      match[0].length;
-      domBuilder.processingInstruction(match[1], match[2]);
-      return end + 2;
-    } else {
-      return -1;
-    }
+function Vn(e, t, n) {
+  var r = e.indexOf("?>", t);
+  if (r) {
+    var i = e.substring(t, r).match(/^<\?(\S*)\s*([\s\S]*?)\s*$/);
+    return i ? (i[0].length, n.processingInstruction(i[1], i[2]), r + 2) : -1;
   }
   return -1;
 }
-function ElementAttributes() {
+function Ft() {
   this.attributeNames = {};
 }
-ElementAttributes.prototype = {
-  setTagName: function(tagName) {
-    if (!tagNamePattern.test(tagName)) {
-      throw new Error("invalid tagName:" + tagName);
-    }
-    this.tagName = tagName;
+Ft.prototype = {
+  setTagName: function(e) {
+    if (!Et.test(e))
+      throw new Error("invalid tagName:" + e);
+    this.tagName = e;
   },
-  addValue: function(qName, value, offset) {
-    if (!tagNamePattern.test(qName)) {
-      throw new Error("invalid attribute:" + qName);
-    }
-    this.attributeNames[qName] = this.length;
-    this[this.length++] = { qName, value, offset };
+  addValue: function(e, t, n) {
+    if (!Et.test(e))
+      throw new Error("invalid attribute:" + e);
+    this.attributeNames[e] = this.length, this[this.length++] = { qName: e, value: t, offset: n };
   },
   length: 0,
-  getLocalName: function(i) {
-    return this[i].localName;
+  getLocalName: function(e) {
+    return this[e].localName;
   },
-  getLocator: function(i) {
-    return this[i].locator;
+  getLocator: function(e) {
+    return this[e].locator;
   },
-  getQName: function(i) {
-    return this[i].qName;
+  getQName: function(e) {
+    return this[e].qName;
   },
-  getURI: function(i) {
-    return this[i].uri;
+  getURI: function(e) {
+    return this[e].uri;
   },
-  getValue: function(i) {
-    return this[i].value;
+  getValue: function(e) {
+    return this[e].value;
   }
   //	,getIndex:function(uri, localName)){
   //		if(localName){
@@ -3353,91 +2441,55 @@ ElementAttributes.prototype = {
   //	getType:function(uri,localName){}
   //	getType:function(i){},
 };
-function split(source, start) {
-  var match;
-  var buf = [];
-  var reg = /'[^']+'|"[^"]+"|[^\s<>\/=]+=?|(\/?\s*>|<)/g;
-  reg.lastIndex = start;
-  reg.exec(source);
-  while (match = reg.exec(source)) {
-    buf.push(match);
-    if (match[1]) return buf;
-  }
+function Gn(e, t) {
+  var n, r = [], i = /'[^']+'|"[^"]+"|[^\s<>\/=]+=?|(\/?\s*>|<)/g;
+  for (i.lastIndex = t, i.exec(e); n = i.exec(e); )
+    if (r.push(n), n[1]) return r;
 }
-sax$1.XMLReader = XMLReader$1;
-sax$1.ParseError = ParseError$1;
-var dom = {};
-function copy(src, dest) {
-  for (var p in src) {
-    dest[p] = src[p];
-  }
+Je.XMLReader = xt;
+Je.ParseError = de;
+var Se = {};
+function we(e, t) {
+  for (var n in e)
+    t[n] = e[n];
 }
-function _extends(Class, Super) {
-  var pt = Class.prototype;
-  if (!(pt instanceof Super)) {
-    let t = function() {
+function k(e, t) {
+  var n = e.prototype;
+  if (!(n instanceof t)) {
+    let r = function() {
     };
-    t.prototype = Super.prototype;
-    t = new t();
-    copy(pt, t);
-    Class.prototype = pt = t;
+    r.prototype = t.prototype, r = new r(), we(n, r), e.prototype = n = r;
   }
-  if (pt.constructor != Class) {
-    if (typeof Class != "function") {
-      console.error("unknow Class:" + Class);
-    }
-    pt.constructor = Class;
-  }
+  n.constructor != e && (typeof e != "function" && console.error("unknow Class:" + e), n.constructor = e);
 }
-var htmlns = "http://www.w3.org/1999/xhtml";
-var NodeType = {};
-var ELEMENT_NODE = NodeType.ELEMENT_NODE = 1;
-var ATTRIBUTE_NODE = NodeType.ATTRIBUTE_NODE = 2;
-var TEXT_NODE = NodeType.TEXT_NODE = 3;
-var CDATA_SECTION_NODE = NodeType.CDATA_SECTION_NODE = 4;
-var ENTITY_REFERENCE_NODE = NodeType.ENTITY_REFERENCE_NODE = 5;
-var ENTITY_NODE = NodeType.ENTITY_NODE = 6;
-var PROCESSING_INSTRUCTION_NODE = NodeType.PROCESSING_INSTRUCTION_NODE = 7;
-var COMMENT_NODE = NodeType.COMMENT_NODE = 8;
-var DOCUMENT_NODE = NodeType.DOCUMENT_NODE = 9;
-var DOCUMENT_TYPE_NODE = NodeType.DOCUMENT_TYPE_NODE = 10;
-var DOCUMENT_FRAGMENT_NODE = NodeType.DOCUMENT_FRAGMENT_NODE = 11;
-var NOTATION_NODE = NodeType.NOTATION_NODE = 12;
-var ExceptionCode = {};
-var ExceptionMessage = {};
-ExceptionCode.INDEX_SIZE_ERR = (ExceptionMessage[1] = "Index size error", 1);
-ExceptionCode.DOMSTRING_SIZE_ERR = (ExceptionMessage[2] = "DOMString size error", 2);
-var HIERARCHY_REQUEST_ERR = ExceptionCode.HIERARCHY_REQUEST_ERR = (ExceptionMessage[3] = "Hierarchy request error", 3);
-ExceptionCode.WRONG_DOCUMENT_ERR = (ExceptionMessage[4] = "Wrong document", 4);
-ExceptionCode.INVALID_CHARACTER_ERR = (ExceptionMessage[5] = "Invalid character", 5);
-ExceptionCode.NO_DATA_ALLOWED_ERR = (ExceptionMessage[6] = "No data allowed", 6);
-ExceptionCode.NO_MODIFICATION_ALLOWED_ERR = (ExceptionMessage[7] = "No modification allowed", 7);
-var NOT_FOUND_ERR = ExceptionCode.NOT_FOUND_ERR = (ExceptionMessage[8] = "Not found", 8);
-ExceptionCode.NOT_SUPPORTED_ERR = (ExceptionMessage[9] = "Not supported", 9);
-var INUSE_ATTRIBUTE_ERR = ExceptionCode.INUSE_ATTRIBUTE_ERR = (ExceptionMessage[10] = "Attribute in use", 10);
-ExceptionCode.INVALID_STATE_ERR = (ExceptionMessage[11] = "Invalid state", 11);
-ExceptionCode.SYNTAX_ERR = (ExceptionMessage[12] = "Syntax error", 12);
-ExceptionCode.INVALID_MODIFICATION_ERR = (ExceptionMessage[13] = "Invalid modification", 13);
-ExceptionCode.NAMESPACE_ERR = (ExceptionMessage[14] = "Invalid namespace", 14);
-ExceptionCode.INVALID_ACCESS_ERR = (ExceptionMessage[15] = "Invalid access", 15);
-function DOMException(code, message) {
-  if (message instanceof Error) {
-    var error = message;
-  } else {
-    error = this;
-    Error.call(this, ExceptionMessage[code]);
-    this.message = ExceptionMessage[code];
-    if (Error.captureStackTrace) Error.captureStackTrace(this, DOMException);
-  }
-  error.code = code;
-  if (message) this.message = this.message + ": " + message;
-  return error;
+var jn = "http://www.w3.org/1999/xhtml", W = {}, K = W.ELEMENT_NODE = 1, he = W.ATTRIBUTE_NODE = 2, Be = W.TEXT_NODE = 3, Ut = W.CDATA_SECTION_NODE = 4, bt = W.ENTITY_REFERENCE_NODE = 5, Xn = W.ENTITY_NODE = 6, Bt = W.PROCESSING_INSTRUCTION_NODE = 7, Mt = W.COMMENT_NODE = 8, Pt = W.DOCUMENT_NODE = 9, zt = W.DOCUMENT_TYPE_NODE = 10, J = W.DOCUMENT_FRAGMENT_NODE = 11, kn = W.NOTATION_NODE = 12, j = {}, H = {};
+j.INDEX_SIZE_ERR = (H[1] = "Index size error", 1);
+j.DOMSTRING_SIZE_ERR = (H[2] = "DOMString size error", 2);
+var Wn = j.HIERARCHY_REQUEST_ERR = (H[3] = "Hierarchy request error", 3);
+j.WRONG_DOCUMENT_ERR = (H[4] = "Wrong document", 4);
+j.INVALID_CHARACTER_ERR = (H[5] = "Invalid character", 5);
+j.NO_DATA_ALLOWED_ERR = (H[6] = "No data allowed", 6);
+j.NO_MODIFICATION_ALLOWED_ERR = (H[7] = "No modification allowed", 7);
+var Kn = j.NOT_FOUND_ERR = (H[8] = "Not found", 8);
+j.NOT_SUPPORTED_ERR = (H[9] = "Not supported", 9);
+var Nt = j.INUSE_ATTRIBUTE_ERR = (H[10] = "Attribute in use", 10);
+j.INVALID_STATE_ERR = (H[11] = "Invalid state", 11);
+j.SYNTAX_ERR = (H[12] = "Syntax error", 12);
+j.INVALID_MODIFICATION_ERR = (H[13] = "Invalid modification", 13);
+j.NAMESPACE_ERR = (H[14] = "Invalid namespace", 14);
+j.INVALID_ACCESS_ERR = (H[15] = "Invalid access", 15);
+function se(e, t) {
+  if (t instanceof Error)
+    var n = t;
+  else
+    n = this, Error.call(this, H[e]), this.message = H[e], Error.captureStackTrace && Error.captureStackTrace(this, se);
+  return n.code = e, t && (this.message = this.message + ": " + t), n;
 }
-DOMException.prototype = Error.prototype;
-copy(ExceptionCode, DOMException);
-function NodeList() {
+se.prototype = Error.prototype;
+we(j, se);
+function ne() {
 }
-NodeList.prototype = {
+ne.prototype = {
   /**
    * The number of nodes in the list. The range of valid child node indices is 0 to length-1 inclusive.
    * @standard level1
@@ -3451,179 +2503,127 @@ NodeList.prototype = {
    * @return Node
    * 	The node at the indexth position in the NodeList, or null if that is not a valid index. 
    */
-  item: function(index) {
-    return this[index] || null;
+  item: function(e) {
+    return this[e] || null;
   },
-  toString: function(isHTML, nodeFilter) {
-    for (var buf = [], i = 0; i < this.length; i++) {
-      serializeToString(this[i], buf, isHTML, nodeFilter);
-    }
-    return buf.join("");
+  toString: function(e, t) {
+    for (var n = [], r = 0; r < this.length; r++)
+      me(this[r], n, e, t);
+    return n.join("");
   }
 };
-function LiveNodeList(node, refresh) {
-  this._node = node;
-  this._refresh = refresh;
-  _updateLiveList(this);
+function Ee(e, t) {
+  this._node = e, this._refresh = t, Qe(this);
 }
-function _updateLiveList(list) {
-  var inc = list._node._inc || list._node.ownerDocument._inc;
-  if (list._inc != inc) {
-    var ls = list._refresh(list._node);
-    __set__(list, "length", ls.length);
-    copy(ls, list);
-    list._inc = inc;
+function Qe(e) {
+  var t = e._node._inc || e._node.ownerDocument._inc;
+  if (e._inc != t) {
+    var n = e._refresh(e._node);
+    Yt(e, "length", n.length), we(n, e), e._inc = t;
   }
 }
-LiveNodeList.prototype.item = function(i) {
-  _updateLiveList(this);
-  return this[i];
+Ee.prototype.item = function(e) {
+  return Qe(this), this[e];
 };
-_extends(LiveNodeList, NodeList);
-function NamedNodeMap() {
+k(Ee, ne);
+function Me() {
 }
-function _findNodeIndex(list, node) {
-  var i = list.length;
-  while (i--) {
-    if (list[i] === node) {
-      return i;
-    }
+function Zt(e, t) {
+  for (var n = e.length; n--; )
+    if (e[n] === t)
+      return n;
+}
+function Dt(e, t, n, r) {
+  if (r ? t[Zt(t, r)] = n : t[t.length++] = n, e) {
+    n.ownerElement = e;
+    var i = e.ownerDocument;
+    i && (r && $t(i, e, r), Yn(i, e, n));
   }
 }
-function _addNamedNode(el, list, newAttr, oldAttr) {
-  if (oldAttr) {
-    list[_findNodeIndex(list, oldAttr)] = newAttr;
-  } else {
-    list[list.length++] = newAttr;
-  }
-  if (el) {
-    newAttr.ownerElement = el;
-    var doc = el.ownerDocument;
-    if (doc) {
-      oldAttr && _onRemoveAttribute(doc, el, oldAttr);
-      _onAddAttribute(doc, el, newAttr);
+function yt(e, t, n) {
+  var r = Zt(t, n);
+  if (r >= 0) {
+    for (var i = t.length - 1; r < i; )
+      t[r] = t[++r];
+    if (t.length = i, e) {
+      var o = e.ownerDocument;
+      o && ($t(o, e, n), n.ownerElement = null);
     }
-  }
+  } else
+    throw se(Kn, new Error(e.tagName + "@" + n));
 }
-function _removeNamedNode(el, list, attr) {
-  var i = _findNodeIndex(list, attr);
-  if (i >= 0) {
-    var lastIndex = list.length - 1;
-    while (i < lastIndex) {
-      list[i] = list[++i];
-    }
-    list.length = lastIndex;
-    if (el) {
-      var doc = el.ownerDocument;
-      if (doc) {
-        _onRemoveAttribute(doc, el, attr);
-        attr.ownerElement = null;
-      }
-    }
-  } else {
-    throw DOMException(NOT_FOUND_ERR, new Error(el.tagName + "@" + attr));
-  }
-}
-NamedNodeMap.prototype = {
+Me.prototype = {
   length: 0,
-  item: NodeList.prototype.item,
-  getNamedItem: function(key) {
-    var i = this.length;
-    while (i--) {
-      var attr = this[i];
-      if (attr.nodeName == key) {
-        return attr;
-      }
+  item: ne.prototype.item,
+  getNamedItem: function(e) {
+    for (var t = this.length; t--; ) {
+      var n = this[t];
+      if (n.nodeName == e)
+        return n;
     }
   },
-  setNamedItem: function(attr) {
-    var el = attr.ownerElement;
-    if (el && el != this._ownerElement) {
-      throw new DOMException(INUSE_ATTRIBUTE_ERR);
-    }
-    var oldAttr = this.getNamedItem(attr.nodeName);
-    _addNamedNode(this._ownerElement, this, attr, oldAttr);
-    return oldAttr;
+  setNamedItem: function(e) {
+    var t = e.ownerElement;
+    if (t && t != this._ownerElement)
+      throw new se(Nt);
+    var n = this.getNamedItem(e.nodeName);
+    return Dt(this._ownerElement, this, e, n), n;
   },
   /* returns Node */
-  setNamedItemNS: function(attr) {
-    var el = attr.ownerElement, oldAttr;
-    if (el && el != this._ownerElement) {
-      throw new DOMException(INUSE_ATTRIBUTE_ERR);
-    }
-    oldAttr = this.getNamedItemNS(attr.namespaceURI, attr.localName);
-    _addNamedNode(this._ownerElement, this, attr, oldAttr);
-    return oldAttr;
+  setNamedItemNS: function(e) {
+    var t = e.ownerElement, n;
+    if (t && t != this._ownerElement)
+      throw new se(Nt);
+    return n = this.getNamedItemNS(e.namespaceURI, e.localName), Dt(this._ownerElement, this, e, n), n;
   },
   /* returns Node */
-  removeNamedItem: function(key) {
-    var attr = this.getNamedItem(key);
-    _removeNamedNode(this._ownerElement, this, attr);
-    return attr;
+  removeNamedItem: function(e) {
+    var t = this.getNamedItem(e);
+    return yt(this._ownerElement, this, t), t;
   },
   // raises: NOT_FOUND_ERR,NO_MODIFICATION_ALLOWED_ERR
   //for level2
-  removeNamedItemNS: function(namespaceURI, localName) {
-    var attr = this.getNamedItemNS(namespaceURI, localName);
-    _removeNamedNode(this._ownerElement, this, attr);
-    return attr;
+  removeNamedItemNS: function(e, t) {
+    var n = this.getNamedItemNS(e, t);
+    return yt(this._ownerElement, this, n), n;
   },
-  getNamedItemNS: function(namespaceURI, localName) {
-    var i = this.length;
-    while (i--) {
-      var node = this[i];
-      if (node.localName == localName && node.namespaceURI == namespaceURI) {
-        return node;
-      }
+  getNamedItemNS: function(e, t) {
+    for (var n = this.length; n--; ) {
+      var r = this[n];
+      if (r.localName == t && r.namespaceURI == e)
+        return r;
     }
     return null;
   }
 };
-function DOMImplementation$1(features) {
-  this._features = {};
-  if (features) {
-    for (var feature in features) {
-      this._features = features[feature];
-    }
-  }
+function Ht(e) {
+  if (this._features = {}, e)
+    for (var t in e)
+      this._features = e[t];
 }
-DOMImplementation$1.prototype = {
-  hasFeature: function(feature, version2) {
-    var versions = this._features[feature.toLowerCase()];
-    if (versions && (!version2 || version2 in versions)) {
-      return true;
-    } else {
-      return false;
-    }
+Ht.prototype = {
+  hasFeature: function(e, t) {
+    var n = this._features[e.toLowerCase()];
+    return !!(n && (!t || t in n));
   },
   // Introduced in DOM Level 2:
-  createDocument: function(namespaceURI, qualifiedName, doctype) {
-    var doc = new Document();
-    doc.implementation = this;
-    doc.childNodes = new NodeList();
-    doc.doctype = doctype;
-    if (doctype) {
-      doc.appendChild(doctype);
+  createDocument: function(e, t, n) {
+    var r = new Le();
+    if (r.implementation = this, r.childNodes = new ne(), r.doctype = n, n && r.appendChild(n), t) {
+      var i = r.createElementNS(e, t);
+      r.appendChild(i);
     }
-    if (qualifiedName) {
-      var root = doc.createElementNS(namespaceURI, qualifiedName);
-      doc.appendChild(root);
-    }
-    return doc;
+    return r;
   },
   // Introduced in DOM Level 2:
-  createDocumentType: function(qualifiedName, publicId, systemId) {
-    var node = new DocumentType();
-    node.name = qualifiedName;
-    node.nodeName = qualifiedName;
-    node.publicId = publicId;
-    node.systemId = systemId;
-    return node;
+  createDocumentType: function(e, t, n) {
+    var r = new it();
+    return r.name = e, r.nodeName = e, r.publicId = t, r.systemId = n, r;
   }
 };
-function Node() {
+function X() {
 }
-Node.prototype = {
+X.prototype = {
   firstChild: null,
   lastChild: null,
   previousSibling: null,
@@ -3637,1422 +2637,967 @@ Node.prototype = {
   prefix: null,
   localName: null,
   // Modified in DOM Level 2:
-  insertBefore: function(newChild, refChild) {
-    return _insertBefore(this, newChild, refChild);
+  insertBefore: function(e, t) {
+    return Gt(this, e, t);
   },
-  replaceChild: function(newChild, oldChild) {
-    this.insertBefore(newChild, oldChild);
-    if (oldChild) {
-      this.removeChild(oldChild);
-    }
+  replaceChild: function(e, t) {
+    this.insertBefore(e, t), t && this.removeChild(t);
   },
-  removeChild: function(oldChild) {
-    return _removeChild(this, oldChild);
+  removeChild: function(e) {
+    return Vt(this, e);
   },
-  appendChild: function(newChild) {
-    return this.insertBefore(newChild, null);
+  appendChild: function(e) {
+    return this.insertBefore(e, null);
   },
   hasChildNodes: function() {
     return this.firstChild != null;
   },
-  cloneNode: function(deep) {
-    return cloneNode(this.ownerDocument || this, this, deep);
+  cloneNode: function(e) {
+    return We(this.ownerDocument || this, this, e);
   },
   // Modified in DOM Level 2:
   normalize: function() {
-    var child = this.firstChild;
-    while (child) {
-      var next = child.nextSibling;
-      if (next && next.nodeType == TEXT_NODE && child.nodeType == TEXT_NODE) {
-        this.removeChild(next);
-        child.appendData(next.data);
-      } else {
-        child.normalize();
-        child = next;
-      }
+    for (var e = this.firstChild; e; ) {
+      var t = e.nextSibling;
+      t && t.nodeType == Be && e.nodeType == Be ? (this.removeChild(t), e.appendData(t.data)) : (e.normalize(), e = t);
     }
   },
   // Introduced in DOM Level 2:
-  isSupported: function(feature, version2) {
-    return this.ownerDocument.implementation.hasFeature(feature, version2);
+  isSupported: function(e, t) {
+    return this.ownerDocument.implementation.hasFeature(e, t);
   },
   // Introduced in DOM Level 2:
   hasAttributes: function() {
     return this.attributes.length > 0;
   },
-  lookupPrefix: function(namespaceURI) {
-    var el = this;
-    while (el) {
-      var map = el._nsMap;
-      if (map) {
-        for (var n in map) {
-          if (map[n] == namespaceURI) {
-            return n;
-          }
-        }
+  lookupPrefix: function(e) {
+    for (var t = this; t; ) {
+      var n = t._nsMap;
+      if (n) {
+        for (var r in n)
+          if (n[r] == e)
+            return r;
       }
-      el = el.nodeType == ATTRIBUTE_NODE ? el.ownerDocument : el.parentNode;
+      t = t.nodeType == he ? t.ownerDocument : t.parentNode;
     }
     return null;
   },
   // Introduced in DOM Level 3:
-  lookupNamespaceURI: function(prefix) {
-    var el = this;
-    while (el) {
-      var map = el._nsMap;
-      if (map) {
-        if (prefix in map) {
-          return map[prefix];
-        }
-      }
-      el = el.nodeType == ATTRIBUTE_NODE ? el.ownerDocument : el.parentNode;
+  lookupNamespaceURI: function(e) {
+    for (var t = this; t; ) {
+      var n = t._nsMap;
+      if (n && e in n)
+        return n[e];
+      t = t.nodeType == he ? t.ownerDocument : t.parentNode;
     }
     return null;
   },
   // Introduced in DOM Level 3:
-  isDefaultNamespace: function(namespaceURI) {
-    var prefix = this.lookupPrefix(namespaceURI);
-    return prefix == null;
+  isDefaultNamespace: function(e) {
+    var t = this.lookupPrefix(e);
+    return t == null;
   }
 };
-function _xmlEncoder(c) {
-  return c == "<" && "&lt;" || c == ">" && "&gt;" || c == "&" && "&amp;" || c == '"' && "&quot;" || "&#" + c.charCodeAt() + ";";
+function vt(e) {
+  return e == "<" && "&lt;" || e == ">" && "&gt;" || e == "&" && "&amp;" || e == '"' && "&quot;" || "&#" + e.charCodeAt() + ";";
 }
-copy(NodeType, Node);
-copy(NodeType, Node.prototype);
-function _visitNode(node, callback) {
-  if (callback(node)) {
-    return true;
-  }
-  if (node = node.firstChild) {
-    do {
-      if (_visitNode(node, callback)) {
-        return true;
-      }
-    } while (node = node.nextSibling);
-  }
+we(W, X);
+we(W, X.prototype);
+function Ce(e, t) {
+  if (t(e))
+    return !0;
+  if (e = e.firstChild)
+    do
+      if (Ce(e, t))
+        return !0;
+    while (e = e.nextSibling);
 }
-function Document() {
+function Le() {
 }
-function _onAddAttribute(doc, el, newAttr) {
-  doc && doc._inc++;
-  var ns = newAttr.namespaceURI;
-  if (ns == "http://www.w3.org/2000/xmlns/") {
-    el._nsMap[newAttr.prefix ? newAttr.localName : ""] = newAttr.value;
-  }
+function Yn(e, t, n) {
+  e && e._inc++;
+  var r = n.namespaceURI;
+  r == "http://www.w3.org/2000/xmlns/" && (t._nsMap[n.prefix ? n.localName : ""] = n.value);
 }
-function _onRemoveAttribute(doc, el, newAttr, remove) {
-  doc && doc._inc++;
-  var ns = newAttr.namespaceURI;
-  if (ns == "http://www.w3.org/2000/xmlns/") {
-    delete el._nsMap[newAttr.prefix ? newAttr.localName : ""];
-  }
+function $t(e, t, n, r) {
+  e && e._inc++;
+  var i = n.namespaceURI;
+  i == "http://www.w3.org/2000/xmlns/" && delete t._nsMap[n.prefix ? n.localName : ""];
 }
-function _onUpdateChild(doc, el, newChild) {
-  if (doc && doc._inc) {
-    doc._inc++;
-    var cs = el.childNodes;
-    if (newChild) {
-      cs[cs.length++] = newChild;
-    } else {
-      var child = el.firstChild;
-      var i = 0;
-      while (child) {
-        cs[i++] = child;
-        child = child.nextSibling;
-      }
-      cs.length = i;
+function et(e, t, n) {
+  if (e && e._inc) {
+    e._inc++;
+    var r = t.childNodes;
+    if (n)
+      r[r.length++] = n;
+    else {
+      for (var i = t.firstChild, o = 0; i; )
+        r[o++] = i, i = i.nextSibling;
+      r.length = o;
     }
   }
 }
-function _removeChild(parentNode, child) {
-  var previous = child.previousSibling;
-  var next = child.nextSibling;
-  if (previous) {
-    previous.nextSibling = next;
-  } else {
-    parentNode.firstChild = next;
-  }
-  if (next) {
-    next.previousSibling = previous;
-  } else {
-    parentNode.lastChild = previous;
-  }
-  _onUpdateChild(parentNode.ownerDocument, parentNode);
-  return child;
+function Vt(e, t) {
+  var n = t.previousSibling, r = t.nextSibling;
+  return n ? n.nextSibling = r : e.firstChild = r, r ? r.previousSibling = n : e.lastChild = n, et(e.ownerDocument, e), t;
 }
-function _insertBefore(parentNode, newChild, nextChild) {
-  var cp = newChild.parentNode;
-  if (cp) {
-    cp.removeChild(newChild);
-  }
-  if (newChild.nodeType === DOCUMENT_FRAGMENT_NODE) {
-    var newFirst = newChild.firstChild;
-    if (newFirst == null) {
-      return newChild;
-    }
-    var newLast = newChild.lastChild;
-  } else {
-    newFirst = newLast = newChild;
-  }
-  var pre = nextChild ? nextChild.previousSibling : parentNode.lastChild;
-  newFirst.previousSibling = pre;
-  newLast.nextSibling = nextChild;
-  if (pre) {
-    pre.nextSibling = newFirst;
-  } else {
-    parentNode.firstChild = newFirst;
-  }
-  if (nextChild == null) {
-    parentNode.lastChild = newLast;
-  } else {
-    nextChild.previousSibling = newLast;
-  }
-  do {
-    newFirst.parentNode = parentNode;
-  } while (newFirst !== newLast && (newFirst = newFirst.nextSibling));
-  _onUpdateChild(parentNode.ownerDocument || parentNode, parentNode);
-  if (newChild.nodeType == DOCUMENT_FRAGMENT_NODE) {
-    newChild.firstChild = newChild.lastChild = null;
-  }
-  return newChild;
+function Gt(e, t, n) {
+  var r = t.parentNode;
+  if (r && r.removeChild(t), t.nodeType === J) {
+    var i = t.firstChild;
+    if (i == null)
+      return t;
+    var o = t.lastChild;
+  } else
+    i = o = t;
+  var u = n ? n.previousSibling : e.lastChild;
+  i.previousSibling = u, o.nextSibling = n, u ? u.nextSibling = i : e.firstChild = i, n == null ? e.lastChild = o : n.previousSibling = o;
+  do
+    i.parentNode = e;
+  while (i !== o && (i = i.nextSibling));
+  return et(e.ownerDocument || e, e), t.nodeType == J && (t.firstChild = t.lastChild = null), t;
 }
-function _appendSingleChild(parentNode, newChild) {
-  var cp = newChild.parentNode;
-  if (cp) {
-    var pre = parentNode.lastChild;
-    cp.removeChild(newChild);
-    var pre = parentNode.lastChild;
+function qn(e, t) {
+  var n = t.parentNode;
+  if (n) {
+    var r = e.lastChild;
+    n.removeChild(t);
+    var r = e.lastChild;
   }
-  var pre = parentNode.lastChild;
-  newChild.parentNode = parentNode;
-  newChild.previousSibling = pre;
-  newChild.nextSibling = null;
-  if (pre) {
-    pre.nextSibling = newChild;
-  } else {
-    parentNode.firstChild = newChild;
-  }
-  parentNode.lastChild = newChild;
-  _onUpdateChild(parentNode.ownerDocument, parentNode, newChild);
-  return newChild;
+  var r = e.lastChild;
+  return t.parentNode = e, t.previousSibling = r, t.nextSibling = null, r ? r.nextSibling = t : e.firstChild = t, e.lastChild = t, et(e.ownerDocument, e, t), t;
 }
-Document.prototype = {
+Le.prototype = {
   //implementation : null,
   nodeName: "#document",
-  nodeType: DOCUMENT_NODE,
+  nodeType: Pt,
   doctype: null,
   documentElement: null,
   _inc: 1,
-  insertBefore: function(newChild, refChild) {
-    if (newChild.nodeType == DOCUMENT_FRAGMENT_NODE) {
-      var child = newChild.firstChild;
-      while (child) {
-        var next = child.nextSibling;
-        this.insertBefore(child, refChild);
-        child = next;
+  insertBefore: function(e, t) {
+    if (e.nodeType == J) {
+      for (var n = e.firstChild; n; ) {
+        var r = n.nextSibling;
+        this.insertBefore(n, t), n = r;
       }
-      return newChild;
+      return e;
     }
-    if (this.documentElement == null && newChild.nodeType == ELEMENT_NODE) {
-      this.documentElement = newChild;
-    }
-    return _insertBefore(this, newChild, refChild), newChild.ownerDocument = this, newChild;
+    return this.documentElement == null && e.nodeType == K && (this.documentElement = e), Gt(this, e, t), e.ownerDocument = this, e;
   },
-  removeChild: function(oldChild) {
-    if (this.documentElement == oldChild) {
-      this.documentElement = null;
-    }
-    return _removeChild(this, oldChild);
+  removeChild: function(e) {
+    return this.documentElement == e && (this.documentElement = null), Vt(this, e);
   },
   // Introduced in DOM Level 2:
-  importNode: function(importedNode, deep) {
-    return importNode(this, importedNode, deep);
+  importNode: function(e, t) {
+    return Kt(this, e, t);
   },
   // Introduced in DOM Level 2:
-  getElementById: function(id) {
-    var rtv = null;
-    _visitNode(this.documentElement, function(node) {
-      if (node.nodeType == ELEMENT_NODE) {
-        if (node.getAttribute("id") == id) {
-          rtv = node;
-          return true;
-        }
-      }
-    });
-    return rtv;
+  getElementById: function(e) {
+    var t = null;
+    return Ce(this.documentElement, function(n) {
+      if (n.nodeType == K && n.getAttribute("id") == e)
+        return t = n, !0;
+    }), t;
   },
-  getElementsByClassName: function(className) {
-    var pattern = new RegExp("(^|\\s)" + className + "(\\s|$)");
-    return new LiveNodeList(this, function(base) {
-      var ls = [];
-      _visitNode(base.documentElement, function(node) {
-        if (node !== base && node.nodeType == ELEMENT_NODE) {
-          if (pattern.test(node.getAttribute("class"))) {
-            ls.push(node);
-          }
-        }
-      });
-      return ls;
+  getElementsByClassName: function(e) {
+    var t = new RegExp("(^|\\s)" + e + "(\\s|$)");
+    return new Ee(this, function(n) {
+      var r = [];
+      return Ce(n.documentElement, function(i) {
+        i !== n && i.nodeType == K && t.test(i.getAttribute("class")) && r.push(i);
+      }), r;
     });
   },
   //document factory method:
-  createElement: function(tagName) {
-    var node = new Element();
-    node.ownerDocument = this;
-    node.nodeName = tagName;
-    node.tagName = tagName;
-    node.childNodes = new NodeList();
-    var attrs = node.attributes = new NamedNodeMap();
-    attrs._ownerElement = node;
-    return node;
+  createElement: function(e) {
+    var t = new pe();
+    t.ownerDocument = this, t.nodeName = e, t.tagName = e, t.childNodes = new ne();
+    var n = t.attributes = new Me();
+    return n._ownerElement = t, t;
   },
   createDocumentFragment: function() {
-    var node = new DocumentFragment();
-    node.ownerDocument = this;
-    node.childNodes = new NodeList();
-    return node;
+    var e = new Ve();
+    return e.ownerDocument = this, e.childNodes = new ne(), e;
   },
-  createTextNode: function(data) {
-    var node = new Text();
-    node.ownerDocument = this;
-    node.appendData(data);
-    return node;
+  createTextNode: function(e) {
+    var t = new tt();
+    return t.ownerDocument = this, t.appendData(e), t;
   },
-  createComment: function(data) {
-    var node = new Comment();
-    node.ownerDocument = this;
-    node.appendData(data);
-    return node;
+  createComment: function(e) {
+    var t = new nt();
+    return t.ownerDocument = this, t.appendData(e), t;
   },
-  createCDATASection: function(data) {
-    var node = new CDATASection();
-    node.ownerDocument = this;
-    node.appendData(data);
-    return node;
+  createCDATASection: function(e) {
+    var t = new rt();
+    return t.ownerDocument = this, t.appendData(e), t;
   },
-  createProcessingInstruction: function(target, data) {
-    var node = new ProcessingInstruction();
-    node.ownerDocument = this;
-    node.tagName = node.target = target;
-    node.nodeValue = node.data = data;
-    return node;
+  createProcessingInstruction: function(e, t) {
+    var n = new st();
+    return n.ownerDocument = this, n.tagName = n.target = e, n.nodeValue = n.data = t, n;
   },
-  createAttribute: function(name) {
-    var node = new Attr();
-    node.ownerDocument = this;
-    node.name = name;
-    node.nodeName = name;
-    node.localName = name;
-    node.specified = true;
-    return node;
+  createAttribute: function(e) {
+    var t = new Pe();
+    return t.ownerDocument = this, t.name = e, t.nodeName = e, t.localName = e, t.specified = !0, t;
   },
-  createEntityReference: function(name) {
-    var node = new EntityReference();
-    node.ownerDocument = this;
-    node.nodeName = name;
-    return node;
+  createEntityReference: function(e) {
+    var t = new ot();
+    return t.ownerDocument = this, t.nodeName = e, t;
   },
   // Introduced in DOM Level 2:
-  createElementNS: function(namespaceURI, qualifiedName) {
-    var node = new Element();
-    var pl = qualifiedName.split(":");
-    var attrs = node.attributes = new NamedNodeMap();
-    node.childNodes = new NodeList();
-    node.ownerDocument = this;
-    node.nodeName = qualifiedName;
-    node.tagName = qualifiedName;
-    node.namespaceURI = namespaceURI;
-    if (pl.length == 2) {
-      node.prefix = pl[0];
-      node.localName = pl[1];
-    } else {
-      node.localName = qualifiedName;
-    }
-    attrs._ownerElement = node;
-    return node;
+  createElementNS: function(e, t) {
+    var n = new pe(), r = t.split(":"), i = n.attributes = new Me();
+    return n.childNodes = new ne(), n.ownerDocument = this, n.nodeName = t, n.tagName = t, n.namespaceURI = e, r.length == 2 ? (n.prefix = r[0], n.localName = r[1]) : n.localName = t, i._ownerElement = n, n;
   },
   // Introduced in DOM Level 2:
-  createAttributeNS: function(namespaceURI, qualifiedName) {
-    var node = new Attr();
-    var pl = qualifiedName.split(":");
-    node.ownerDocument = this;
-    node.nodeName = qualifiedName;
-    node.name = qualifiedName;
-    node.namespaceURI = namespaceURI;
-    node.specified = true;
-    if (pl.length == 2) {
-      node.prefix = pl[0];
-      node.localName = pl[1];
-    } else {
-      node.localName = qualifiedName;
-    }
-    return node;
+  createAttributeNS: function(e, t) {
+    var n = new Pe(), r = t.split(":");
+    return n.ownerDocument = this, n.nodeName = t, n.name = t, n.namespaceURI = e, n.specified = !0, r.length == 2 ? (n.prefix = r[0], n.localName = r[1]) : n.localName = t, n;
   }
 };
-_extends(Document, Node);
-function Element() {
+k(Le, X);
+function pe() {
   this._nsMap = {};
 }
-Element.prototype = {
-  nodeType: ELEMENT_NODE,
-  hasAttribute: function(name) {
-    return this.getAttributeNode(name) != null;
+pe.prototype = {
+  nodeType: K,
+  hasAttribute: function(e) {
+    return this.getAttributeNode(e) != null;
   },
-  getAttribute: function(name) {
-    var attr = this.getAttributeNode(name);
-    return attr && attr.value || "";
+  getAttribute: function(e) {
+    var t = this.getAttributeNode(e);
+    return t && t.value || "";
   },
-  getAttributeNode: function(name) {
-    return this.attributes.getNamedItem(name);
+  getAttributeNode: function(e) {
+    return this.attributes.getNamedItem(e);
   },
-  setAttribute: function(name, value) {
-    var attr = this.ownerDocument.createAttribute(name);
-    attr.value = attr.nodeValue = "" + value;
-    this.setAttributeNode(attr);
+  setAttribute: function(e, t) {
+    var n = this.ownerDocument.createAttribute(e);
+    n.value = n.nodeValue = "" + t, this.setAttributeNode(n);
   },
-  removeAttribute: function(name) {
-    var attr = this.getAttributeNode(name);
-    attr && this.removeAttributeNode(attr);
+  removeAttribute: function(e) {
+    var t = this.getAttributeNode(e);
+    t && this.removeAttributeNode(t);
   },
   //four real opeartion method
-  appendChild: function(newChild) {
-    if (newChild.nodeType === DOCUMENT_FRAGMENT_NODE) {
-      return this.insertBefore(newChild, null);
-    } else {
-      return _appendSingleChild(this, newChild);
-    }
+  appendChild: function(e) {
+    return e.nodeType === J ? this.insertBefore(e, null) : qn(this, e);
   },
-  setAttributeNode: function(newAttr) {
-    return this.attributes.setNamedItem(newAttr);
+  setAttributeNode: function(e) {
+    return this.attributes.setNamedItem(e);
   },
-  setAttributeNodeNS: function(newAttr) {
-    return this.attributes.setNamedItemNS(newAttr);
+  setAttributeNodeNS: function(e) {
+    return this.attributes.setNamedItemNS(e);
   },
-  removeAttributeNode: function(oldAttr) {
-    return this.attributes.removeNamedItem(oldAttr.nodeName);
+  removeAttributeNode: function(e) {
+    return this.attributes.removeNamedItem(e.nodeName);
   },
   //get real attribute name,and remove it by removeAttributeNode
-  removeAttributeNS: function(namespaceURI, localName) {
-    var old = this.getAttributeNodeNS(namespaceURI, localName);
-    old && this.removeAttributeNode(old);
+  removeAttributeNS: function(e, t) {
+    var n = this.getAttributeNodeNS(e, t);
+    n && this.removeAttributeNode(n);
   },
-  hasAttributeNS: function(namespaceURI, localName) {
-    return this.getAttributeNodeNS(namespaceURI, localName) != null;
+  hasAttributeNS: function(e, t) {
+    return this.getAttributeNodeNS(e, t) != null;
   },
-  getAttributeNS: function(namespaceURI, localName) {
-    var attr = this.getAttributeNodeNS(namespaceURI, localName);
-    return attr && attr.value || "";
+  getAttributeNS: function(e, t) {
+    var n = this.getAttributeNodeNS(e, t);
+    return n && n.value || "";
   },
-  setAttributeNS: function(namespaceURI, qualifiedName, value) {
-    var attr = this.ownerDocument.createAttributeNS(namespaceURI, qualifiedName);
-    attr.value = attr.nodeValue = "" + value;
-    this.setAttributeNode(attr);
+  setAttributeNS: function(e, t, n) {
+    var r = this.ownerDocument.createAttributeNS(e, t);
+    r.value = r.nodeValue = "" + n, this.setAttributeNode(r);
   },
-  getAttributeNodeNS: function(namespaceURI, localName) {
-    return this.attributes.getNamedItemNS(namespaceURI, localName);
+  getAttributeNodeNS: function(e, t) {
+    return this.attributes.getNamedItemNS(e, t);
   },
-  getElementsByTagName: function(tagName) {
-    return new LiveNodeList(this, function(base) {
-      var ls = [];
-      _visitNode(base, function(node) {
-        if (node !== base && node.nodeType == ELEMENT_NODE && (tagName === "*" || node.tagName == tagName)) {
-          ls.push(node);
-        }
-      });
-      return ls;
+  getElementsByTagName: function(e) {
+    return new Ee(this, function(t) {
+      var n = [];
+      return Ce(t, function(r) {
+        r !== t && r.nodeType == K && (e === "*" || r.tagName == e) && n.push(r);
+      }), n;
     });
   },
-  getElementsByTagNameNS: function(namespaceURI, localName) {
-    return new LiveNodeList(this, function(base) {
-      var ls = [];
-      _visitNode(base, function(node) {
-        if (node !== base && node.nodeType === ELEMENT_NODE && (namespaceURI === "*" || node.namespaceURI === namespaceURI) && (localName === "*" || node.localName == localName)) {
-          ls.push(node);
-        }
-      });
-      return ls;
+  getElementsByTagNameNS: function(e, t) {
+    return new Ee(this, function(n) {
+      var r = [];
+      return Ce(n, function(i) {
+        i !== n && i.nodeType === K && (e === "*" || i.namespaceURI === e) && (t === "*" || i.localName == t) && r.push(i);
+      }), r;
     });
   }
 };
-Document.prototype.getElementsByTagName = Element.prototype.getElementsByTagName;
-Document.prototype.getElementsByTagNameNS = Element.prototype.getElementsByTagNameNS;
-_extends(Element, Node);
-function Attr() {
+Le.prototype.getElementsByTagName = pe.prototype.getElementsByTagName;
+Le.prototype.getElementsByTagNameNS = pe.prototype.getElementsByTagNameNS;
+k(pe, X);
+function Pe() {
 }
-Attr.prototype.nodeType = ATTRIBUTE_NODE;
-_extends(Attr, Node);
-function CharacterData() {
+Pe.prototype.nodeType = he;
+k(Pe, X);
+function Oe() {
 }
-CharacterData.prototype = {
+Oe.prototype = {
   data: "",
-  substringData: function(offset, count) {
-    return this.data.substring(offset, offset + count);
+  substringData: function(e, t) {
+    return this.data.substring(e, e + t);
   },
-  appendData: function(text) {
-    text = this.data + text;
-    this.nodeValue = this.data = text;
-    this.length = text.length;
+  appendData: function(e) {
+    e = this.data + e, this.nodeValue = this.data = e, this.length = e.length;
   },
-  insertData: function(offset, text) {
-    this.replaceData(offset, 0, text);
+  insertData: function(e, t) {
+    this.replaceData(e, 0, t);
   },
-  appendChild: function(newChild) {
-    throw new Error(ExceptionMessage[HIERARCHY_REQUEST_ERR]);
+  appendChild: function(e) {
+    throw new Error(H[Wn]);
   },
-  deleteData: function(offset, count) {
-    this.replaceData(offset, count, "");
+  deleteData: function(e, t) {
+    this.replaceData(e, t, "");
   },
-  replaceData: function(offset, count, text) {
-    var start = this.data.substring(0, offset);
-    var end = this.data.substring(offset + count);
-    text = start + text + end;
-    this.nodeValue = this.data = text;
-    this.length = text.length;
+  replaceData: function(e, t, n) {
+    var r = this.data.substring(0, e), i = this.data.substring(e + t);
+    n = r + n + i, this.nodeValue = this.data = n, this.length = n.length;
   }
 };
-_extends(CharacterData, Node);
-function Text() {
+k(Oe, X);
+function tt() {
 }
-Text.prototype = {
+tt.prototype = {
   nodeName: "#text",
-  nodeType: TEXT_NODE,
-  splitText: function(offset) {
-    var text = this.data;
-    var newText = text.substring(offset);
-    text = text.substring(0, offset);
-    this.data = this.nodeValue = text;
-    this.length = text.length;
-    var newNode = this.ownerDocument.createTextNode(newText);
-    if (this.parentNode) {
-      this.parentNode.insertBefore(newNode, this.nextSibling);
-    }
-    return newNode;
+  nodeType: Be,
+  splitText: function(e) {
+    var t = this.data, n = t.substring(e);
+    t = t.substring(0, e), this.data = this.nodeValue = t, this.length = t.length;
+    var r = this.ownerDocument.createTextNode(n);
+    return this.parentNode && this.parentNode.insertBefore(r, this.nextSibling), r;
   }
 };
-_extends(Text, CharacterData);
-function Comment() {
+k(tt, Oe);
+function nt() {
 }
-Comment.prototype = {
+nt.prototype = {
   nodeName: "#comment",
-  nodeType: COMMENT_NODE
+  nodeType: Mt
 };
-_extends(Comment, CharacterData);
-function CDATASection() {
+k(nt, Oe);
+function rt() {
 }
-CDATASection.prototype = {
+rt.prototype = {
   nodeName: "#cdata-section",
-  nodeType: CDATA_SECTION_NODE
+  nodeType: Ut
 };
-_extends(CDATASection, CharacterData);
-function DocumentType() {
+k(rt, Oe);
+function it() {
 }
-DocumentType.prototype.nodeType = DOCUMENT_TYPE_NODE;
-_extends(DocumentType, Node);
-function Notation() {
+it.prototype.nodeType = zt;
+k(it, X);
+function jt() {
 }
-Notation.prototype.nodeType = NOTATION_NODE;
-_extends(Notation, Node);
-function Entity() {
+jt.prototype.nodeType = kn;
+k(jt, X);
+function Xt() {
 }
-Entity.prototype.nodeType = ENTITY_NODE;
-_extends(Entity, Node);
-function EntityReference() {
+Xt.prototype.nodeType = Xn;
+k(Xt, X);
+function ot() {
 }
-EntityReference.prototype.nodeType = ENTITY_REFERENCE_NODE;
-_extends(EntityReference, Node);
-function DocumentFragment() {
+ot.prototype.nodeType = bt;
+k(ot, X);
+function Ve() {
 }
-DocumentFragment.prototype.nodeName = "#document-fragment";
-DocumentFragment.prototype.nodeType = DOCUMENT_FRAGMENT_NODE;
-_extends(DocumentFragment, Node);
-function ProcessingInstruction() {
+Ve.prototype.nodeName = "#document-fragment";
+Ve.prototype.nodeType = J;
+k(Ve, X);
+function st() {
 }
-ProcessingInstruction.prototype.nodeType = PROCESSING_INSTRUCTION_NODE;
-_extends(ProcessingInstruction, Node);
-function XMLSerializer() {
+st.prototype.nodeType = Bt;
+k(st, X);
+function kt() {
 }
-XMLSerializer.prototype.serializeToString = function(node, isHtml, nodeFilter) {
-  return nodeSerializeToString.call(node, isHtml, nodeFilter);
+kt.prototype.serializeToString = function(e, t, n) {
+  return Wt.call(e, t, n);
 };
-Node.prototype.toString = nodeSerializeToString;
-function nodeSerializeToString(isHtml, nodeFilter) {
-  var buf = [];
-  var refNode = this.nodeType == 9 && this.documentElement || this;
-  var prefix = refNode.prefix;
-  var uri = refNode.namespaceURI;
-  if (uri && prefix == null) {
-    var prefix = refNode.lookupPrefix(uri);
-    if (prefix == null) {
-      var visibleNamespaces = [
-        { namespace: uri, prefix: null }
+X.prototype.toString = Wt;
+function Wt(e, t) {
+  var n = [], r = this.nodeType == 9 && this.documentElement || this, i = r.prefix, o = r.namespaceURI;
+  if (o && i == null) {
+    var i = r.lookupPrefix(o);
+    if (i == null)
+      var u = [
+        { namespace: o, prefix: null }
         //{namespace:uri,prefix:''}
       ];
-    }
   }
-  serializeToString(this, buf, isHtml, nodeFilter, visibleNamespaces);
-  return buf.join("");
+  return me(this, n, e, t, u), n.join("");
 }
-function needNamespaceDefine(node, isHTML, visibleNamespaces) {
-  var prefix = node.prefix || "";
-  var uri = node.namespaceURI;
-  if (!prefix && !uri) {
-    return false;
+function It(e, t, n) {
+  var r = e.prefix || "", i = e.namespaceURI;
+  if (!r && !i || r === "xml" && i === "http://www.w3.org/XML/1998/namespace" || i == "http://www.w3.org/2000/xmlns/")
+    return !1;
+  for (var o = n.length; o--; ) {
+    var u = n[o];
+    if (u.prefix == r)
+      return u.namespace != i;
   }
-  if (prefix === "xml" && uri === "http://www.w3.org/XML/1998/namespace" || uri == "http://www.w3.org/2000/xmlns/") {
-    return false;
-  }
-  var i = visibleNamespaces.length;
-  while (i--) {
-    var ns = visibleNamespaces[i];
-    if (ns.prefix == prefix) {
-      return ns.namespace != uri;
-    }
-  }
-  return true;
+  return !0;
 }
-function serializeToString(node, buf, isHTML, nodeFilter, visibleNamespaces) {
-  if (nodeFilter) {
-    node = nodeFilter(node);
-    if (node) {
-      if (typeof node == "string") {
-        buf.push(node);
+function me(e, t, n, r, i) {
+  if (r)
+    if (e = r(e), e) {
+      if (typeof e == "string") {
+        t.push(e);
         return;
       }
-    } else {
+    } else
       return;
-    }
-  }
-  switch (node.nodeType) {
-    case ELEMENT_NODE:
-      if (!visibleNamespaces) visibleNamespaces = [];
-      visibleNamespaces.length;
-      var attrs = node.attributes;
-      var len = attrs.length;
-      var child = node.firstChild;
-      var nodeName = node.tagName;
-      isHTML = htmlns === node.namespaceURI || isHTML;
-      buf.push("<", nodeName);
-      for (var i = 0; i < len; i++) {
-        var attr = attrs.item(i);
-        if (attr.prefix == "xmlns") {
-          visibleNamespaces.push({ prefix: attr.localName, namespace: attr.value });
-        } else if (attr.nodeName == "xmlns") {
-          visibleNamespaces.push({ prefix: "", namespace: attr.value });
+  switch (e.nodeType) {
+    case K:
+      i || (i = []), i.length;
+      var o = e.attributes, u = o.length, f = e.firstChild, N = e.tagName;
+      n = jn === e.namespaceURI || n, t.push("<", N);
+      for (var d = 0; d < u; d++) {
+        var E = o.item(d);
+        E.prefix == "xmlns" ? i.push({ prefix: E.localName, namespace: E.value }) : E.nodeName == "xmlns" && i.push({ prefix: "", namespace: E.value });
+      }
+      for (var d = 0; d < u; d++) {
+        var E = o.item(d);
+        if (It(E, n, i)) {
+          var D = E.prefix || "", C = E.namespaceURI, _ = D ? " xmlns:" + D : " xmlns";
+          t.push(_, '="', C, '"'), i.push({ prefix: D, namespace: C });
+        }
+        me(E, t, n, r, i);
+      }
+      if (It(e, n, i)) {
+        var D = e.prefix || "", C = e.namespaceURI;
+        if (C) {
+          var _ = D ? " xmlns:" + D : " xmlns";
+          t.push(_, '="', C, '"'), i.push({ prefix: D, namespace: C });
         }
       }
-      for (var i = 0; i < len; i++) {
-        var attr = attrs.item(i);
-        if (needNamespaceDefine(attr, isHTML, visibleNamespaces)) {
-          var prefix = attr.prefix || "";
-          var uri = attr.namespaceURI;
-          var ns = prefix ? " xmlns:" + prefix : " xmlns";
-          buf.push(ns, '="', uri, '"');
-          visibleNamespaces.push({ prefix, namespace: uri });
-        }
-        serializeToString(attr, buf, isHTML, nodeFilter, visibleNamespaces);
-      }
-      if (needNamespaceDefine(node, isHTML, visibleNamespaces)) {
-        var prefix = node.prefix || "";
-        var uri = node.namespaceURI;
-        if (uri) {
-          var ns = prefix ? " xmlns:" + prefix : " xmlns";
-          buf.push(ns, '="', uri, '"');
-          visibleNamespaces.push({ prefix, namespace: uri });
-        }
-      }
-      if (child || isHTML && !/^(?:meta|link|img|br|hr|input)$/i.test(nodeName)) {
-        buf.push(">");
-        if (isHTML && /^script$/i.test(nodeName)) {
-          while (child) {
-            if (child.data) {
-              buf.push(child.data);
-            } else {
-              serializeToString(child, buf, isHTML, nodeFilter, visibleNamespaces);
-            }
-            child = child.nextSibling;
-          }
-        } else {
-          while (child) {
-            serializeToString(child, buf, isHTML, nodeFilter, visibleNamespaces);
-            child = child.nextSibling;
-          }
-        }
-        buf.push("</", nodeName, ">");
-      } else {
-        buf.push("/>");
-      }
+      if (f || n && !/^(?:meta|link|img|br|hr|input)$/i.test(N)) {
+        if (t.push(">"), n && /^script$/i.test(N))
+          for (; f; )
+            f.data ? t.push(f.data) : me(f, t, n, r, i), f = f.nextSibling;
+        else
+          for (; f; )
+            me(f, t, n, r, i), f = f.nextSibling;
+        t.push("</", N, ">");
+      } else
+        t.push("/>");
       return;
-    case DOCUMENT_NODE:
-    case DOCUMENT_FRAGMENT_NODE:
-      var child = node.firstChild;
-      while (child) {
-        serializeToString(child, buf, isHTML, nodeFilter, visibleNamespaces);
-        child = child.nextSibling;
-      }
+    case Pt:
+    case J:
+      for (var f = e.firstChild; f; )
+        me(f, t, n, r, i), f = f.nextSibling;
       return;
-    case ATTRIBUTE_NODE:
-      return buf.push(" ", node.name, '="', node.value.replace(/[<&"]/g, _xmlEncoder), '"');
-    case TEXT_NODE:
-      return buf.push(
-        node.data.replace(/[<&]/g, _xmlEncoder).replace(/]]>/g, "]]&gt;")
+    case he:
+      return t.push(" ", e.name, '="', e.value.replace(/[<&"]/g, vt), '"');
+    case Be:
+      return t.push(
+        e.data.replace(/[<&]/g, vt).replace(/]]>/g, "]]&gt;")
       );
-    case CDATA_SECTION_NODE:
-      return buf.push("<![CDATA[", node.data, "]]>");
-    case COMMENT_NODE:
-      return buf.push("<!--", node.data, "-->");
-    case DOCUMENT_TYPE_NODE:
-      var pubid = node.publicId;
-      var sysid = node.systemId;
-      buf.push("<!DOCTYPE ", node.name);
-      if (pubid) {
-        buf.push(" PUBLIC ", pubid);
-        if (sysid && sysid != ".") {
-          buf.push(" ", sysid);
-        }
-        buf.push(">");
-      } else if (sysid && sysid != ".") {
-        buf.push(" SYSTEM ", sysid, ">");
-      } else {
-        var sub = node.internalSubset;
-        if (sub) {
-          buf.push(" [", sub, "]");
-        }
-        buf.push(">");
+    case Ut:
+      return t.push("<![CDATA[", e.data, "]]>");
+    case Mt:
+      return t.push("<!--", e.data, "-->");
+    case zt:
+      var m = e.publicId, a = e.systemId;
+      if (t.push("<!DOCTYPE ", e.name), m)
+        t.push(" PUBLIC ", m), a && a != "." && t.push(" ", a), t.push(">");
+      else if (a && a != ".")
+        t.push(" SYSTEM ", a, ">");
+      else {
+        var l = e.internalSubset;
+        l && t.push(" [", l, "]"), t.push(">");
       }
       return;
-    case PROCESSING_INSTRUCTION_NODE:
-      return buf.push("<?", node.target, " ", node.data, "?>");
-    case ENTITY_REFERENCE_NODE:
-      return buf.push("&", node.nodeName, ";");
+    case Bt:
+      return t.push("<?", e.target, " ", e.data, "?>");
+    case bt:
+      return t.push("&", e.nodeName, ";");
     default:
-      buf.push("??", node.nodeName);
+      t.push("??", e.nodeName);
   }
 }
-function importNode(doc, node, deep) {
-  var node2;
-  switch (node.nodeType) {
-    case ELEMENT_NODE:
-      node2 = node.cloneNode(false);
-      node2.ownerDocument = doc;
-    case DOCUMENT_FRAGMENT_NODE:
+function Kt(e, t, n) {
+  var r;
+  switch (t.nodeType) {
+    case K:
+      r = t.cloneNode(!1), r.ownerDocument = e;
+    case J:
       break;
-    case ATTRIBUTE_NODE:
-      deep = true;
+    case he:
+      n = !0;
       break;
   }
-  if (!node2) {
-    node2 = node.cloneNode(false);
-  }
-  node2.ownerDocument = doc;
-  node2.parentNode = null;
-  if (deep) {
-    var child = node.firstChild;
-    while (child) {
-      node2.appendChild(importNode(doc, child, deep));
-      child = child.nextSibling;
-    }
-  }
-  return node2;
+  if (r || (r = t.cloneNode(!1)), r.ownerDocument = e, r.parentNode = null, n)
+    for (var i = t.firstChild; i; )
+      r.appendChild(Kt(e, i, n)), i = i.nextSibling;
+  return r;
 }
-function cloneNode(doc, node, deep) {
-  var node2 = new node.constructor();
-  for (var n in node) {
-    var v = node[n];
-    if (typeof v != "object") {
-      if (v != node2[n]) {
-        node2[n] = v;
-      }
-    }
+function We(e, t, n) {
+  var r = new t.constructor();
+  for (var i in t) {
+    var o = t[i];
+    typeof o != "object" && o != r[i] && (r[i] = o);
   }
-  if (node.childNodes) {
-    node2.childNodes = new NodeList();
-  }
-  node2.ownerDocument = doc;
-  switch (node2.nodeType) {
-    case ELEMENT_NODE:
-      var attrs = node.attributes;
-      var attrs2 = node2.attributes = new NamedNodeMap();
-      var len = attrs.length;
-      attrs2._ownerElement = node2;
-      for (var i = 0; i < len; i++) {
-        node2.setAttributeNode(cloneNode(doc, attrs.item(i), true));
-      }
+  switch (t.childNodes && (r.childNodes = new ne()), r.ownerDocument = e, r.nodeType) {
+    case K:
+      var u = t.attributes, N = r.attributes = new Me(), d = u.length;
+      N._ownerElement = r;
+      for (var E = 0; E < d; E++)
+        r.setAttributeNode(We(e, u.item(E), !0));
       break;
-    case ATTRIBUTE_NODE:
-      deep = true;
+    case he:
+      n = !0;
   }
-  if (deep) {
-    var child = node.firstChild;
-    while (child) {
-      node2.appendChild(cloneNode(doc, child, deep));
-      child = child.nextSibling;
-    }
-  }
-  return node2;
+  if (n)
+    for (var D = t.firstChild; D; )
+      r.appendChild(We(e, D, n)), D = D.nextSibling;
+  return r;
 }
-function __set__(object, key, value) {
-  object[key] = value;
+function Yt(e, t, n) {
+  e[t] = n;
 }
 try {
   if (Object.defineProperty) {
-    let getTextContent = function(node) {
-      switch (node.nodeType) {
-        case ELEMENT_NODE:
-        case DOCUMENT_FRAGMENT_NODE:
-          var buf = [];
-          node = node.firstChild;
-          while (node) {
-            if (node.nodeType !== 7 && node.nodeType !== 8) {
-              buf.push(getTextContent(node));
-            }
-            node = node.nextSibling;
-          }
-          return buf.join("");
+    let e = function(t) {
+      switch (t.nodeType) {
+        case K:
+        case J:
+          var n = [];
+          for (t = t.firstChild; t; )
+            t.nodeType !== 7 && t.nodeType !== 8 && n.push(e(t)), t = t.nextSibling;
+          return n.join("");
         default:
-          return node.nodeValue;
+          return t.nodeValue;
       }
     };
-    Object.defineProperty(LiveNodeList.prototype, "length", {
+    Object.defineProperty(Ee.prototype, "length", {
       get: function() {
-        _updateLiveList(this);
-        return this.$$length;
+        return Qe(this), this.$$length;
       }
-    });
-    Object.defineProperty(Node.prototype, "textContent", {
+    }), Object.defineProperty(X.prototype, "textContent", {
       get: function() {
-        return getTextContent(this);
+        return e(this);
       },
-      set: function(data) {
+      set: function(t) {
         switch (this.nodeType) {
-          case ELEMENT_NODE:
-          case DOCUMENT_FRAGMENT_NODE:
-            while (this.firstChild) {
+          case K:
+          case J:
+            for (; this.firstChild; )
               this.removeChild(this.firstChild);
-            }
-            if (data || String(data)) {
-              this.appendChild(this.ownerDocument.createTextNode(data));
-            }
+            (t || String(t)) && this.appendChild(this.ownerDocument.createTextNode(t));
             break;
           default:
-            this.data = data;
-            this.value = data;
-            this.nodeValue = data;
+            this.data = t, this.value = t, this.nodeValue = t;
         }
       }
-    });
-    __set__ = function(object, key, value) {
-      object["$$" + key] = value;
+    }), Yt = function(t, n, r) {
+      t["$$" + n] = r;
     };
   }
-} catch (e) {
+} catch {
 }
-dom.Node = Node;
-dom.DOMException = DOMException;
-dom.DOMImplementation = DOMImplementation$1;
-dom.XMLSerializer = XMLSerializer;
-function DOMParser(options) {
-  this.options = options || { locator: {} };
+Se.Node = X;
+Se.DOMException = se;
+Se.DOMImplementation = Ht;
+Se.XMLSerializer = kt;
+function qt(e) {
+  this.options = e || { locator: {} };
 }
-DOMParser.prototype.parseFromString = function(source, mimeType) {
-  var options = this.options;
-  var sax2 = new XMLReader();
-  var domBuilder = options.domBuilder || new DOMHandler();
-  var errorHandler = options.errorHandler;
-  var locator = options.locator;
-  var defaultNSMap = options.xmlns || {};
-  var isHTML = /\/x?html?$/.test(mimeType);
-  var entityMap = isHTML ? htmlEntity.entityMap : { "lt": "<", "gt": ">", "amp": "&", "quot": '"', "apos": "'" };
-  if (locator) {
-    domBuilder.setDocumentLocator(locator);
-  }
-  sax2.errorHandler = buildErrorHandler(errorHandler, domBuilder, locator);
-  sax2.domBuilder = options.domBuilder || domBuilder;
-  if (isHTML) {
-    defaultNSMap[""] = "http://www.w3.org/1999/xhtml";
-  }
-  defaultNSMap.xml = defaultNSMap.xml || "http://www.w3.org/XML/1998/namespace";
-  if (source && typeof source === "string") {
-    sax2.parse(source, defaultNSMap, entityMap);
-  } else {
-    sax2.errorHandler.error("invalid doc source");
-  }
-  return domBuilder.doc;
+qt.prototype.parseFromString = function(e, t) {
+  var n = this.options, r = new er(), i = n.domBuilder || new Ge(), o = n.errorHandler, u = n.locator, N = n.xmlns || {}, d = /\/x?html?$/.test(t), E = d ? Qn.entityMap : { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" };
+  return u && i.setDocumentLocator(u), r.errorHandler = Jn(o, i, u), r.domBuilder = n.domBuilder || i, d && (N[""] = "http://www.w3.org/1999/xhtml"), N.xml = N.xml || "http://www.w3.org/XML/1998/namespace", e && typeof e == "string" ? r.parse(e, N, E) : r.errorHandler.error("invalid doc source"), i.doc;
 };
-function buildErrorHandler(errorImpl, domBuilder, locator) {
-  if (!errorImpl) {
-    if (domBuilder instanceof DOMHandler) {
-      return domBuilder;
-    }
-    errorImpl = domBuilder;
+function Jn(e, t, n) {
+  if (!e) {
+    if (t instanceof Ge)
+      return t;
+    e = t;
   }
-  var errorHandler = {};
-  var isCallback = errorImpl instanceof Function;
-  locator = locator || {};
-  function build(key) {
-    var fn = errorImpl[key];
-    if (!fn && isCallback) {
-      fn = errorImpl.length == 2 ? function(msg) {
-        errorImpl(key, msg);
-      } : errorImpl;
-    }
-    errorHandler[key] = fn && function(msg) {
-      fn("[xmldom " + key + "]	" + msg + _locator(locator));
+  var r = {}, i = e instanceof Function;
+  n = n || {};
+  function o(u) {
+    var N = e[u];
+    !N && i && (N = e.length == 2 ? function(d) {
+      e(u, d);
+    } : e), r[u] = N && function(d) {
+      N("[xmldom " + u + "]	" + d + Ke(n));
     } || function() {
     };
   }
-  build("warning");
-  build("error");
-  build("fatalError");
-  return errorHandler;
+  return o("warning"), o("error"), o("fatalError"), r;
 }
-function DOMHandler() {
-  this.cdata = false;
+function Ge() {
+  this.cdata = !1;
 }
-function position(locator, node) {
-  node.lineNumber = locator.lineNumber;
-  node.columnNumber = locator.columnNumber;
+function le(e, t) {
+  t.lineNumber = e.lineNumber, t.columnNumber = e.columnNumber;
 }
-DOMHandler.prototype = {
+Ge.prototype = {
   startDocument: function() {
-    this.doc = new DOMImplementation().createDocument(null, null, null);
-    if (this.locator) {
-      this.doc.documentURI = this.locator.systemId;
+    this.doc = new nr().createDocument(null, null, null), this.locator && (this.doc.documentURI = this.locator.systemId);
+  },
+  startElement: function(e, t, n, r) {
+    var i = this.doc, o = i.createElementNS(e, n || t), u = r.length;
+    Fe(this, o), this.currentElement = o, this.locator && le(this.locator, o);
+    for (var N = 0; N < u; N++) {
+      var e = r.getURI(N), d = r.getValue(N), n = r.getQName(N), E = i.createAttributeNS(e, n);
+      this.locator && le(r.getLocator(N), E), E.value = E.nodeValue = d, o.setAttributeNode(E);
     }
   },
-  startElement: function(namespaceURI, localName, qName, attrs) {
-    var doc = this.doc;
-    var el = doc.createElementNS(namespaceURI, qName || localName);
-    var len = attrs.length;
-    appendElement(this, el);
-    this.currentElement = el;
-    this.locator && position(this.locator, el);
-    for (var i = 0; i < len; i++) {
-      var namespaceURI = attrs.getURI(i);
-      var value = attrs.getValue(i);
-      var qName = attrs.getQName(i);
-      var attr = doc.createAttributeNS(namespaceURI, qName);
-      this.locator && position(attrs.getLocator(i), attr);
-      attr.value = attr.nodeValue = value;
-      el.setAttributeNode(attr);
+  endElement: function(e, t, n) {
+    var r = this.currentElement;
+    r.tagName, this.currentElement = r.parentNode;
+  },
+  startPrefixMapping: function(e, t) {
+  },
+  endPrefixMapping: function(e) {
+  },
+  processingInstruction: function(e, t) {
+    var n = this.doc.createProcessingInstruction(e, t);
+    this.locator && le(this.locator, n), Fe(this, n);
+  },
+  ignorableWhitespace: function(e, t, n) {
+  },
+  characters: function(e, t, n) {
+    if (e = _t.apply(this, arguments), e) {
+      if (this.cdata)
+        var r = this.doc.createCDATASection(e);
+      else
+        var r = this.doc.createTextNode(e);
+      this.currentElement ? this.currentElement.appendChild(r) : /^\s*$/.test(e) && this.doc.appendChild(r), this.locator && le(this.locator, r);
     }
   },
-  endElement: function(namespaceURI, localName, qName) {
-    var current = this.currentElement;
-    current.tagName;
-    this.currentElement = current.parentNode;
-  },
-  startPrefixMapping: function(prefix, uri) {
-  },
-  endPrefixMapping: function(prefix) {
-  },
-  processingInstruction: function(target, data) {
-    var ins = this.doc.createProcessingInstruction(target, data);
-    this.locator && position(this.locator, ins);
-    appendElement(this, ins);
-  },
-  ignorableWhitespace: function(ch, start, length) {
-  },
-  characters: function(chars, start, length) {
-    chars = _toString.apply(this, arguments);
-    if (chars) {
-      if (this.cdata) {
-        var charNode = this.doc.createCDATASection(chars);
-      } else {
-        var charNode = this.doc.createTextNode(chars);
-      }
-      if (this.currentElement) {
-        this.currentElement.appendChild(charNode);
-      } else if (/^\s*$/.test(chars)) {
-        this.doc.appendChild(charNode);
-      }
-      this.locator && position(this.locator, charNode);
-    }
-  },
-  skippedEntity: function(name) {
+  skippedEntity: function(e) {
   },
   endDocument: function() {
     this.doc.normalize();
   },
-  setDocumentLocator: function(locator) {
-    if (this.locator = locator) {
-      locator.lineNumber = 0;
-    }
+  setDocumentLocator: function(e) {
+    (this.locator = e) && (e.lineNumber = 0);
   },
   //LexicalHandler
-  comment: function(chars, start, length) {
-    chars = _toString.apply(this, arguments);
-    var comm = this.doc.createComment(chars);
-    this.locator && position(this.locator, comm);
-    appendElement(this, comm);
+  comment: function(e, t, n) {
+    e = _t.apply(this, arguments);
+    var r = this.doc.createComment(e);
+    this.locator && le(this.locator, r), Fe(this, r);
   },
   startCDATA: function() {
-    this.cdata = true;
+    this.cdata = !0;
   },
   endCDATA: function() {
-    this.cdata = false;
+    this.cdata = !1;
   },
-  startDTD: function(name, publicId, systemId) {
-    var impl = this.doc.implementation;
-    if (impl && impl.createDocumentType) {
-      var dt = impl.createDocumentType(name, publicId, systemId);
-      this.locator && position(this.locator, dt);
-      appendElement(this, dt);
+  startDTD: function(e, t, n) {
+    var r = this.doc.implementation;
+    if (r && r.createDocumentType) {
+      var i = r.createDocumentType(e, t, n);
+      this.locator && le(this.locator, i), Fe(this, i);
     }
   },
   /**
    * @see org.xml.sax.ErrorHandler
    * @link http://www.saxproject.org/apidoc/org/xml/sax/ErrorHandler.html
    */
-  warning: function(error) {
-    console.warn("[xmldom warning]	" + error, _locator(this.locator));
+  warning: function(e) {
+    console.warn("[xmldom warning]	" + e, Ke(this.locator));
   },
-  error: function(error) {
-    console.error("[xmldom error]	" + error, _locator(this.locator));
+  error: function(e) {
+    console.error("[xmldom error]	" + e, Ke(this.locator));
   },
-  fatalError: function(error) {
-    throw new ParseError(error, this.locator);
+  fatalError: function(e) {
+    throw new tr(e, this.locator);
   }
 };
-function _locator(l) {
-  if (l) {
-    return "\n@" + (l.systemId || "") + "#[line:" + l.lineNumber + ",col:" + l.columnNumber + "]";
-  }
+function Ke(e) {
+  if (e)
+    return `
+@` + (e.systemId || "") + "#[line:" + e.lineNumber + ",col:" + e.columnNumber + "]";
 }
-function _toString(chars, start, length) {
-  if (typeof chars == "string") {
-    return chars.substr(start, length);
-  } else {
-    if (chars.length >= start + length || start) {
-      return new java.lang.String(chars, start, length) + "";
-    }
-    return chars;
-  }
+function _t(e, t, n) {
+  return typeof e == "string" ? e.substr(t, n) : e.length >= t + n || t ? new java.lang.String(e, t, n) + "" : e;
 }
-"endDTD,startEntity,endEntity,attributeDecl,elementDecl,externalEntityDecl,internalEntityDecl,resolveEntity,getExternalSubset,notationDecl,unparsedEntityDecl".replace(/\w+/g, function(key) {
-  DOMHandler.prototype[key] = function() {
+"endDTD,startEntity,endEntity,attributeDecl,elementDecl,externalEntityDecl,internalEntityDecl,resolveEntity,getExternalSubset,notationDecl,unparsedEntityDecl".replace(/\w+/g, function(e) {
+  Ge.prototype[e] = function() {
     return null;
   };
 });
-function appendElement(hander, node) {
-  if (!hander.currentElement) {
-    hander.doc.appendChild(node);
-  } else {
-    hander.currentElement.appendChild(node);
-  }
+function Fe(e, t) {
+  e.currentElement ? e.currentElement.appendChild(t) : e.doc.appendChild(t);
 }
-var htmlEntity = entities;
-var sax = sax$1;
-var XMLReader = sax.XMLReader;
-var ParseError = sax.ParseError;
-var DOMImplementation = dom.DOMImplementation;
-var DOMParser_1 = DOMParser;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname, "..");
-const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
-let win;
-function createWindow() {
-  win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+var Qn = At, Jt = Je, er = Jt.XMLReader, tr = Jt.ParseError, nr = Se.DOMImplementation, rr = qt;
+const Qt = z.dirname(on(import.meta.url));
+process.env.APP_ROOT = z.join(Qt, "..");
+const Ye = process.env.VITE_DEV_SERVER_URL, mr = z.join(process.env.APP_ROOT, "dist-electron"), en = z.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = Ye ? z.join(process.env.APP_ROOT, "public") : en;
+let te;
+function tn() {
+  te = new Ct({
+    icon: z.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs")
+      preload: z.join(Qt, "preload.mjs")
     }
-  });
-  win.webContents.on("did-finish-load", () => {
-    win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
-  });
-  if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL);
-  } else {
-    win.loadFile(path.join(RENDERER_DIST, "index.html"));
-  }
+  }), te.webContents.on("did-finish-load", () => {
+    te == null || te.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
+  }), Ye ? te.loadURL(Ye) : te.loadFile(z.join(en, "index.html"));
 }
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    win = null;
-  }
+be.on("window-all-closed", () => {
+  process.platform !== "darwin" && (be.quit(), te = null);
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+be.on("activate", () => {
+  Ct.getAllWindows().length === 0 && tn();
 });
-app.whenReady().then(() => {
-  createWindow();
-  ipcMain.handle("open-file", async (_event, filePath) => {
+be.whenReady().then(() => {
+  tn(), De.handle("open-file", async (e, t) => {
     try {
-      await fs.promises.access(filePath, fs.constants.F_OK);
-      return filePath;
-    } catch (error) {
-      console.error("Error opening file:", error);
-      throw new Error("Failed to open file");
+      return await xe.promises.access(t, xe.constants.F_OK), t;
+    } catch (n) {
+      throw console.error("Error opening file:", n), new Error("Failed to open file");
     }
-  });
-  ipcMain.handle("open-file-dialog", async (_event, filters) => {
+  }), De.handle("open-file-dialog", async (e, t) => {
     try {
-      const { canceled, filePaths } = await dialog.showOpenDialog({
+      const { canceled: n, filePaths: r } = await nn.showOpenDialog({
         properties: ["openFile"],
-        filters: filters || [{ name: "All Files", extensions: ["*"] }]
+        filters: t || [{ name: "All Files", extensions: ["*"] }]
       });
-      if (canceled || filePaths.length === 0) {
-        return null;
-      }
-      return filePaths[0];
-    } catch (error) {
-      console.error("Error showing open dialog:", error);
-      throw new Error("Failed to show open dialog");
+      return n || r.length === 0 ? null : r[0];
+    } catch (n) {
+      throw console.error("Error showing open dialog:", n), new Error("Failed to show open dialog");
     }
-  });
-  ipcMain.handle("unzip-epub", async (_event, filePath) => {
-    var _a, _b, _c;
+  }), De.handle("unzip-epub", async (e, t) => {
+    var n, r, i;
     try {
-      await fs.promises.access(filePath, fs.constants.F_OK);
-      const zip = new AdmZip(filePath);
-      const zipEntries = zip.getEntries();
-      const entries = zipEntries.map((entry) => ({
-        name: entry.entryName,
-        isDirectory: entry.isDirectory,
-        size: entry.header.size
-      }));
-      const containerXml = ((_a = zip.getEntry("META-INF/container.xml")) == null ? void 0 : _a.getData().toString("utf8")) || null;
-      let metadata = null;
-      let toc = [];
-      let opfPath = null;
-      if (containerXml) {
-        const opfPathMatch = containerXml.match(/full-path="([^"]+\.opf)"/i);
-        if (opfPathMatch && opfPathMatch[1]) {
-          opfPath = opfPathMatch[1];
-          console.log("Found OPF path from container.xml:", opfPath);
-        }
+      await xe.promises.access(t, xe.constants.F_OK);
+      const o = new Mn(t), u = o.getEntries(), N = u.map((m) => ({
+        name: m.entryName,
+        isDirectory: m.isDirectory,
+        size: m.header.size
+      })), d = ((n = o.getEntry("META-INF/container.xml")) == null ? void 0 : n.getData().toString("utf8")) || null;
+      let E = null, D = [], C = null;
+      if (d) {
+        const m = d.match(/full-path="([^"]+\.opf)"/i);
+        m && m[1] && (C = m[1], console.log("Found OPF path from container.xml:", C));
       }
-      let opfContent = null;
-      if (opfPath) {
-        const opfEntry = zip.getEntry(opfPath);
-        if (opfEntry) {
-          opfContent = opfEntry.getData().toString("utf8");
-          console.log("Successfully loaded OPF file from", opfPath);
-        }
+      let _ = null;
+      if (C) {
+        const m = o.getEntry(C);
+        m && (_ = m.getData().toString("utf8"), console.log("Successfully loaded OPF file from", C));
       }
-      if (!opfContent) {
-        const contentOpfEntry = zipEntries.find(
-          (entry) => entry.entryName.endsWith(".opf") || entry.entryName.includes("content.opf")
+      if (!_) {
+        const m = u.find(
+          (a) => a.entryName.endsWith(".opf") || a.entryName.includes("content.opf")
         );
-        if (contentOpfEntry) {
-          opfPath = contentOpfEntry.entryName;
-          opfContent = contentOpfEntry.getData().toString("utf8");
-          console.log("Found OPF file by searching:", opfPath);
-        }
+        m && (C = m.entryName, _ = m.getData().toString("utf8"), console.log("Found OPF file by searching:", C));
       }
-      let spine = [];
-      if (opfContent) {
+      let f = [];
+      if (_)
         try {
-          const parser = new DOMParser_1();
-          const opfDoc = parser.parseFromString(opfContent, "application/xml");
-          const titleElement = opfDoc.getElementsByTagName("dc:title")[0];
-          const creatorElement = opfDoc.getElementsByTagName("dc:creator")[0];
-          const languageElement = opfDoc.getElementsByTagName("dc:language")[0];
-          const publisherElement = opfDoc.getElementsByTagName("dc:publisher")[0];
-          metadata = {
-            title: (titleElement == null ? void 0 : titleElement.textContent) ? titleElement.textContent.trim() : "Unknown Title",
-            creator: (creatorElement == null ? void 0 : creatorElement.textContent) ? creatorElement.textContent.trim() : "Unknown Author",
-            language: (languageElement == null ? void 0 : languageElement.textContent) ? languageElement.textContent.trim() : "Unknown",
-            publisher: (publisherElement == null ? void 0 : publisherElement.textContent) ? publisherElement.textContent.trim() : "",
-            opfPath: opfPath || "Unknown",
-            opfContent
-          };
-          console.log("Extracted metadata from XML:", metadata);
-          const manifestItems = (_b = opfDoc.getElementsByTagName("manifest")[0]) == null ? void 0 : _b.getElementsByTagName("item");
-          const manifestMap = {};
-          if (manifestItems) {
-            for (let i = 0; i < manifestItems.length; i++) {
-              const item = manifestItems[i];
-              const id = item.getAttribute("id");
-              const href = item.getAttribute("href");
-              const mediaType = item.getAttribute("media-type");
-              if (id && href) {
-                manifestMap[id] = { id, href, mediaType };
-              }
+          const a = new rr().parseFromString(_, "application/xml"), l = a.getElementsByTagName("dc:title")[0], p = a.getElementsByTagName("dc:creator")[0], s = a.getElementsByTagName("dc:language")[0], c = a.getElementsByTagName("dc:publisher")[0];
+          E = {
+            title: l != null && l.textContent ? l.textContent.trim() : "Unknown Title",
+            creator: p != null && p.textContent ? p.textContent.trim() : "Unknown Author",
+            language: s != null && s.textContent ? s.textContent.trim() : "Unknown",
+            publisher: c != null && c.textContent ? c.textContent.trim() : "",
+            opfPath: C || "Unknown",
+            opfContent: _
+          }, console.log("Extracted metadata from XML:", E);
+          const h = (r = a.getElementsByTagName("manifest")[0]) == null ? void 0 : r.getElementsByTagName("item"), g = {};
+          if (h)
+            for (let L = 0; L < h.length; L++) {
+              const v = h[L], w = v.getAttribute("id"), S = v.getAttribute("href"), O = v.getAttribute("media-type");
+              w && S && (g[w] = { id: w, href: S, mediaType: O });
             }
-          }
-          console.log("Found manifest items:", Object.keys(manifestMap).length);
-          const opfDir = opfPath ? path.dirname(opfPath) + "/" : "";
-          const spineElements = (_c = opfDoc.getElementsByTagName("spine")[0]) == null ? void 0 : _c.getElementsByTagName("itemref");
-          if (spineElements) {
-            for (let i = 0; i < spineElements.length; i++) {
-              const spineItem = spineElements[i];
-              const idref = spineItem.getAttribute("idref");
-              if (idref && manifestMap[idref]) {
-                const item = manifestMap[idref];
-                const fullPath = opfDir + item.href;
-                spine.push({
-                  idref,
-                  id: item.id,
-                  href: item.href,
-                  mediaType: item.mediaType,
-                  fullPath
+          console.log("Found manifest items:", Object.keys(g).length);
+          const y = C ? z.dirname(C) + "/" : "", T = (i = a.getElementsByTagName("spine")[0]) == null ? void 0 : i.getElementsByTagName("itemref");
+          if (T)
+            for (let L = 0; L < T.length; L++) {
+              const w = T[L].getAttribute("idref");
+              if (w && g[w]) {
+                const S = g[w], O = y + S.href;
+                f.push({
+                  idref: w,
+                  id: S.id,
+                  href: S.href,
+                  mediaType: S.mediaType,
+                  fullPath: O
                 });
               }
             }
-          }
-          console.log("Extracted spine items:", spine.length);
-          ipcMain.handle("get-spine-item-content", async (_event2, spineItemPath) => {
-            var _a2;
+          console.log("Extracted spine items:", f.length), De.handle("get-spine-item-content", async (L, v) => {
+            var w;
             try {
-              const allEntries = zip.getEntries();
-              console.log(`EPUB contains ${allEntries.length} files, looking for: ${spineItemPath}`);
-              console.log(`File basename: ${path.basename(spineItemPath)}, directory: ${path.dirname(spineItemPath)}`);
-              let itemEntry = zip.getEntry(spineItemPath);
-              if (!itemEntry) {
-                console.log(`Spine item not found at exact path: ${spineItemPath}, trying variations...`);
-                if (spineItemPath.startsWith("./")) {
-                  const normalizedPath = spineItemPath.substring(2);
-                  itemEntry = zip.getEntry(normalizedPath);
-                  if (itemEntry) {
-                    console.log(`Found at normalized path without ./: ${normalizedPath}`);
-                  }
+              const S = o.getEntries();
+              console.log(`EPUB contains ${S.length} files, looking for: ${v}`), console.log(`File basename: ${z.basename(v)}, directory: ${z.dirname(v)}`);
+              let O = o.getEntry(v);
+              if (!O) {
+                if (console.log(`Spine item not found at exact path: ${v}, trying variations...`), v.startsWith("./")) {
+                  const R = v.substring(2);
+                  O = o.getEntry(R), O && console.log(`Found at normalized path without ./: ${R}`);
                 }
-                if (!itemEntry && !spineItemPath.startsWith("./")) {
-                  const withDotSlash = "./" + spineItemPath;
-                  itemEntry = zip.getEntry(withDotSlash);
-                  if (itemEntry) {
-                    console.log(`Found with added ./: ${withDotSlash}`);
-                  }
+                if (!O && !v.startsWith("./")) {
+                  const R = "./" + v;
+                  O = o.getEntry(R), O && console.log(`Found with added ./: ${R}`);
                 }
-                if (!itemEntry && !spineItemPath.startsWith("OEBPS/")) {
-                  const withOEBPS = "OEBPS/" + (spineItemPath.startsWith("./") ? spineItemPath.substring(2) : spineItemPath);
-                  itemEntry = zip.getEntry(withOEBPS);
-                  if (itemEntry) {
-                    console.log(`Found with OEBPS/ prefix: ${withOEBPS}`);
-                  }
+                if (!O && !v.startsWith("OEBPS/")) {
+                  const R = "OEBPS/" + (v.startsWith("./") ? v.substring(2) : v);
+                  O = o.getEntry(R), O && console.log(`Found with OEBPS/ prefix: ${R}`);
                 }
-                if (!itemEntry) {
-                  const filename = path.basename(spineItemPath);
-                  console.log(`Looking for filename: ${filename} in any directory`);
-                  console.log("All available files in EPUB:");
-                  allEntries.forEach((entry) => {
-                    if (!entry.isDirectory) {
-                      console.log(`- ${entry.entryName}`);
-                    }
+                if (!O) {
+                  const R = z.basename(v);
+                  console.log(`Looking for filename: ${R} in any directory`), console.log("All available files in EPUB:"), S.forEach((F) => {
+                    F.isDirectory || console.log(`- ${F.entryName}`);
                   });
-                  const matchingEntries = allEntries.filter((entry) => {
-                    if (entry.isDirectory) return false;
-                    const entryBaseName = path.basename(entry.entryName).toLowerCase();
-                    const entryDirname = path.dirname(entry.entryName).toLowerCase();
-                    const searchFilename = filename.toLowerCase();
-                    const searchDirname = path.dirname(spineItemPath).toLowerCase();
-                    if (entryBaseName === searchFilename) return true;
-                    if (entry.entryName.toLowerCase().endsWith("/" + searchFilename)) return true;
-                    const entryDirParts = entryDirname.split("/");
-                    const searchDirParts = searchDirname.split("/");
-                    const dirMatches = searchDirParts.some(
-                      (part) => part.length > 0 && entryDirParts.includes(part)
-                    );
-                    const fileWithoutExt = searchFilename.replace(/\.(x?html|htm)$/i, "");
-                    const entryWithoutExt = entryBaseName.replace(/\.(x?html|htm)$/i, "");
-                    if (fileWithoutExt === entryWithoutExt) {
-                      return true;
-                    }
-                    if (dirMatches && entryBaseName.includes(fileWithoutExt)) {
-                      return true;
-                    }
-                    return false;
+                  const $ = S.filter((F) => {
+                    if (F.isDirectory) return !1;
+                    const A = z.basename(F.entryName).toLowerCase(), G = z.dirname(F.entryName).toLowerCase(), re = R.toLowerCase(), Y = z.dirname(v).toLowerCase();
+                    if (A === re || F.entryName.toLowerCase().endsWith("/" + re)) return !0;
+                    const q = G.split("/"), ie = Y.split("/").some(
+                      (Ne) => Ne.length > 0 && q.includes(Ne)
+                    ), je = re.replace(/\.(x?html|htm)$/i, ""), Ae = A.replace(/\.(x?html|htm)$/i, "");
+                    return !!(je === Ae || ie && A.includes(je));
                   });
-                  if (matchingEntries.length > 0) {
-                    itemEntry = matchingEntries[0];
-                    console.log(`Found matching file by filename: ${itemEntry.entryName}`);
-                    console.log(`Match details: requested=${filename}, found=${path.basename(itemEntry.entryName)}`);
-                    console.log(`Full paths: requested=${spineItemPath}, found=${itemEntry.entryName}`);
-                    if (matchingEntries.length > 1) {
-                      console.log(`Note: Multiple matches found for ${filename}:`);
-                      matchingEntries.forEach((entry) => console.log(`- ${entry.entryName}`));
-                    }
-                  } else {
-                    console.log(`⚠️ No matching files found for ${filename} after trying all resolution methods`);
-                    console.log(`Sample of available files:`);
-                    allEntries.slice(0, 10).forEach((entry) => {
-                      if (!entry.isDirectory) {
-                        console.log(`- ${entry.entryName} (${path.basename(entry.entryName)})`);
-                      }
-                    });
-                  }
+                  $.length > 0 ? (O = $[0], console.log(`Found matching file by filename: ${O.entryName}`), console.log(`Match details: requested=${R}, found=${z.basename(O.entryName)}`), console.log(`Full paths: requested=${v}, found=${O.entryName}`), $.length > 1 && (console.log(`Note: Multiple matches found for ${R}:`), $.forEach((F) => console.log(`- ${F.entryName}`)))) : (console.log(`⚠️ No matching files found for ${R} after trying all resolution methods`), console.log("Sample of available files:"), S.slice(0, 10).forEach((F) => {
+                    F.isDirectory || console.log(`- ${F.entryName} (${z.basename(F.entryName)})`);
+                  }));
                 }
               }
-              if (itemEntry) {
-                const content = itemEntry.getData().toString("utf8");
-                const actualPath = itemEntry.entryName;
-                const cssFiles = [];
-                const cssMatches = content.match(/href=['"]([^'"]*\.css)['"]|@import\s+['"]([^'"]*\.css)['"]/g);
-                if (cssMatches) {
-                  console.log(`Found CSS references in ${actualPath}:`, cssMatches);
-                  const baseDir = path.dirname(actualPath);
-                  for (const cssMatch of cssMatches) {
-                    const cssPath = (_a2 = cssMatch.match(/['"]([^'"]*\.css)['"]/)) == null ? void 0 : _a2[1];
-                    if (cssPath) {
-                      let cssEntry = null;
-                      const cssVariations = [
-                        path.join(baseDir, cssPath).replace(/\\/g, "/"),
+              if (O) {
+                const R = O.getData().toString("utf8"), $ = O.entryName, F = [], A = R.match(/href=['"]([^'"]*\.css)['"]|@import\s+['"]([^'"]*\.css)['"]/g);
+                if (A) {
+                  console.log(`Found CSS references in ${$}:`, A);
+                  const G = z.dirname($);
+                  for (const re of A) {
+                    const Y = (w = re.match(/['"]([^'"]*\.css)['"]/)) == null ? void 0 : w[1];
+                    if (Y) {
+                      let q = null;
+                      const at = [
+                        z.join(G, Y).replace(/\\/g, "/"),
                         // Relative to HTML file
-                        cssPath,
+                        Y,
                         // Direct path as in the HTML
-                        cssPath.startsWith("./") ? cssPath.substring(2) : cssPath
+                        Y.startsWith("./") ? Y.substring(2) : Y
                         // Without leading ./
                       ];
-                      for (const cssVariation of cssVariations) {
-                        cssEntry = zip.getEntry(cssVariation);
-                        if (cssEntry) {
-                          console.log(`Found CSS file at: ${cssVariation}`);
+                      for (const ie of at)
+                        if (q = o.getEntry(ie), q) {
+                          console.log(`Found CSS file at: ${ie}`);
                           break;
                         }
-                      }
-                      if (!cssEntry) {
-                        const cssFilename = path.basename(cssPath);
-                        const allEntries2 = zip.getEntries();
-                        const matchingCss = allEntries2.filter(
-                          (entry) => entry.entryName.endsWith("/" + cssFilename) || entry.entryName === cssFilename
+                      if (!q) {
+                        const ie = z.basename(Y), Ae = o.getEntries().filter(
+                          (Ne) => Ne.entryName.endsWith("/" + ie) || Ne.entryName === ie
                         );
-                        if (matchingCss.length > 0) {
-                          cssEntry = matchingCss[0];
-                          console.log(`Found CSS by filename: ${cssEntry.entryName}`);
-                        }
+                        Ae.length > 0 && (q = Ae[0], console.log(`Found CSS by filename: ${q.entryName}`));
                       }
-                      if (cssEntry) {
-                        cssFiles.push({
-                          path: cssEntry.entryName,
-                          content: cssEntry.getData().toString("utf8")
-                        });
-                      } else {
-                        console.warn(`Referenced CSS file not found: ${cssPath}`);
-                      }
+                      q ? F.push({
+                        path: q.entryName,
+                        content: q.getData().toString("utf8")
+                      }) : console.warn(`Referenced CSS file not found: ${Y}`);
                     }
                   }
                 }
                 return {
-                  success: true,
-                  content,
-                  path: actualPath,
-                  cssFiles
+                  success: !0,
+                  content: R,
+                  path: $,
+                  cssFiles: F
                 };
-              } else {
-                console.error(`Spine item file not found: ${spineItemPath} (tried multiple variations)`);
-                return {
-                  success: false,
-                  error: `File not found in EPUB: ${spineItemPath}. The file may be missing, have a different path, or use a different file extension (.html/.xhtml).`,
-                  requestedPath: spineItemPath,
-                  availableFiles: allEntries.slice(0, 10).map((e) => e.entryName)
+              } else
+                return console.error(`Spine item file not found: ${v} (tried multiple variations)`), {
+                  success: !1,
+                  error: `File not found in EPUB: ${v}. The file may be missing, have a different path, or use a different file extension (.html/.xhtml).`,
+                  requestedPath: v,
+                  availableFiles: S.slice(0, 10).map((R) => R.entryName)
                 };
-              }
-            } catch (error) {
-              console.error(`Error getting spine item content for ${spineItemPath}:`, error);
-              return {
-                success: false,
-                error: error instanceof Error ? error.message : String(error)
+            } catch (S) {
+              return console.error(`Error getting spine item content for ${v}:`, S), {
+                success: !1,
+                error: S instanceof Error ? S.message : String(S)
               };
             }
           });
-        } catch (xmlError) {
-          console.error("Error parsing OPF XML:", xmlError);
-          const titleMatch = opfContent.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i);
-          const creatorMatch = opfContent.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i);
-          const languageMatch = opfContent.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i);
-          const publisherMatch = opfContent.match(/<dc:publisher[^>]*>(.*?)<\/dc:publisher>/i);
-          metadata = {
-            title: titleMatch ? titleMatch[1] : "Unknown Title",
-            creator: creatorMatch ? creatorMatch[1] : "Unknown Author",
-            language: languageMatch ? languageMatch[1] : "Unknown",
-            publisher: publisherMatch ? publisherMatch[1] : "",
-            opfPath: opfPath || "Unknown",
-            opfContent
+        } catch (m) {
+          console.error("Error parsing OPF XML:", m);
+          const a = _.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i), l = _.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i), p = _.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i), s = _.match(/<dc:publisher[^>]*>(.*?)<\/dc:publisher>/i);
+          E = {
+            title: a ? a[1] : "Unknown Title",
+            creator: l ? l[1] : "Unknown Author",
+            language: p ? p[1] : "Unknown",
+            publisher: s ? s[1] : "",
+            opfPath: C || "Unknown",
+            opfContent: _
           };
         }
-      }
       return {
-        path: filePath,
-        entries,
-        containerXml,
-        metadata,
-        spine,
-        toc
+        path: t,
+        entries: N,
+        containerXml: d,
+        metadata: E,
+        spine: f,
+        toc: D
       };
-    } catch (error) {
-      console.error("Error parsing EPUB:", error);
-      throw new Error(`Failed to parse EPUB: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (o) {
+      throw console.error("Error parsing EPUB:", o), new Error(`Failed to parse EPUB: ${o instanceof Error ? o.message : String(o)}`);
     }
-  });
-  ipcMain.handle("api-request", async (_event, url, method, data, isBinary = false) => {
+  }), De.handle("api-request", async (e, t, n, r, i = !1) => {
     try {
-      console.log(`API Request: ${method} ${url}`);
-      console.log("Request data:", data);
-      console.log("Binary mode:", isBinary);
-      return new Promise((resolve, reject) => {
-        const request = net.request({
-          method,
-          url,
+      return console.log(`API Request: ${n} ${t}`), console.log("Request data:", r), console.log("Binary mode:", i), new Promise((o, u) => {
+        const N = rn.request({
+          method: n,
+          url: t,
           redirect: "follow"
         });
-        request.setHeader("Content-Type", "application/json");
-        request.on("response", (response) => {
-          console.log(`Response status: ${response.statusCode}`);
-          console.log("Response headers:", response.headers);
-          if (response.statusCode !== 200) {
-            reject(new Error(`Request failed with status code ${response.statusCode}`));
+        if (N.setHeader("Content-Type", "application/json"), N.on("response", (d) => {
+          if (console.log(`Response status: ${d.statusCode}`), console.log("Response headers:", d.headers), d.statusCode !== 200) {
+            u(new Error(`Request failed with status code ${d.statusCode}`));
             return;
           }
-          if (isBinary) {
-            const chunks = [];
-            response.on("data", (chunk) => {
-              chunks.push(Buffer.from(chunk));
-            });
-            response.on("end", () => {
+          if (i) {
+            const E = [];
+            d.on("data", (D) => {
+              E.push(Buffer.from(D));
+            }), d.on("end", () => {
               try {
-                const buffer = Buffer.concat(chunks);
-                console.log(`Received binary data: ${buffer.length} bytes`);
-                console.log(`Content-Type: ${response.headers["content-type"] || "unknown"}`);
-                const contentType = response.headers["content-type"] || "audio/mpeg";
-                resolve({
-                  data: buffer.toString("base64"),
-                  contentType
+                const D = Buffer.concat(E);
+                console.log(`Received binary data: ${D.length} bytes`), console.log(`Content-Type: ${d.headers["content-type"] || "unknown"}`);
+                const C = d.headers["content-type"] || "audio/mpeg";
+                o({
+                  data: D.toString("base64"),
+                  contentType: C
                 });
-              } catch (error) {
-                console.error("Error processing binary response:", error);
-                reject(error);
+              } catch (D) {
+                console.error("Error processing binary response:", D), u(D);
               }
             });
           } else {
-            let responseData = "";
-            response.on("data", (chunk) => {
-              responseData += chunk.toString();
-            });
-            response.on("end", () => {
+            let E = "";
+            d.on("data", (D) => {
+              E += D.toString();
+            }), d.on("end", () => {
               try {
-                const parsedData = JSON.parse(responseData);
-                resolve(parsedData);
-              } catch (error) {
-                resolve(responseData);
+                const D = JSON.parse(E);
+                o(D);
+              } catch {
+                o(E);
               }
             });
           }
-        });
-        request.on("error", (error) => {
-          reject(error);
-        });
-        if (data) {
-          const postData = JSON.stringify(data);
-          request.write(postData);
+        }), N.on("error", (d) => {
+          u(d);
+        }), r) {
+          const d = JSON.stringify(r);
+          N.write(d);
         }
-        request.end();
+        N.end();
       });
-    } catch (error) {
-      console.error("Error making API request:", error);
-      throw error;
+    } catch (o) {
+      throw console.error("Error making API request:", o), o;
     }
   });
 });
 export {
-  MAIN_DIST,
-  RENDERER_DIST,
-  VITE_DEV_SERVER_URL
+  mr as MAIN_DIST,
+  en as RENDERER_DIST,
+  Ye as VITE_DEV_SERVER_URL
 };
