@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import './App.css'
 
-// Base URL for API calls
 const API_BASE_URL = 'https://langpub.directto.link'
 
 // Function to detect language of text using Electron's net module
@@ -42,95 +41,11 @@ async function translateText(text: string, language: string): Promise<string> {
   }
 }
 
-// Debug function to create test audio - useful when API isn't working
-function createTestAudio(): string {
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  
-  oscillator.type = 'sine';
-  oscillator.frequency.value = 440; // A4 note
-  gainNode.gain.value = 0.5;
-  
-  const duration = 2;
-  const audioBuffer = audioContext.createBuffer(1, audioContext.sampleRate * duration, audioContext.sampleRate);
-  const channelData = audioBuffer.getChannelData(0);
-  
-  for (let i = 0; i < audioBuffer.length; i++) {
-    channelData[i] = Math.sin(2 * Math.PI * 440 * i / audioContext.sampleRate);
-  }
-  
-  // Convert AudioBuffer to WAV
-  const blob = audioBufferToWav(audioBuffer);
-  const url = URL.createObjectURL(blob);
-  
-  return url;
-}
-
-// Helper function to convert AudioBuffer to WAV
-function audioBufferToWav(buffer: AudioBuffer): Blob {
-  const numChannels = buffer.numberOfChannels;
-  const sampleRate = buffer.sampleRate;
-  const format = 1; // PCM
-  const bitDepth = 16;
-  
-  const dataLength = buffer.length * numChannels * (bitDepth / 8);
-  const headerLength = 44;
-  const totalLength = headerLength + dataLength;
-  
-  const arrayBuffer = new ArrayBuffer(totalLength);
-  const dataView = new DataView(arrayBuffer);
-  
-  // RIFF chunk descriptor
-  writeString(dataView, 0, 'RIFF');
-  dataView.setUint32(4, totalLength - 8, true);
-  writeString(dataView, 8, 'WAVE');
-  
-  // fmt sub-chunk
-  writeString(dataView, 12, 'fmt ');
-  dataView.setUint32(16, 16, true); // sub-chunk size
-  dataView.setUint16(20, format, true); // audio format
-  dataView.setUint16(22, numChannels, true);
-  dataView.setUint32(24, sampleRate, true);
-  dataView.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true); // byte rate
-  dataView.setUint16(32, numChannels * (bitDepth / 8), true); // block align
-  dataView.setUint16(34, bitDepth, true);
-  
-  // data sub-chunk
-  writeString(dataView, 36, 'data');
-  dataView.setUint32(40, dataLength, true);
-  
-  // Write audio data
-  let offset = 44;
-  for (let i = 0; i < buffer.length; i++) {
-    for (let channel = 0; channel < numChannels; channel++) {
-      const sample = buffer.getChannelData(channel)[i];
-      const sample16 = Math.max(-1, Math.min(1, sample)) * 32767;
-      dataView.setInt16(offset, sample16, true);
-      offset += 2;
-    }
-  }
-  
-  return new Blob([arrayBuffer], { type: 'audio/wav' });
-}
-
-// Helper to write strings to DataView
-function writeString(dataView: DataView, offset: number, str: string): void {
-  for (let i = 0; i < str.length; i++) {
-    dataView.setUint8(offset + i, str.charCodeAt(i));
-  }
-}
-
 // Function to generate speech audio for text using Electron's net module
-async function generateSpeech(text: string, language: string): Promise<string | null> {
+async function generateSpeech(text: string, language: string): Promise<HTMLAudioElement | null> {
   try {
     console.log('Generating speech for text:', text.substring(0, 50) + '...')
     console.log('Language for speech:', language)
-    
-    // Use the actual API now that we've confirmed it works with curl
     
     // Check if language is in expected format (likely the cause of 400 error)
     let processedLanguage = language
@@ -166,7 +81,6 @@ async function generateSpeech(text: string, language: string): Promise<string | 
     
     // Speech API URL
     const speechApiUrl = `${API_BASE_URL}/speech`
-    console.log('Speech API URL:', speechApiUrl)
     
     try {
       // Make request to speech API using Electron's net module
@@ -185,7 +99,7 @@ async function generateSpeech(text: string, language: string): Promise<string | 
         },
         true // Signal that we expect binary data
       )
-      
+            
       if (!response) {
         console.error('Speech generation failed: No response data received')
         return null
@@ -193,37 +107,21 @@ async function generateSpeech(text: string, language: string): Promise<string | 
       
       console.log('Response type:', typeof response)
       
-      // Handle response based on format
-      let audioData: string
-      let contentType: string = 'audio/mpeg'
-      
-      if (typeof response === 'object' && response.data) {
-        // New format with data and contentType fields
-        audioData = response.data
-        contentType = response.contentType || 'audio/mpeg'
-        console.log('Received structured audio response with content type:', contentType)
-      } else if (typeof response === 'string') {
-        // Old format with just base64 data
-        audioData = response
-        console.log('Received string audio response, using default content type:', contentType)
-      } else {
-        console.error('Unexpected response format:', response)
-        return null
+      const binaryString = atob(response.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
       }
-      
-      // Try to create a blob URL from the base64 data
-      try {
-        const audioBlob = base64ToBlob(audioData, contentType)
-        const audioUrl = URL.createObjectURL(audioBlob)
-        console.log('Speech audio generated successfully, blob size:', audioBlob.size)
-      } catch (blobError) {
-        console.error('Error creating audio blob:', blobError)
-        console.error('Response data type:', typeof response)
-        if (typeof response === 'string') {
-          console.error('Response data preview:', response.substring(0, 100))
-        }
-        return null
-      }
+
+      // Create a Blob from the binary data
+      const blob = new Blob([bytes], { type: 'audio/mpeg' });
+
+      // Create an audio URL
+      const audioUrl = URL.createObjectURL(blob);
+
+      // Play the audio
+      const audio = new Audio(audioUrl);
+      return audio;
     } catch (apiError) {
       console.error('Error calling speech API:', apiError)
       
@@ -295,8 +193,6 @@ interface ParsedContent {
   error?: string
 }
 
-// No longer needed with history section removed
-
 function App() {
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [epubContents, setEpubContents] = useState<EpubContents | null>(null)
@@ -315,17 +211,6 @@ function App() {
   const [isGeneratingSpeech, setIsGeneratingSpeech] = useState<boolean>(false)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  
-  // Effect to handle audio element when URL changes
-  useEffect(() => {
-    console.log('Audio URL changed:', audioUrl ? 'present' : 'not present')
-    
-    if (audioUrl && audioRef.current) {
-      // When a new audio URL is set, make sure the audio element is updated
-      audioRef.current.load()
-      console.log('Audio element loaded with new URL')
-    }
-  }, [audioUrl])
   
   // Handle text selection with language detection and translation
   const handleMouseUp = useCallback(async (event?: React.MouseEvent) => {
@@ -391,8 +276,11 @@ function App() {
           setIsGeneratingSpeech(true)
           
           // Generate speech in parallel with translation
-          const speechPromise = generateSpeech(selectedTextContent, detectedLang)
+          const speech = await generateSpeech(selectedTextContent, detectedLang)
+          audioRef.current = speech;
           
+          setIsGeneratingSpeech(false);
+
           // Only translate if not already English
           let translated = selectedTextContent // Default to original text
           
@@ -415,11 +303,6 @@ function App() {
           // Update state with translation
           setTranslatedText(translated)
           setIsTranslating(false)
-          
-          // Wait for speech generation to complete
-          const speechUrl = await speechPromise
-          setAudioUrl(speechUrl)
-          setIsGeneratingSpeech(false)
           
           // Clear selection after processing to avoid duplicate processing
           if (window.getSelection) {
@@ -467,22 +350,7 @@ function App() {
       return
     }
     
-    if (!audioUrl) {
-      console.error('Cannot play audio: No audio URL available')
-      return
-    }
-    
     const audio = audioRef.current
-    
-    // Debug audio element
-    console.log('Audio element details:', {
-      src: audio.src,
-      readyState: audio.readyState,
-      paused: audio.paused,
-      duration: audio.duration,
-      networkState: audio.networkState,
-      error: audio.error
-    })
     
     try {
       if (isPlaying) {
@@ -783,7 +651,6 @@ function App() {
                           toggleAudio();
                         }}
                         title={isPlaying ? "Pause audio" : "Play audio"}
-                        disabled={!audioUrl}
                       >
                         {isPlaying ? (
                           <>
@@ -800,22 +667,6 @@ function App() {
                     )}
                   </div>
                   <p className="text-gray-800 break-words">{selectedText}</p>
-                  
-                  {/* Audio element - forcing a new instance with key={audioUrl} */}
-                  <audio 
-                    key={audioUrl || 'empty'}
-                    ref={audioRef}
-                    src={audioUrl || undefined}
-                    onEnded={() => setIsPlaying(false)}
-                    onPause={() => setIsPlaying(false)}
-                    onPlay={() => setIsPlaying(true)}
-                    onError={(e) => console.error('Audio error:', e.currentTarget.error)}
-                    onLoadedData={() => console.log('Audio data loaded')}
-                    onCanPlay={() => console.log('Audio can play')}
-                    preload="auto"
-                    controls={true} // Temporary for debugging
-                    style={{ display: 'block', marginTop: '8px', width: '100%' }}
-                  />
                 </div>
                 
                 <div>

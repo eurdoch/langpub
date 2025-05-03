@@ -27,5 +27,5 @@ electron.contextBridge.exposeInMainWorld("electron", {
   unzipEpub: (filePath) => electron.ipcRenderer.invoke("unzip-epub", filePath),
   getSpineItemContent: (spineItemPath) => electron.ipcRenderer.invoke("get-spine-item-content", spineItemPath),
   // Network requests (bypassing CORS)
-  apiRequest: (url, method, data) => electron.ipcRenderer.invoke("api-request", url, method, data)
+  apiRequest: (url, method, data, isBinary = false) => electron.ipcRenderer.invoke("api-request", url, method, data, isBinary)
 });

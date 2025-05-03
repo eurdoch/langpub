@@ -4984,8 +4984,11 @@ app.whenReady().then(() => {
       throw new Error(`Failed to parse EPUB: ${error.message}`);
     }
   });
-  ipcMain.handle("api-request", async (_event, url, method, data) => {
+  ipcMain.handle("api-request", async (_event, url, method, data, isBinary = false) => {
     try {
+      console.log(`API Request: ${method} ${url}`);
+      console.log("Request data:", data);
+      console.log("Binary mode:", isBinary);
       return new Promise((resolve, reject) => {
         const request = net.request({
           method,
@@ -4994,22 +4997,46 @@ app.whenReady().then(() => {
         });
         request.setHeader("Content-Type", "application/json");
         request.on("response", (response) => {
+          console.log(`Response status: ${response.statusCode}`);
+          console.log("Response headers:", response.headers);
           if (response.statusCode !== 200) {
             reject(new Error(`Request failed with status code ${response.statusCode}`));
             return;
           }
-          let responseData = "";
-          response.on("data", (chunk) => {
-            responseData += chunk.toString();
-          });
-          response.on("end", () => {
-            try {
-              const parsedData = JSON.parse(responseData);
-              resolve(parsedData);
-            } catch (error) {
-              resolve(responseData);
-            }
-          });
+          if (isBinary) {
+            const chunks = [];
+            response.on("data", (chunk) => {
+              chunks.push(Buffer.from(chunk));
+            });
+            response.on("end", () => {
+              try {
+                const buffer = Buffer.concat(chunks);
+                console.log(`Received binary data: ${buffer.length} bytes`);
+                console.log(`Content-Type: ${response.headers["content-type"] || "unknown"}`);
+                const contentType = response.headers["content-type"] || "audio/mpeg";
+                resolve({
+                  data: buffer.toString("base64"),
+                  contentType
+                });
+              } catch (error) {
+                console.error("Error processing binary response:", error);
+                reject(error);
+              }
+            });
+          } else {
+            let responseData = "";
+            response.on("data", (chunk) => {
+              responseData += chunk.toString();
+            });
+            response.on("end", () => {
+              try {
+                const parsedData = JSON.parse(responseData);
+                resolve(parsedData);
+              } catch (error) {
+                resolve(responseData);
+              }
+            });
+          }
         });
         request.on("error", (error) => {
           reject(error);
