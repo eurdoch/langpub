@@ -89,7 +89,28 @@ function App() {
       
       const detectedLanguage = languageResponse.data.language
       console.log('Detected book language:', detectedLanguage)
-      setBookLanguage(detectedLanguage)
+      
+      // Map the detected language to one in our available languages
+      const normalizedLanguage = detectedLanguage.charAt(0).toUpperCase() + detectedLanguage.slice(1).toLowerCase()
+      
+      // Check if the normalized language is in our available languages
+      if (availableLanguages.includes(normalizedLanguage)) {
+        setBookLanguage(normalizedLanguage)
+      } else {
+        // Try to find a close match
+        const matchedLanguage = availableLanguages.find(lang => 
+          lang.toLowerCase().includes(detectedLanguage.toLowerCase()) || 
+          detectedLanguage.toLowerCase().includes(lang.toLowerCase())
+        )
+        
+        if (matchedLanguage) {
+          setBookLanguage(matchedLanguage)
+        } else {
+          // Default to English if no match found
+          console.log('No matching language found in available languages, defaulting to English')
+          setBookLanguage('English')
+        }
+      }
     } catch (error) {
       console.error('Language detection error:', error)
       // Set a fallback language if detection fails
@@ -421,7 +442,7 @@ function App() {
               <div className="language-selector">
                 <FormControl variant="outlined" size="small">
                   <Select
-                    value={isDetectingLanguage ? '' : (bookLanguage || '')}
+                    value={isDetectingLanguage ? '' : (bookLanguage === 'Unknown' ? '' : (bookLanguage || ''))}
                     onChange={handleLanguageChange}
                     displayEmpty
                     inputProps={{ 'aria-label': 'Language' }}
