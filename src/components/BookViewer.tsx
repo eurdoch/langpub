@@ -175,22 +175,33 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                 rendition.on('selected', (cfiRange, contents) => {
                   // Get the selected text
                   const text = contents.window.getSelection()?.toString()
-                  if (text) {
+                  if (text && text.trim() !== '') {
                     console.log('Selected text:', text)
-                    setSelectedText(text)
-                    // Pass selected text to parent component if callback exists
-                    if (onTextSelection) {
-                      onTextSelection(text)
+                    
+                    // Check if the selected text is different from the current one
+                    if (text !== selectedText) {
+                      setSelectedText(text)
+                      // Pass selected text to parent component if callback exists
+                      if (onTextSelection) {
+                        onTextSelection(text)
+                      }
                     }
                   }
                 })
                 
-                // Clear selection when clicking elsewhere
-                rendition.on('mousedown', () => {
-                  setSelectedText(null)
-                  // Clear selected text in parent component if callback exists
-                  if (onTextSelection) {
-                    onTextSelection(null)
+                // Handle clicks without selections
+                rendition.on('mouseup', () => {
+                  // Get current selection
+                  const selection = window.getSelection()
+                  const hasSelection = selection && !selection.isCollapsed && selection.toString().trim() !== ''
+                  
+                  // Only clear if there's no selection and it was a click (not a drag)
+                  if (!hasSelection) {
+                    // We don't clear the selection here, 
+                    // which allows the right panel content to remain
+                    
+                    // Note: We're not calling onTextSelection(null) here,
+                    // which means the App component will keep its current state
                   }
                 })
               }}

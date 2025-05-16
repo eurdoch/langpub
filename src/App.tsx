@@ -178,13 +178,16 @@ function App() {
   }
   
   const handleTextSelection = (text: string | null) => {
-    setSelectedText(text)
-    
+    // Only update if text is provided (not null)
+    // This allows us to ignore the clearing events and keep the current state
     if (text) {
-      translateText(text)
-    } else {
-      setTranslatedText(null)
+      // Only update if the text is different from what's already selected
+      if (text !== selectedText) {
+        setSelectedText(text)
+        translateText(text)
+      }
     }
+    // When text is null, we do nothing - maintaining the current state
   }
   
   const handleBookLoaded = (sampleText: string) => {
