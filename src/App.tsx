@@ -41,20 +41,16 @@ function App() {
           </div>
           <div className="right-panel">
             <div className="panel-header">
-              <h2>Notes & AI</h2>
+              <h2>Translation</h2>
             </div>
             <div className="panel-content">
               {selectedText ? (
                 <div className="selected-text-panel">
-                  <h3>Selected Text:</h3>
+                  <h3>Original:</h3>
                   <div className="text-snippet">{selectedText}</div>
-                  <div className="text-actions">
-                    <button className="action-button">Analyze</button>
-                    <button className="action-button">Take Notes</button>
-                  </div>
                 </div>
               ) : (
-                <p className="no-selection">Select text from the book to see it here.</p>
+                <p className="no-selection">Select text from the book to translate it.</p>
               )}
             </div>
           </div>
