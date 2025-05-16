@@ -73,10 +73,10 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
   }
 
   return (
-    <div className="book-viewer-container">
+    <div className="book-viewer-container" style={{ position: 'relative' }}>
       {bookUrl ? (
         <>
-          <div className="reader-container">
+          <div className="reader-container" style={{ height: '100%', overflow: 'auto' }}>
             <ReactReader
               url={bookUrl}
               location={location}
@@ -89,6 +89,10 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                   },
                   '.epubjs-hl': {
                     fill: 'rgba(74, 144, 226, 0.3)'
+                  },
+                  'body': {
+                    padding: '0 8px !important',
+                    margin: '0 !important'
                   }
                 })
                 
@@ -206,7 +210,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                 })
               }}
               epubOptions={{
-                flow: 'scrolled-doc',
+                flow: 'scrolled',
                 manager: 'continuous',
                 infinite: true
               }}
@@ -220,16 +224,6 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
               showToc={true}
               styles={readerStyles}
             />
-          </div>
-          <div className="controls">
-            <div className="progress-info">
-              {progress > 0 ? `${progress}% read` : ''}
-            </div>
-            {selectedText && (
-              <div className="selected-text-info">
-                <span className="selected-text-label">Selected:</span> {selectedText.length > 100 ? `${selectedText.substring(0, 100)}...` : selectedText}
-              </div>
-            )}
           </div>
         </>
       ) : (
@@ -245,14 +239,18 @@ const readerStyles: ReactReaderStyle = {
     position: 'relative',
     width: '100%',
     height: '100%',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    padding: 0,
+    margin: 0
   },
   readerArea: {
     position: 'relative',
     width: '100%',
-    height: 'calc(100% - 40px)',
-    overflow: 'hidden',
-    backgroundColor: '#fff'
+    height: '100%',
+    overflow: 'auto',
+    backgroundColor: '#fff',
+    padding: 0,
+    margin: 0
   },
   tocArea: {
     position: 'absolute',
