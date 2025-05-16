@@ -2720,10 +2720,23 @@ react-dom@^18.2.0:
     loose-envify "^1.1.0"
     scheduler "^0.23.2"
 
+react-reader@^2.0.13:
+  version "2.0.13"
+  resolved "https://registry.yarnpkg.com/react-reader/-/react-reader-2.0.13.tgz#6e92744b1c165afbca0f6689092e376769ab0b92"
+  integrity sha512-g8Y4Wz0LAEYR+JHRdYuR0dxHK+qmHLmJr4yrS820WNzB3oJGFGKk6EEOj2bnE6P0fo642M6QluPLaPL1sh8T8Q==
+  dependencies:
+    epubjs "^0.3.93"
+    react-swipeable "^7.0.2"
+
 react-refresh@^0.17.0:
   version "0.17.0"
   resolved "https://registry.yarnpkg.com/react-refresh/-/react-refresh-0.17.0.tgz#b7e579c3657f23d04eccbe4ad2e58a8ed51e7e53"
   integrity sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ==
+
+react-swipeable@^7.0.2:
+  version "7.0.2"
+  resolved "https://registry.yarnpkg.com/react-swipeable/-/react-swipeable-7.0.2.tgz#ef8858096a47144ba7060675af1cd672e00ecc12"
+  integrity sha512-v1Qx1l+aC2fdxKa9aKJiaU/ZxmJ5o98RMoFwUqAAzVWUcxgfHFXDDruCKXhw6zIYXm6V64JiHgP9f6mlME5l8w==
 
 react@^18.2.0:
   version "18.3.1"

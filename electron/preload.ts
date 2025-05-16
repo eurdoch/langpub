@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   // You can expose other APTs you need here.
   // ...
   
-  // File dialog API
-  openFileDialog: () => ipcRenderer.invoke('open-file-dialog')
+  // File APIs
+  openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
+  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath)
 })

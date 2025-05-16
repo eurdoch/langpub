@@ -11,6 +11,7 @@ interface IpcRenderer {
   send(channel: string, ...args: any[]): void
   invoke(channel: string, ...args: any[]): Promise<any>
   openFileDialog(): Promise<OpenDialogResult>
+  readFile(filePath: string): Promise<{ success: boolean, data?: string, error?: string }>
 }
 
 interface Window {

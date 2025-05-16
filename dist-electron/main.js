@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, protocol, ipcMain, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, "..");
@@ -38,6 +39,14 @@ app.on("activate", () => {
   }
 });
 app.whenReady().then(() => {
+  protocol.registerFileProtocol("file", (request, callback) => {
+    const filePath = decodeURI(request.url.slice("file://".length));
+    try {
+      return callback(filePath);
+    } catch (error) {
+      console.error("Error registering file protocol:", error);
+    }
+  });
   createWindow();
   ipcMain.handle("open-file-dialog", async () => {
     if (!win) return { canceled: true };
@@ -49,6 +58,15 @@ app.whenReady().then(() => {
       ]
     });
     return result;
+  });
+  ipcMain.handle("read-file", async (_, filePath) => {
+    try {
+      const data = await fs.promises.readFile(filePath);
+      return { success: true, data: data.toString("base64") };
+    } catch (error) {
+      console.error("Error reading file:", error);
+      return { success: false, error: error.message };
+    }
   });
 });
 export {

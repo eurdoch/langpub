@@ -19,6 +19,7 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   },
   // You can expose other APTs you need here.
   // ...
-  // File dialog API
-  openFileDialog: () => electron.ipcRenderer.invoke("open-file-dialog")
+  // File APIs
+  openFileDialog: () => electron.ipcRenderer.invoke("open-file-dialog"),
+  readFile: (filePath) => electron.ipcRenderer.invoke("read-file", filePath)
 });
