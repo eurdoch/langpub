@@ -201,8 +201,14 @@ function App() {
   const handleWordClick = (word: string) => {
     if (!word || word.trim() === '') return
     
-    // Clean the word (should be already clean from the regex, but just to be safe)
-    const cleanWord = word.trim().replace(/[.,!?;:""''()[\]{}]/g, '')
+    // Just trim whitespace but preserve internal punctuation
+    const trimmedWord = word.trim()
+    
+    // Only remove punctuation from the start and end of the word
+    const cleanWord = trimmedWord
+      .replace(/^[^\wÀ-ÿ\u00C0-\u017F]+/, '') // Remove leading punctuation
+      .replace(/[^\wÀ-ÿ\u00C0-\u017F]+$/, '') // Remove trailing punctuation
+    
     if (cleanWord === '') return
     
     console.log('Clicked word:', cleanWord)
@@ -373,34 +379,38 @@ function App() {
                   </div>
                   <div className="text-snippet">
                     {selectedText && selectedText.split(/\s+/).map((word, index, array) => {
-                      // Split the word into the actual word and any punctuation that follows
-                      const match = word.match(/^([\wÀ-ÿ\u00C0-\u017F]+)(.*)$/)
-                      
                       const isLastWord = index === array.length - 1
                       
-                      if (match) {
-                        const [, actualWord, punctuation] = match
-                        return (
-                          <React.Fragment key={index}>
-                            <span 
-                              className="clickable-word"
-                              onClick={() => handleWordClick(actualWord)}
-                            >
-                              {actualWord}
-                            </span>
-                            {punctuation}
-                            {!isLastWord && ' '}
-                          </React.Fragment>
-                        )
-                      } else {
-                        // If there's no match (e.g., just punctuation), render without click handler
-                        return (
-                          <React.Fragment key={index}>
-                            <span>{word}</span>
-                            {!isLastWord && ' '}
-                          </React.Fragment>
-                        )
+                      // Check if the word has any alphanumeric characters
+                      if (/[\wÀ-ÿ\u00C0-\u017F]/.test(word)) {
+                        // Extract leading and trailing punctuation
+                        const match = word.match(/^([^\wÀ-ÿ\u00C0-\u017F]*)(.+?)([^\wÀ-ÿ\u00C0-\u017F]*)$/)
+                        
+                        if (match) {
+                          const [, leadingPunct, actualWord, trailingPunct] = match
+                          return (
+                            <React.Fragment key={index}>
+                              {leadingPunct}
+                              <span 
+                                className="clickable-word"
+                                onClick={() => handleWordClick(actualWord)}
+                              >
+                                {actualWord}
+                              </span>
+                              {trailingPunct}
+                              {!isLastWord && ' '}
+                            </React.Fragment>
+                          )
+                        }
                       }
+                      
+                      // If there's no match (e.g., just punctuation), render without click handler
+                      return (
+                        <React.Fragment key={index}>
+                          <span>{word}</span>
+                          {!isLastWord && ' '}
+                        </React.Fragment>
+                      )
                     })}
                   </div>
                   <audio ref={audioRef} src={audioUrl || ''} />{/* Hidden audio element */}
