@@ -18,6 +18,7 @@ function App() {
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
   const [bookLanguage, setBookLanguage] = useState<string | null>(null)
   const [isDetectingLanguage, setIsDetectingLanguage] = useState<boolean>(false)
+  const [languageDetectionAttempted, setLanguageDetectionAttempted] = useState<boolean>(false)
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -61,6 +62,7 @@ function App() {
         setSelectedWord(null)
         setTranslatedWord(null)
         setWordExplanation(null)
+        setLanguageDetectionAttempted(false)
         
         // Set the new file path
         setSelectedFile(filePath)
@@ -72,9 +74,10 @@ function App() {
   }
   
   const detectBookLanguage = async (sampleText: string) => {
-    if (!sampleText) return
+    if (!sampleText || languageDetectionAttempted) return
     
     setIsDetectingLanguage(true)
+    setLanguageDetectionAttempted(true)
     
     try {
       // Detect the book's language using the API proxy
@@ -241,9 +244,11 @@ function App() {
   }
   
   const handleBookLoaded = (sampleText: string) => {
-    // Always attempt to detect language for a new book
-    console.log('Book loaded, extracting language from sample text...')
-    detectBookLanguage(sampleText)
+    // Only attempt language detection once when a book is first loaded
+    if (!languageDetectionAttempted) {
+      console.log('Book loaded, extracting language from sample text...')
+      detectBookLanguage(sampleText)
+    }
   }
   
   const handleWordClick = (word: string) => {
@@ -507,7 +512,7 @@ function App() {
                     </>
                   ) : bookLanguage === 'Unknown' ? (
                     <div className="translation-error">
-                      Could not detect book language. Translation unavailable.
+                      Could not detect book language. Please select a language manually from the dropdown above.
                     </div>
                   ) : null}
                   
