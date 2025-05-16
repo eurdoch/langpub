@@ -100,27 +100,74 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                   
                   // Extract a sample of text from the book for language detection
                   if (onBookLoaded) {
-                    // Get the spine items (chapters)
-                    const spine = rendition.book.spine as any
-                    if (spine && spine.items && spine.items.length > 0) {
-                      // Take text from the first few chapters for better language detection
-                      const promises = spine.items.slice(0, 3).map((item: any) => 
-                        item.load().then((contents: any) => {
-                          // Extract text content
-                          const el = document.createElement('div')
-                          el.innerHTML = contents
-                          return el.textContent || ''
-                        })
-                      )
-                      
-                      Promise.all(promises).then((textChunks) => {
-                        // Combine text chunks and limit to a reasonable size for API
-                        const sampleText = textChunks.join(' ').substring(0, 500)
-                        onBookLoaded(sampleText)
-                      }).catch(error => {
-                        console.error('Error extracting text for language detection:', error)
-                      })
+                    try {
+                      // Get text from the current section
+                      const content = rendition.getContents()[0]
+                      if (content) {
+                        // Get the content document
+                        const doc = content.document
+                        if (doc && doc.body) {
+                          // Extract text content from body
+                          let sampleText = doc.body.textContent || ''
+                          
+                          // Clean up the text and limit to a reasonable size
+                          sampleText = sampleText.replace(/\s+/g, ' ').trim().substring(0, 1000)
+                          
+                          if (sampleText) {
+                            console.log('Found sample text for language detection')
+                            onBookLoaded(sampleText)
+                          } else {
+                            // If no text is found, try to navigate to the next section and try again
+                            rendition.next().then(() => {
+                              setTimeout(() => {
+                                const nextContent = rendition.getContents()[0]
+                                if (nextContent && nextContent.document && nextContent.document.body) {
+                                  const nextSampleText = nextContent.document.body.textContent || ''
+                                  const cleanedText = nextSampleText.replace(/\s+/g, ' ').trim().substring(0, 1000)
+                                  if (cleanedText) {
+                                    onBookLoaded(cleanedText)
+                                  }
+                                }
+                              }, 300)
+                            }).catch(err => {
+                              console.error('Error navigating to next section:', err)
+                            })
+                          }
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Error extracting text for language detection:', error)
                     }
+                  }
+                })
+                
+                // Try to extract sample text from the book after content is loaded
+                rendition.on('rendered', (section: any) => {
+                  if (onBookLoaded && section) {
+                    // Only do this once
+                    const extractTextHandler = () => {
+                      try {
+                        const content = rendition.getContents()[0]
+                        if (content && content.document && content.document.body) {
+                          let sampleText = content.document.body.textContent || ''
+                          sampleText = sampleText.replace(/\s+/g, ' ').trim().substring(0, 1000)
+                          
+                          if (sampleText) {
+                            console.log('Found sample text on render for language detection')
+                            onBookLoaded(sampleText)
+                            // Remove the event listener to avoid multiple calls
+                            rendition.off('rendered', extractTextHandler)
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Error extracting text on render:', error)
+                      }
+                    }
+                    
+                    // Add the event handler
+                    rendition.on('rendered', extractTextHandler)
+                    // Call it immediately for the first render
+                    extractTextHandler()
                   }
                 })
                 

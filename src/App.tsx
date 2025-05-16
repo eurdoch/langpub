@@ -50,15 +50,34 @@ function App() {
   }
   
   const translateText = async (text: string) => {
-    if (!text || !bookLanguage) return
+    if (!text) return
     
     setIsTranslating(true)
     setTranslatedText(null)
     
     try {
-      // Use the already detected book language
+      // If book language hasn't been detected yet or was Unknown,
+      // try to detect it from the selected text
+      let languageToUse = bookLanguage
+      
+      if (!languageToUse || languageToUse === 'Unknown') {
+        console.log('No book language detected yet, detecting from selection')
+        // Call the language detection API 
+        const languageResponse = await window.ipcRenderer.apiProxy('/language', 'POST', { text })
+        
+        if (languageResponse.status === 200 && languageResponse.data) {
+          languageToUse = languageResponse.data.language
+          // Store this language for future use
+          setBookLanguage(languageToUse)
+        } else {
+          // Default to English if we can't detect the language
+          languageToUse = 'English'
+        }
+      }
+      
+      // Use the language for translation
       const translateResponse = await window.ipcRenderer.apiProxy('/translate', 'POST', { 
-        language: bookLanguage, 
+        language: languageToUse, 
         text 
       })
       
@@ -86,8 +105,11 @@ function App() {
   }
   
   const handleBookLoaded = (sampleText: string) => {
-    console.log('Book loaded, extracting language from sample text...')
-    detectBookLanguage(sampleText)
+    // Only detect language if we haven't already or if we encountered an error
+    if (!bookLanguage || bookLanguage === 'Unknown') {
+      console.log('Book loaded, extracting language from sample text...')
+      detectBookLanguage(sampleText)
+    }
   }
 
   return (
