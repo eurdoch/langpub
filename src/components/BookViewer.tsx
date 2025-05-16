@@ -10,6 +10,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath }) => {
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
   const [progress, setProgress] = useState<number>(0)
+  const [selectedText, setSelectedText] = useState<string | null>(null)
 
   useEffect(() => {
     if (!filePath) return
@@ -95,6 +96,21 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath }) => {
                     setTotalLocations(locations.length)
                   })
                 })
+                
+                // Add selection event listener
+                rendition.on('selected', (cfiRange, contents) => {
+                  // Get the selected text
+                  const text = contents.window.getSelection()?.toString()
+                  if (text) {
+                    console.log('Selected text:', text)
+                    setSelectedText(text)
+                  }
+                })
+                
+                // Clear selection when clicking elsewhere
+                rendition.on('mousedown', () => {
+                  setSelectedText(null)
+                })
               }}
               epubOptions={{
                 flow: 'scrolled', // or 'paginated'
@@ -115,6 +131,11 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath }) => {
             <div className="progress-info">
               {progress > 0 ? `${progress}% read` : ''}
             </div>
+            {selectedText && (
+              <div className="selected-text-info">
+                <span className="selected-text-label">Selected:</span> {selectedText.length > 100 ? `${selectedText.substring(0, 100)}...` : selectedText}
+              </div>
+            )}
           </div>
         </>
       ) : (
