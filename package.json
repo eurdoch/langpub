@@ -2,7 +2,18 @@
   "name": "langpub",
   "private": true,
   "version": "0.0.1",
+  "description": "A desktop application for language learning through reading books",
+  "author": "George Balch",
+  "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eurdoch/langpub.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eurdoch/langpub/issues"
+  },
+  "homepage": "https://github.com/eurdoch/langpub#readme",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
