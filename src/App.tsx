@@ -6,6 +6,10 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import IconButton from '@mui/material/IconButton'
 import CircularProgress from '@mui/material/CircularProgress'
 import Button from '@mui/material/Button'
+import Select from '@mui/material/Select'
+import MenuItem from '@mui/material/MenuItem'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -17,6 +21,19 @@ function App() {
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  
+  // Define available languages based on LANGUAGE_TO_VOICE in api/index.js
+  const availableLanguages = [
+    'French',
+    'Dutch',
+    'English',
+    'German',
+    'Spanish',
+    'Italian',
+    'Japanese',
+    'Portuguese',
+    'Chinese'
+  ]
   
   // Word details states
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
@@ -69,7 +86,7 @@ function App() {
     }
   }
   
-  const translateText = async (text: string) => {
+  const translateText = async (text: string, forcedLanguage?: string) => {
     if (!text) return
     
     setIsTranslating(true)
@@ -82,10 +99,10 @@ function App() {
     }
     
     try {
-      // If book language hasn't been detected yet or was Unknown,
-      // try to detect it from the selected text
-      let languageToUse = bookLanguage
+      // If language is forced, use it; otherwise use bookLanguage
+      let languageToUse = forcedLanguage || bookLanguage
       
+      // If no language is available or it's unknown, detect it
       if (!languageToUse || languageToUse === 'Unknown') {
         console.log('No book language detected yet, detecting from selection')
         // Call the language detection API 
@@ -98,6 +115,7 @@ function App() {
         } else {
           // Default to English if we can't detect the language
           languageToUse = 'English'
+          setBookLanguage('English')
         }
       }
       
@@ -177,6 +195,28 @@ function App() {
     }
   }
   
+  // Handle language change from the dropdown
+  const handleLanguageChange = (event: React.ChangeEvent<{ value: unknown }>) => {
+    const newLanguage = event.target.value as string
+    
+    // Only update if the language has changed
+    if (newLanguage !== bookLanguage) {
+      console.log('Language changed to:', newLanguage)
+      setBookLanguage(newLanguage)
+      
+      // Retranslate the current selection with the new language
+      if (selectedText) {
+        translateText(selectedText, newLanguage)
+      }
+      
+      // Retranslate the current word with the new language
+      if (selectedWord) {
+        translateWord(selectedWord, newLanguage)
+        fetchWordAudio(selectedWord, newLanguage)
+      }
+    }
+  }
+
   const handleTextSelection = (text: string | null) => {
     // Only update if text is provided (not null)
     // This allows us to ignore the clearing events and keep the current state
@@ -226,8 +266,14 @@ function App() {
     fetchWordAudio(cleanWord)
   }
   
-  const translateWord = async (word: string) => {
-    if (!word || !bookLanguage) return
+  const translateWord = async (word: string, forcedLanguage?: string) => {
+    if (!word) return
+    
+    // Use forced language or bookLanguage
+    const languageToUse = forcedLanguage || bookLanguage
+    
+    // If we still don't have a language, we can't translate
+    if (!languageToUse) return
     
     setIsTranslatingWord(true)
     setTranslatedWord(null)
@@ -235,7 +281,7 @@ function App() {
     try {
       // Use the API to translate just this word
       const translateResponse = await window.ipcRenderer.apiProxy('/translate', 'POST', { 
-        language: bookLanguage, 
+        language: languageToUse, 
         text: word 
       })
       
@@ -252,8 +298,14 @@ function App() {
     }
   }
   
-  const fetchWordAudio = async (word: string) => {
-    if (!word || !bookLanguage) return
+  const fetchWordAudio = async (word: string, forcedLanguage?: string) => {
+    if (!word) return
+    
+    // Use forced language or bookLanguage
+    const languageToUse = forcedLanguage || bookLanguage
+    
+    // If we still don't have a language, we can't get audio
+    if (!languageToUse) return
     
     setIsLoadingWordAudio(true)
     
@@ -266,7 +318,7 @@ function App() {
     try {
       // Use the speech endpoint to get audio for just this word
       const speechResponse = await window.ipcRenderer.apiProxy('/speech', 'POST', {
-        language: bookLanguage,
+        language: languageToUse,
         text: word
       })
       
@@ -352,7 +404,28 @@ function App() {
           </div>
           <div className="right-panel">
             <div className="panel-header">
-              <h2>Translation {bookLanguage && !isDetectingLanguage ? `(${bookLanguage})` : ''}</h2>
+              <h2>Translation</h2>
+              <div className="language-selector">
+                <FormControl variant="outlined" size="small">
+                  <Select
+                    value={bookLanguage || ''}
+                    onChange={handleLanguageChange}
+                    displayEmpty
+                    inputProps={{ 'aria-label': 'Language' }}
+                    className="language-select"
+                    disabled={isDetectingLanguage}
+                  >
+                    <MenuItem value="" disabled>
+                      {isDetectingLanguage ? 'Detecting...' : 'Select language'}
+                    </MenuItem>
+                    {availableLanguages.map((language) => (
+                      <MenuItem key={language} value={language}>
+                        {language}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </div>
             </div>
             <div className="panel-content">
               {selectedText ? (

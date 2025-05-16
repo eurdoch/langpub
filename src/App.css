@@ -97,12 +97,33 @@ button:disabled {
   padding: 10px 15px;
   background-color: #f0f0f0;
   border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .panel-header h2 {
   margin: 0;
   font-size: 16px;
   color: #444;
+}
+
+.language-selector {
+  min-width: 120px;
+}
+
+.language-select {
+  font-size: 14px !important;
+  min-width: 120px;
+}
+
+/* Override MUI styles */
+.MuiSelect-select {
+  padding: 6px 10px !important;
+}
+
+.MuiOutlinedInput-notchedOutline {
+  border-color: #bdbdbd !important;
 }
 
 .panel-content {
