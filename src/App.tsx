@@ -15,6 +15,14 @@ function App() {
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  
+  // Word details states
+  const [selectedWord, setSelectedWord] = useState<string | null>(null)
+  const [translatedWord, setTranslatedWord] = useState<string | null>(null)
+  const [isTranslatingWord, setIsTranslatingWord] = useState<boolean>(false)
+  const [wordAudioUrl, setWordAudioUrl] = useState<string | null>(null)
+  const [isLoadingWordAudio, setIsLoadingWordAudio] = useState<boolean>(false)
+  const wordAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const handleOpenFile = async () => {
     try {
@@ -184,16 +192,99 @@ function App() {
   const handleWordClick = (word: string) => {
     if (!word || word.trim() === '') return
     
-    // The word should already be clean of punctuation based on our regex in the render
-    console.log('Clicked word:', word)
+    // Clean the word (should be already clean from the regex, but just to be safe)
+    const cleanWord = word.trim().replace(/[.,!?;:""''()[\]{}]/g, '')
+    if (cleanWord === '') return
     
-    // Here you could add functionality like:
-    // 1. Looking up definitions
-    // 2. Getting conjugation info for verbs
-    // 3. Displaying examples or context
-    // 4. Pronouncing just that word
+    console.log('Clicked word:', cleanWord)
     
-    // For now we just log the word, but this can be expanded later
+    // Set the selected word
+    setSelectedWord(cleanWord)
+    
+    // Translate the word
+    translateWord(cleanWord)
+    
+    // Get audio for the word
+    fetchWordAudio(cleanWord)
+  }
+  
+  const translateWord = async (word: string) => {
+    if (!word || !bookLanguage) return
+    
+    setIsTranslatingWord(true)
+    setTranslatedWord(null)
+    
+    try {
+      // Use the API to translate just this word
+      const translateResponse = await window.ipcRenderer.apiProxy('/translate', 'POST', { 
+        language: bookLanguage, 
+        text: word 
+      })
+      
+      if (translateResponse.status === 200 && translateResponse.data) {
+        setTranslatedWord(translateResponse.data.translated_text)
+      } else {
+        throw new Error('Failed to translate word')
+      }
+    } catch (error) {
+      console.error('Word translation error:', error)
+      setTranslatedWord('Translation failed')
+    } finally {
+      setIsTranslatingWord(false)
+    }
+  }
+  
+  const fetchWordAudio = async (word: string) => {
+    if (!word || !bookLanguage) return
+    
+    setIsLoadingWordAudio(true)
+    
+    // Clear any previous audio
+    if (wordAudioUrl) {
+      URL.revokeObjectURL(wordAudioUrl)
+      setWordAudioUrl(null)
+    }
+    
+    try {
+      // Use the speech endpoint to get audio for just this word
+      const speechResponse = await window.ipcRenderer.apiProxy('/speech', 'POST', {
+        language: bookLanguage,
+        text: word
+      })
+      
+      if (speechResponse.status === 200) {
+        // Process the audio data similarly to the fetchAudio function
+        const base64String = speechResponse.data
+        
+        let audioData
+        if (typeof base64String === 'string') {
+          const binaryString = atob(base64String)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          audioData = bytes
+        } else {
+          audioData = new Uint8Array(base64String)
+        }
+        
+        const blob = new Blob([audioData], { type: 'audio/mp3' })
+        const url = URL.createObjectURL(blob)
+        setWordAudioUrl(url)
+        
+        console.log('Word audio fetched successfully')
+      }
+    } catch (error) {
+      console.error('Error fetching word audio:', error)
+    } finally {
+      setIsLoadingWordAudio(false)
+    }
+  }
+  
+  const playWordAudio = () => {
+    if (wordAudioRef.current && wordAudioUrl) {
+      wordAudioRef.current.play()
+    }
   }
 
   return (
@@ -291,6 +382,43 @@ function App() {
                       Could not detect book language. Translation unavailable.
                     </div>
                   ) : null}
+                  
+                  {/* Word details section */}
+                  {selectedWord && (
+                    <div className="word-details">
+                      <h3>Word Details</h3>
+                      <div className="word-details-content">
+                        <div className="word-row">
+                          <div className="word-original">
+                            <span className="word-label">Original:</span>
+                            <span className="word-value">{selectedWord}</span>
+                            <IconButton 
+                              aria-label="play word audio" 
+                              onClick={playWordAudio}
+                              disabled={!wordAudioUrl || isLoadingWordAudio}
+                              size="small"
+                              className="word-play-button"
+                            >
+                              {isLoadingWordAudio ? (
+                                <CircularProgress size={18} />
+                              ) : (
+                                <VolumeUpIcon fontSize="small" />
+                              )}
+                            </IconButton>
+                          </div>
+                          <div className="word-translation">
+                            <span className="word-label">Translation:</span>
+                            {isTranslatingWord ? (
+                              <span className="word-loading">Translating...</span>
+                            ) : (
+                              <span className="word-value">{translatedWord}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <audio ref={wordAudioRef} src={wordAudioUrl || ''} />
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="no-selection">Select text from the book to translate it.</p>
