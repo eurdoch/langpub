@@ -206,8 +206,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                 })
               }}
               epubOptions={{
-                flow: 'scrolled', // or 'paginated'
-                manager: 'continuous'
+                flow: 'scrolled-doc',
+                manager: 'continuous',
+                infinite: true
               }}
               tocChanged={toc => {
                 console.log('Table of contents:', toc)
