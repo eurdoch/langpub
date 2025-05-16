@@ -325,7 +325,6 @@ function App() {
   return (
     <div className="container">
       <div className="header">
-        <h1>LangPub EPUB Reader</h1>
         <button onClick={handleOpenFile}>Open EPUB File</button>
       </div>
       
