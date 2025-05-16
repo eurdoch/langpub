@@ -255,6 +255,62 @@ button:disabled {
   color: #777;
 }
 
+.word-explanation-button-container {
+  margin-top: 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.explain-button {
+  background-color: #f5f5f5 !important;
+  border-color: #bdbdbd !important;
+  color: #555 !important;
+  text-transform: none !important;
+  padding: 5px 15px !important;
+}
+
+.explain-button:hover {
+  background-color: #e0e0e0 !important;
+  border-color: #9e9e9e !important;
+}
+
+.word-explanation-loading {
+  margin-top: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  background-color: #fafafa;
+  border-radius: 4px;
+  border: 1px dashed #e0e0e0;
+  color: #757575;
+  font-style: italic;
+}
+
+.word-explanation {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px dashed #e0e0e0;
+}
+
+.word-explanation h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.explanation-content {
+  background-color: #fff;
+  padding: 10px 12px;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+  white-space: pre-wrap;
+}
+
 .text-actions {
   display: flex;
   justify-content: space-between;

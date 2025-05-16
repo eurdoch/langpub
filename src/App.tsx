@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import IconButton from '@mui/material/IconButton'
 import CircularProgress from '@mui/material/CircularProgress'
+import Button from '@mui/material/Button'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -23,6 +25,10 @@ function App() {
   const [wordAudioUrl, setWordAudioUrl] = useState<string | null>(null)
   const [isLoadingWordAudio, setIsLoadingWordAudio] = useState<boolean>(false)
   const wordAudioRef = useRef<HTMLAudioElement | null>(null)
+  
+  // Word explanation states
+  const [wordExplanation, setWordExplanation] = useState<string | null>(null)
+  const [isExplainingWord, setIsExplainingWord] = useState<boolean>(false)
 
   const handleOpenFile = async () => {
     try {
@@ -198,6 +204,9 @@ function App() {
     
     console.log('Clicked word:', cleanWord)
     
+    // Reset explanation
+    setWordExplanation(null)
+    
     // Set the selected word
     setSelectedWord(cleanWord)
     
@@ -284,6 +293,32 @@ function App() {
   const playWordAudio = () => {
     if (wordAudioRef.current && wordAudioUrl) {
       wordAudioRef.current.play()
+    }
+  }
+  
+  const explainWord = async () => {
+    if (!selectedWord || !bookLanguage) return
+    
+    setIsExplainingWord(true)
+    setWordExplanation(null)
+    
+    try {
+      // Use the explain endpoint to get an explanation for the word
+      const explainResponse = await window.ipcRenderer.apiProxy('/explain', 'POST', {
+        word: selectedWord,
+        language: bookLanguage
+      })
+      
+      if (explainResponse.status === 200 && explainResponse.data) {
+        setWordExplanation(explainResponse.data.explanation)
+      } else {
+        throw new Error('Failed to get word explanation')
+      }
+    } catch (error) {
+      console.error('Word explanation error:', error)
+      setWordExplanation('Could not get explanation for this word.')
+    } finally {
+      setIsExplainingWord(false)
     }
   }
 
@@ -415,6 +450,36 @@ function App() {
                             )}
                           </div>
                         </div>
+                        
+                        {!wordExplanation && !isExplainingWord && (
+                          <div className="word-explanation-button-container">
+                            <Button 
+                              variant="outlined" 
+                              size="small" 
+                              onClick={explainWord}
+                              startIcon={<InfoOutlinedIcon />}
+                              className="explain-button"
+                            >
+                              Explain this word
+                            </Button>
+                          </div>
+                        )}
+                        
+                        {isExplainingWord && (
+                          <div className="word-explanation-loading">
+                            <CircularProgress size={20} />
+                            <span>Getting explanation...</span>
+                          </div>
+                        )}
+                        
+                        {wordExplanation && (
+                          <div className="word-explanation">
+                            <h4>Explanation:</h4>
+                            <div className="explanation-content">
+                              {wordExplanation}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <audio ref={wordAudioRef} src={wordAudioUrl || ''} />
                     </div>
