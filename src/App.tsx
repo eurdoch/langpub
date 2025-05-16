@@ -325,12 +325,12 @@ function App() {
   return (
     <div className="container">
       <div className="header">
-        <button onClick={handleOpenFile}>Open EPUB File</button>
+        <button onClick={handleOpenFile} className="open-epub-button">Open Epub</button>
       </div>
       
       {!selectedFile ? (
         <div className="welcome">
-          <p>Welcome to LangPub! Click the button above to open an EPUB file.</p>
+          <p>Welcome to LangPub! Click the Open Epub button to get started.</p>
         </div>
       ) : (
         <div className="main-content">
