@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, ChangeEvent } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
@@ -9,7 +9,7 @@ import Button from '@mui/material/Button'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
-import InputLabel from '@mui/material/InputLabel'
+// import InputLabel from '@mui/material/InputLabel'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -236,8 +236,8 @@ function App() {
   }
   
   // Handle language change from the dropdown
-  const handleLanguageChange = (event: React.ChangeEvent<{ value: unknown }>) => {
-    const newLanguage = event.target.value as string
+  const handleLanguageChange = (event: ChangeEvent<HTMLInputElement> | Event) => {
+    const newLanguage = (event.target as HTMLInputElement).value
     
     // Only update if the language has changed
     if (newLanguage !== bookLanguage) {

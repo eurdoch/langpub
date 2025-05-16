@@ -1,10 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol, net } from 'electron'
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
 
-const require = createRequire(import.meta.url)
+// Import createRequire was removed as it's not used
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // The built directory structure
@@ -101,7 +100,8 @@ app.whenReady().then(() => {
       return { success: true, data: data.toString('base64') }
     } catch (error) {
       console.error('Error reading file:', error)
-      return { success: false, error: error.message }
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, error: errorMessage }
     }
   })
   
@@ -168,12 +168,12 @@ app.whenReady().then(() => {
             }
           })
           
-          response.on('error', (error) => {
+          response.on('error', (error: Error) => {
             reject(error)
           })
         })
         
-        request.on('error', (error) => {
+        request.on('error', (error: Error) => {
           reject(error)
         })
       })
@@ -190,9 +190,10 @@ app.whenReady().then(() => {
       return await responsePromise
     } catch (error) {
       console.error('API proxy error:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
       return {
         status: 500,
-        error: error.message || 'Internal Server Error'
+        error: errorMessage || 'Internal Server Error'
       }
     }
   })
