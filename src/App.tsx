@@ -53,6 +53,16 @@ function App() {
       
       if (!result.canceled && result.filePaths.length > 0) {
         const filePath = result.filePaths[0]
+        
+        // Reset language and selected text when loading a new book
+        setBookLanguage(null)
+        setSelectedText(null)
+        setTranslatedText(null)
+        setSelectedWord(null)
+        setTranslatedWord(null)
+        setWordExplanation(null)
+        
+        // Set the new file path
         setSelectedFile(filePath)
         console.log('Selected file:', filePath)
       }
@@ -231,11 +241,9 @@ function App() {
   }
   
   const handleBookLoaded = (sampleText: string) => {
-    // Only detect language if we haven't already or if we encountered an error
-    if (!bookLanguage || bookLanguage === 'Unknown') {
-      console.log('Book loaded, extracting language from sample text...')
-      detectBookLanguage(sampleText)
-    }
+    // Always attempt to detect language for a new book
+    console.log('Book loaded, extracting language from sample text...')
+    detectBookLanguage(sampleText)
   }
   
   const handleWordClick = (word: string) => {
@@ -408,7 +416,7 @@ function App() {
               <div className="language-selector">
                 <FormControl variant="outlined" size="small">
                   <Select
-                    value={bookLanguage || ''}
+                    value={isDetectingLanguage ? '' : (bookLanguage || '')}
                     onChange={handleLanguageChange}
                     displayEmpty
                     inputProps={{ 'aria-label': 'Language' }}
@@ -416,7 +424,7 @@ function App() {
                     disabled={isDetectingLanguage}
                   >
                     <MenuItem value="" disabled>
-                      {isDetectingLanguage ? 'Detecting...' : 'Select language'}
+                      {isDetectingLanguage ? 'Detecting language...' : 'Select language'}
                     </MenuItem>
                     {availableLanguages.map((language) => (
                       <MenuItem key={language} value={language}>
