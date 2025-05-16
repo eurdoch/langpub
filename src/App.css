@@ -154,6 +154,24 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.clickable-word {
+  cursor: pointer;
+  display: inline-block;
+  padding: 1px 2px;
+  margin: 0;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+}
+
+.clickable-word:hover {
+  background-color: #e8f4ff;
+  color: #1565c0;
+}
+
+.clickable-word:active {
+  background-color: #bbdefb;
+}
+
 .text-snippet.translation {
   background-color: #f0f7ff;
   border-color: #c2e0ff;

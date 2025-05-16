@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
@@ -180,6 +180,21 @@ function App() {
       detectBookLanguage(sampleText)
     }
   }
+  
+  const handleWordClick = (word: string) => {
+    if (!word || word.trim() === '') return
+    
+    // The word should already be clean of punctuation based on our regex in the render
+    console.log('Clicked word:', word)
+    
+    // Here you could add functionality like:
+    // 1. Looking up definitions
+    // 2. Getting conjugation info for verbs
+    // 3. Displaying examples or context
+    // 4. Pronouncing just that word
+    
+    // For now we just log the word, but this can be expanded later
+  }
 
   return (
     <div className="container">
@@ -228,7 +243,38 @@ function App() {
                       </div>
                     )}
                   </div>
-                  <div className="text-snippet">{selectedText}</div>
+                  <div className="text-snippet">
+                    {selectedText && selectedText.split(/\s+/).map((word, index, array) => {
+                      // Split the word into the actual word and any punctuation that follows
+                      const match = word.match(/^([\wÀ-ÿ\u00C0-\u017F]+)(.*)$/)
+                      
+                      const isLastWord = index === array.length - 1
+                      
+                      if (match) {
+                        const [, actualWord, punctuation] = match
+                        return (
+                          <React.Fragment key={index}>
+                            <span 
+                              className="clickable-word"
+                              onClick={() => handleWordClick(actualWord)}
+                            >
+                              {actualWord}
+                            </span>
+                            {punctuation}
+                            {!isLastWord && ' '}
+                          </React.Fragment>
+                        )
+                      } else {
+                        // If there's no match (e.g., just punctuation), render without click handler
+                        return (
+                          <React.Fragment key={index}>
+                            <span>{word}</span>
+                            {!isLastWord && ' '}
+                          </React.Fragment>
+                        )
+                      }
+                    })}
+                  </div>
                   <audio ref={audioRef} src={audioUrl || ''} />{/* Hidden audio element */}
                   
                   {isDetectingLanguage ? (
