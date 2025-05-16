@@ -134,6 +134,22 @@ button:disabled {
   white-space: pre-wrap;
 }
 
+.text-snippet.translation {
+  background-color: #f0f7ff;
+  border-color: #c2e0ff;
+}
+
+.translation-loading {
+  text-align: center;
+  padding: 12px;
+  color: #666;
+  font-style: italic;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+  margin-top: 15px;
+  border: 1px dashed #ddd;
+}
+
 .text-actions {
   display: flex;
   justify-content: space-between;

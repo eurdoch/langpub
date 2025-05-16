@@ -21,5 +21,7 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   // ...
   // File APIs
   openFileDialog: () => electron.ipcRenderer.invoke("open-file-dialog"),
-  readFile: (filePath) => electron.ipcRenderer.invoke("read-file", filePath)
+  readFile: (filePath) => electron.ipcRenderer.invoke("read-file", filePath),
+  // API proxy to avoid CORS issues
+  apiProxy: (endpoint, method, data) => electron.ipcRenderer.invoke("api-proxy", { endpoint, method, data })
 });

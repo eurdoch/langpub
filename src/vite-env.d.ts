@@ -12,6 +12,11 @@ interface IpcRenderer {
   invoke(channel: string, ...args: any[]): Promise<any>
   openFileDialog(): Promise<OpenDialogResult>
   readFile(filePath: string): Promise<{ success: boolean, data?: string, error?: string }>
+  apiProxy(endpoint: string, method: string, data: any): Promise<{ 
+    status: number, 
+    data?: any, 
+    error?: string 
+  }>
 }
 
 interface Window {

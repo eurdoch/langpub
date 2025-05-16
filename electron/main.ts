@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, protocol, net } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
@@ -102,6 +102,77 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error('Error reading file:', error)
       return { success: false, error: error.message }
+    }
+  })
+  
+  // API proxy to avoid CORS issues
+  ipcMain.handle('api-proxy', async (_, { endpoint, method, data }) => {
+    try {
+      const apiBaseUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:3004' 
+        : 'https://langpub.directto.link'
+      
+      console.log(`Proxying API request to: ${apiBaseUrl}${endpoint}`)
+      
+      // Use Electron's net module to make the request
+      const request = net.request({
+        method: method || 'POST',
+        url: `${apiBaseUrl}${endpoint}`
+      })
+      
+      // Set headers
+      request.setHeader('Content-Type', 'application/json')
+      
+      // Create a promise to handle the response asynchronously
+      const responsePromise = new Promise((resolve, reject) => {
+        let responseData = ''
+        
+        request.on('response', (response) => {
+          response.on('data', (chunk) => {
+            responseData += chunk.toString()
+          })
+          
+          response.on('end', () => {
+            try {
+              const parsedData = JSON.parse(responseData)
+              resolve({
+                status: response.statusCode,
+                data: parsedData
+              })
+            } catch (error) {
+              resolve({
+                status: response.statusCode,
+                data: responseData
+              })
+            }
+          })
+          
+          response.on('error', (error) => {
+            reject(error)
+          })
+        })
+        
+        request.on('error', (error) => {
+          reject(error)
+        })
+      })
+      
+      // Write request body if there's data
+      if (data) {
+        request.write(JSON.stringify(data))
+      }
+      
+      // End the request
+      request.end()
+      
+      // Wait for the response
+      return await responsePromise
+    } catch (error) {
+      console.error('API proxy error:', error)
+      return {
+        status: 500,
+        error: error.message || 'Internal Server Error'
+      }
     }
   })
 })

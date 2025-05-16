@@ -24,5 +24,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   
   // File APIs
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
-  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath)
+  readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
+  
+  // API proxy to avoid CORS issues
+  apiProxy: (endpoint: string, method: string, data: any) => 
+    ipcRenderer.invoke('api-proxy', { endpoint, method, data })
 })

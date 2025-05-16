@@ -5,6 +5,8 @@ import BookViewer from './components/BookViewer'
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [selectedText, setSelectedText] = useState<string | null>(null)
+  const [translatedText, setTranslatedText] = useState<string | null>(null)
+  const [isTranslating, setIsTranslating] = useState<boolean>(false)
 
   const handleOpenFile = async () => {
     try {
@@ -17,6 +19,52 @@ function App() {
       }
     } catch (error) {
       console.error('Error opening file:', error)
+    }
+  }
+  
+  const detectAndTranslateText = async (text: string) => {
+    if (!text) return
+    
+    setIsTranslating(true)
+    setTranslatedText(null)
+    
+    try {
+      // First detect the language using the API proxy
+      const languageResponse = await window.ipcRenderer.apiProxy('/language', 'POST', { text })
+      
+      if (languageResponse.status !== 200 || !languageResponse.data) {
+        throw new Error('Failed to detect language')
+      }
+      
+      const detectedLanguage = languageResponse.data.language
+      console.log('Detected language:', detectedLanguage)
+      
+      // Then translate the text using the API proxy
+      const translateResponse = await window.ipcRenderer.apiProxy('/translate', 'POST', { 
+        language: detectedLanguage, 
+        text 
+      })
+      
+      if (translateResponse.status !== 200 || !translateResponse.data) {
+        throw new Error('Failed to translate text')
+      }
+      
+      setTranslatedText(translateResponse.data.translated_text)
+    } catch (error) {
+      console.error('Translation error:', error)
+      setTranslatedText('Translation failed. Please try again.')
+    } finally {
+      setIsTranslating(false)
+    }
+  }
+  
+  const handleTextSelection = (text: string | null) => {
+    setSelectedText(text)
+    
+    if (text) {
+      detectAndTranslateText(text)
+    } else {
+      setTranslatedText(null)
     }
   }
 
@@ -36,7 +84,7 @@ function App() {
           <div className="viewer-container">
             <BookViewer 
               filePath={selectedFile} 
-              onTextSelection={setSelectedText} 
+              onTextSelection={handleTextSelection} 
             />
           </div>
           <div className="right-panel">
@@ -48,6 +96,15 @@ function App() {
                 <div className="selected-text-panel">
                   <h3>Original:</h3>
                   <div className="text-snippet">{selectedText}</div>
+                  
+                  {isTranslating ? (
+                    <div className="translation-loading">Translating...</div>
+                  ) : translatedText ? (
+                    <>
+                      <h3>Translated:</h3>
+                      <div className="text-snippet translation">{translatedText}</div>
+                    </>
+                  ) : null}
                 </div>
               ) : (
                 <p className="no-selection">Select text from the book to translate it.</p>
