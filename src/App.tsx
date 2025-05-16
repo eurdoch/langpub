@@ -132,6 +132,9 @@ function App() {
       setAudioUrl(null)
     }
     
+    // Reset audio loading state
+    setIsLoadingAudio(false)
+    
     try {
       // If language is forced, use it; otherwise use bookLanguage
       let languageToUse = forcedLanguage || bookLanguage
@@ -165,8 +168,11 @@ function App() {
       
       setTranslatedText(translateResponse.data.translated_text)
       
-      // Also fetch the audio in the background
-      fetchAudio(text, languageToUse)
+      // Only fetch audio if we have a valid language
+      if (languageToUse && languageToUse !== 'Unknown') {
+        // Start fetching audio in the background
+        fetchAudio(text, languageToUse)
+      }
     } catch (error) {
       console.error('Translation error:', error)
       setTranslatedText('Translation failed. Please try again.')
@@ -470,17 +476,16 @@ function App() {
                       <div className="audio-controls">
                         {isLoadingAudio ? (
                           <CircularProgress size={24} />
-                        ) : (
+                        ) : audioUrl ? (
                           <IconButton 
                             aria-label="play audio" 
                             onClick={playAudio}
-                            disabled={!bookLanguage || isLoadingAudio}
                             size="small"
                             className="play-button"
                           >
                             <VolumeUpIcon />
                           </IconButton>
-                        )}
+                        ) : null}
                       </div>
                     )}
                   </div>
