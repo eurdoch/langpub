@@ -7,6 +7,8 @@ function App() {
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [translatedText, setTranslatedText] = useState<string | null>(null)
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
+  const [bookLanguage, setBookLanguage] = useState<string | null>(null)
+  const [isDetectingLanguage, setIsDetectingLanguage] = useState<boolean>(false)
 
   const handleOpenFile = async () => {
     try {
@@ -22,26 +24,41 @@ function App() {
     }
   }
   
-  const detectAndTranslateText = async (text: string) => {
-    if (!text) return
+  const detectBookLanguage = async (sampleText: string) => {
+    if (!sampleText) return
+    
+    setIsDetectingLanguage(true)
+    
+    try {
+      // Detect the book's language using the API proxy
+      const languageResponse = await window.ipcRenderer.apiProxy('/language', 'POST', { text: sampleText })
+      
+      if (languageResponse.status !== 200 || !languageResponse.data) {
+        throw new Error('Failed to detect book language')
+      }
+      
+      const detectedLanguage = languageResponse.data.language
+      console.log('Detected book language:', detectedLanguage)
+      setBookLanguage(detectedLanguage)
+    } catch (error) {
+      console.error('Language detection error:', error)
+      // Set a fallback language if detection fails
+      setBookLanguage('Unknown')
+    } finally {
+      setIsDetectingLanguage(false)
+    }
+  }
+  
+  const translateText = async (text: string) => {
+    if (!text || !bookLanguage) return
     
     setIsTranslating(true)
     setTranslatedText(null)
     
     try {
-      // First detect the language using the API proxy
-      const languageResponse = await window.ipcRenderer.apiProxy('/language', 'POST', { text })
-      
-      if (languageResponse.status !== 200 || !languageResponse.data) {
-        throw new Error('Failed to detect language')
-      }
-      
-      const detectedLanguage = languageResponse.data.language
-      console.log('Detected language:', detectedLanguage)
-      
-      // Then translate the text using the API proxy
+      // Use the already detected book language
       const translateResponse = await window.ipcRenderer.apiProxy('/translate', 'POST', { 
-        language: detectedLanguage, 
+        language: bookLanguage, 
         text 
       })
       
@@ -62,10 +79,15 @@ function App() {
     setSelectedText(text)
     
     if (text) {
-      detectAndTranslateText(text)
+      translateText(text)
     } else {
       setTranslatedText(null)
     }
+  }
+  
+  const handleBookLoaded = (sampleText: string) => {
+    console.log('Book loaded, extracting language from sample text...')
+    detectBookLanguage(sampleText)
   }
 
   return (
@@ -84,12 +106,13 @@ function App() {
           <div className="viewer-container">
             <BookViewer 
               filePath={selectedFile} 
-              onTextSelection={handleTextSelection} 
+              onTextSelection={handleTextSelection}
+              onBookLoaded={handleBookLoaded}
             />
           </div>
           <div className="right-panel">
             <div className="panel-header">
-              <h2>Translation</h2>
+              <h2>Translation {bookLanguage && !isDetectingLanguage ? `(${bookLanguage})` : ''}</h2>
             </div>
             <div className="panel-content">
               {selectedText ? (
@@ -97,13 +120,19 @@ function App() {
                   <h3>Original:</h3>
                   <div className="text-snippet">{selectedText}</div>
                   
-                  {isTranslating ? (
+                  {isDetectingLanguage ? (
+                    <div className="translation-loading">Detecting book language...</div>
+                  ) : isTranslating ? (
                     <div className="translation-loading">Translating...</div>
-                  ) : translatedText ? (
+                  ) : bookLanguage && translatedText ? (
                     <>
                       <h3>Translated:</h3>
                       <div className="text-snippet translation">{translatedText}</div>
                     </>
+                  ) : bookLanguage === 'Unknown' ? (
+                    <div className="translation-error">
+                      Could not detect book language. Translation unavailable.
+                    </div>
                   ) : null}
                 </div>
               ) : (

@@ -4,9 +4,10 @@ import { ReactReader, ReactReaderStyle } from 'react-reader'
 interface BookViewerProps {
   filePath: string
   onTextSelection?: (text: string | null) => void
+  onBookLoaded?: (text: string) => void
 }
 
-const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) => {
+const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBookLoaded }) => {
   const [location, setLocation] = useState<string | number>(0)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
@@ -96,6 +97,31 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) =>
                   rendition.book.locations.generate().then((locations) => {
                     setTotalLocations(locations.length)
                   })
+                  
+                  // Extract a sample of text from the book for language detection
+                  if (onBookLoaded) {
+                    // Get the spine items (chapters)
+                    const spine = rendition.book.spine as any
+                    if (spine && spine.items && spine.items.length > 0) {
+                      // Take text from the first few chapters for better language detection
+                      const promises = spine.items.slice(0, 3).map((item: any) => 
+                        item.load().then((contents: any) => {
+                          // Extract text content
+                          const el = document.createElement('div')
+                          el.innerHTML = contents
+                          return el.textContent || ''
+                        })
+                      )
+                      
+                      Promise.all(promises).then((textChunks) => {
+                        // Combine text chunks and limit to a reasonable size for API
+                        const sampleText = textChunks.join(' ').substring(0, 500)
+                        onBookLoaded(sampleText)
+                      }).catch(error => {
+                        console.error('Error extracting text for language detection:', error)
+                      })
+                    }
+                  }
                 })
                 
                 // Add selection event listener

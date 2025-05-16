@@ -150,6 +150,16 @@ button:disabled {
   border: 1px dashed #ddd;
 }
 
+.translation-error {
+  text-align: center;
+  padding: 12px;
+  color: #d32f2f;
+  background-color: #ffebee;
+  border-radius: 4px;
+  margin-top: 15px;
+  border: 1px solid #ffcdd2;
+}
+
 .text-actions {
   display: flex;
   justify-content: space-between;
