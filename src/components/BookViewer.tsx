@@ -3,9 +3,10 @@ import { ReactReader, ReactReaderStyle } from 'react-reader'
 
 interface BookViewerProps {
   filePath: string
+  onTextSelection?: (text: string | null) => void
 }
 
-const BookViewer: React.FC<BookViewerProps> = ({ filePath }) => {
+const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) => {
   const [location, setLocation] = useState<string | number>(0)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
@@ -104,12 +105,20 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath }) => {
                   if (text) {
                     console.log('Selected text:', text)
                     setSelectedText(text)
+                    // Pass selected text to parent component if callback exists
+                    if (onTextSelection) {
+                      onTextSelection(text)
+                    }
                   }
                 })
                 
                 // Clear selection when clicking elsewhere
                 rendition.on('mousedown', () => {
                   setSelectedText(null)
+                  // Clear selected text in parent component if callback exists
+                  if (onTextSelection) {
+                    onTextSelection(null)
+                  }
                 })
               }}
               epubOptions={{

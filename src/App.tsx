@@ -4,6 +4,7 @@ import BookViewer from './components/BookViewer'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [selectedText, setSelectedText] = useState<string | null>(null)
 
   const handleOpenFile = async () => {
     try {
@@ -31,8 +32,32 @@ function App() {
           <p>Welcome to LangPub! Click the button above to open an EPUB file.</p>
         </div>
       ) : (
-        <div className="viewer-container">
-          <BookViewer filePath={selectedFile} />
+        <div className="main-content">
+          <div className="viewer-container">
+            <BookViewer 
+              filePath={selectedFile} 
+              onTextSelection={setSelectedText} 
+            />
+          </div>
+          <div className="right-panel">
+            <div className="panel-header">
+              <h2>Notes & AI</h2>
+            </div>
+            <div className="panel-content">
+              {selectedText ? (
+                <div className="selected-text-panel">
+                  <h3>Selected Text:</h3>
+                  <div className="text-snippet">{selectedText}</div>
+                  <div className="text-actions">
+                    <button className="action-button">Analyze</button>
+                    <button className="action-button">Take Notes</button>
+                  </div>
+                </div>
+              ) : (
+                <p className="no-selection">Select text from the book to see it here.</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>
