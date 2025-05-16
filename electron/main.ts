@@ -123,27 +123,48 @@ app.whenReady().then(() => {
       // Set headers
       request.setHeader('Content-Type', 'application/json')
       
+      // Special handling for the speech endpoint which returns binary data
+      const isBinaryResponse = endpoint === '/speech'
+      
       // Create a promise to handle the response asynchronously
       const responsePromise = new Promise((resolve, reject) => {
-        let responseData = ''
+        const chunks: Buffer[] = []
         
         request.on('response', (response) => {
           response.on('data', (chunk) => {
-            responseData += chunk.toString()
+            if (isBinaryResponse) {
+              chunks.push(Buffer.from(chunk))
+            } else {
+              // For non-binary responses, accumulate as Buffer objects
+              chunks.push(chunk)
+            }
           })
           
           response.on('end', () => {
-            try {
-              const parsedData = JSON.parse(responseData)
+            if (isBinaryResponse) {
+              // For binary data (audio), concatenate the buffers and convert to base64
+              const buffer = Buffer.concat(chunks)
               resolve({
                 status: response.statusCode,
-                data: parsedData
+                data: buffer.toString('base64'),
+                contentType: response.headers['content-type'] || 'audio/mpeg'
               })
-            } catch (error) {
-              resolve({
-                status: response.statusCode,
-                data: responseData
-              })
+            } else {
+              // For JSON responses, parse as usual
+              try {
+                const responseData = Buffer.concat(chunks).toString()
+                const parsedData = JSON.parse(responseData)
+                resolve({
+                  status: response.statusCode,
+                  data: parsedData
+                })
+              } catch (error) {
+                // If parsing fails, return as text
+                resolve({
+                  status: response.statusCode,
+                  data: Buffer.concat(chunks).toString()
+                })
+              }
             }
           })
           

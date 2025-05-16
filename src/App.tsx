@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
+import VolumeUpIcon from '@mui/icons-material/VolumeUp'
+import IconButton from '@mui/material/IconButton'
+import CircularProgress from '@mui/material/CircularProgress'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -9,6 +12,9 @@ function App() {
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
   const [bookLanguage, setBookLanguage] = useState<string | null>(null)
   const [isDetectingLanguage, setIsDetectingLanguage] = useState<boolean>(false)
+  const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
+  const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
 
   const handleOpenFile = async () => {
     try {
@@ -55,6 +61,12 @@ function App() {
     setIsTranslating(true)
     setTranslatedText(null)
     
+    // Clear any previous audio
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl)
+      setAudioUrl(null)
+    }
+    
     try {
       // If book language hasn't been detected yet or was Unknown,
       // try to detect it from the selected text
@@ -86,11 +98,68 @@ function App() {
       }
       
       setTranslatedText(translateResponse.data.translated_text)
+      
+      // Also fetch the audio in the background
+      fetchAudio(text, languageToUse)
     } catch (error) {
       console.error('Translation error:', error)
       setTranslatedText('Translation failed. Please try again.')
     } finally {
       setIsTranslating(false)
+    }
+  }
+  
+  const fetchAudio = async (text: string, language: string) => {
+    try {
+      setIsLoadingAudio(true)
+      
+      // Use the speech endpoint to get audio
+      const speechResponse = await window.ipcRenderer.apiProxy('/speech', 'POST', {
+        language,
+        text
+      })
+      
+      if (speechResponse.status === 200) {
+        // The response is an ArrayBuffer containing the MP3 data
+        // First convert the response data to a Uint8Array
+        const base64String = speechResponse.data
+        
+        // Check if the response is already binary or if it's a base64 string
+        let audioData
+        if (typeof base64String === 'string') {
+          const binaryString = atob(base64String)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          audioData = bytes
+        } else {
+          // Handle case where data is already a binary format
+          audioData = new Uint8Array(base64String)
+        }
+        
+        // Create a blob and an object URL
+        const blob = new Blob([audioData], { type: 'audio/mp3' })
+        const url = URL.createObjectURL(blob)
+        setAudioUrl(url)
+        
+        console.log('Audio fetched successfully')
+      } else {
+        console.error('Error fetching audio:', speechResponse)
+      }
+    } catch (error) {
+      console.error('Error fetching audio:', error)
+    } finally {
+      setIsLoadingAudio(false)
+    }
+  }
+  
+  const playAudio = () => {
+    if (audioRef.current && audioUrl) {
+      audioRef.current.play()
+    } else if (selectedText && bookLanguage) {
+      // If audio hasn't been fetched yet, fetch it now
+      fetchAudio(selectedText, bookLanguage)
     }
   }
   
@@ -139,8 +208,28 @@ function App() {
             <div className="panel-content">
               {selectedText ? (
                 <div className="selected-text-panel">
-                  <h3>Original:</h3>
+                  <div className="snippet-header">
+                    <h3>Original:</h3>
+                    {bookLanguage && (
+                      <div className="audio-controls">
+                        {isLoadingAudio ? (
+                          <CircularProgress size={24} />
+                        ) : (
+                          <IconButton 
+                            aria-label="play audio" 
+                            onClick={playAudio}
+                            disabled={!bookLanguage || isLoadingAudio}
+                            size="small"
+                            className="play-button"
+                          >
+                            <VolumeUpIcon />
+                          </IconButton>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <div className="text-snippet">{selectedText}</div>
+                  <audio ref={audioRef} src={audioUrl || ''} />{/* Hidden audio element */}
                   
                   {isDetectingLanguage ? (
                     <div className="translation-loading">Detecting book language...</div>

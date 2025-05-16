@@ -77,24 +77,39 @@ app.whenReady().then(() => {
         url: `${apiBaseUrl}${endpoint}`
       });
       request.setHeader("Content-Type", "application/json");
+      const isBinaryResponse = endpoint === "/speech";
       const responsePromise = new Promise((resolve, reject) => {
-        let responseData = "";
+        const chunks = [];
         request.on("response", (response) => {
           response.on("data", (chunk) => {
-            responseData += chunk.toString();
+            if (isBinaryResponse) {
+              chunks.push(Buffer.from(chunk));
+            } else {
+              chunks.push(chunk);
+            }
           });
           response.on("end", () => {
-            try {
-              const parsedData = JSON.parse(responseData);
+            if (isBinaryResponse) {
+              const buffer = Buffer.concat(chunks);
               resolve({
                 status: response.statusCode,
-                data: parsedData
+                data: buffer.toString("base64"),
+                contentType: response.headers["content-type"] || "audio/mpeg"
               });
-            } catch (error) {
-              resolve({
-                status: response.statusCode,
-                data: responseData
-              });
+            } else {
+              try {
+                const responseData = Buffer.concat(chunks).toString();
+                const parsedData = JSON.parse(responseData);
+                resolve({
+                  status: response.statusCode,
+                  data: parsedData
+                });
+              } catch (error) {
+                resolve({
+                  status: response.statusCode,
+                  data: Buffer.concat(chunks).toString()
+                });
+              }
             }
           });
           response.on("error", (error) => {
