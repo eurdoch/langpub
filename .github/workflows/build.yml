@@ -25,6 +25,17 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@v3
+      
+      - name: Check for secret
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "GH_TOKEN is not set"
+            exit 1
+          else
+            echo "GH_TOKEN is available"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
       - name: Install Node.js
         uses: actions/setup-node@v3
