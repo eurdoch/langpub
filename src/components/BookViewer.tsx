@@ -114,9 +114,10 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                   const languageDetectionHandler = async () => {
                     try {
                       // First check if we can get the language from metadata
-                      const dcLanguage = rendition.book.package.metadata.language;
-                      //const convertedLanguage = languageMap[dcLanguage];
-                      const convertedLanguage = null;
+                      // Use type assertion to access possibly undefined or differently named properties
+                      const bookMetadata = (rendition.book as any).package?.metadata || (rendition.book as any).packaging?.metadata;
+                      const dcLanguage = bookMetadata?.language as string | undefined;
+                      const convertedLanguage = dcLanguage ? (languageMap as Record<string, string>)[dcLanguage] : undefined;
                       
                       if (convertedLanguage) {
                         // We found the language in metadata
@@ -128,9 +129,13 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                       
                       console.log("Attempting to detect language from spine item...");
                       
-                      // Access spine items from the book
-                      const fourthItem = rendition.book.spine.spineItems[3];
-                      fourthItem.load(rendition.book.load.bind(rendition.book))
+                      // Access spine items from the book - use type assertion for compatibility
+                      const spine = rendition.book.spine as any;
+                      const spineItems = spine.spineItems || spine.items || [];
+                      const fourthItem = spineItems[3];
+                      
+                      if (fourthItem && typeof fourthItem.load === 'function') {
+                        fourthItem.load(rendition.book.load.bind(rendition.book))
                         .then((contents: any) => {
                           const paragraphs = contents.querySelectorAll('p');
                           if (paragraphs.length >= 2) {
@@ -149,11 +154,14 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                           }
                           
                           // When done, unload to free memory
-                          fourthItem.unload();
+                          if (typeof fourthItem.unload === 'function') {
+                            fourthItem.unload();
+                          }
                         })
                         .catch((error: Error) => {
                           console.error("Error loading spine item:", error);
                         });
+                      }
                         
                     } catch (error) {
                       console.error("Error detecting language from content:", error);
