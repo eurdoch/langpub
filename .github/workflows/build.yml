@@ -4,13 +4,14 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:  # Added manual trigger option
 
 jobs:
   release:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: macos-latest
             mac-arch: x64
@@ -18,10 +19,8 @@ jobs:
           - os: macos-latest
             mac-arch: arm64
             mac-name: apple-silicon
-        exclude:
-          - os: macos-latest
-            mac-arch: ''
-            mac-name: ''
+          - os: ubuntu-latest
+          - os: windows-latest
 
     steps:
       - name: Check out Git repository
@@ -31,13 +30,13 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 23.4.0
-          cache: 'yarn'  # This enables caching for Yarn
+          cache: 'yarn'
 
       - name: Install Yarn
         run: npm install -g yarn
 
       - name: Install dependencies
-        run: yarn install --frozen-lockfile  # This is Yarn's equivalent to npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Build Vite app
         run: yarn build
@@ -46,7 +45,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.mac-arch }}" != "" ]]; then
             yarn electron:build --mac --arch=${{ matrix.mac-arch }}
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             yarn electron:build --linux
@@ -59,8 +58,8 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.os }}${{ matrix.mac-name != '' && format('-{0}', matrix.mac-name) || '' }}
-          path: dist_electron/*.{dmg,zip,exe,AppImage,deb}
-          if-no-files-found: ignore
+          path: release/*/*.{dmg,zip,exe,AppImage,deb}
+          if-no-files-found: warn
 
   publish:
     needs: release
