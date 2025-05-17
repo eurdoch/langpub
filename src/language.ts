@@ -10,6 +10,27 @@ export const availableLanguages = [
   'Chinese'
 ];
 
+/**
+ * Detects the language of the provided text by calling the language detection API
+ * using the Electron IPC api-proxy to avoid CORS issues
+ * @param text The text to detect the language for
+ * @returns A Promise that resolves to the detected language string
+ */
+export const detectLanguage = async (text: string): Promise<string> => {
+  try {
+    const response = await window.ipcRenderer.apiProxy('/language', 'POST', { text });
+    
+    if (response.status !== 200) {
+      throw new Error(`Language detection failed with status: ${response.status}`);
+    }
+
+    return response.data.language;
+  } catch (error) {
+    console.error('Error detecting language:', error);
+    return 'English'; // Default to English in case of error
+  }
+};
+
 export const languageMap = {
   "fr": "French",
   "fr-FR": "French",
