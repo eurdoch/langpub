@@ -26,17 +26,6 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v3
       
-      - name: Check for secret
-        run: |
-          if [ -z "${GH_TOKEN}" ]; then
-            echo "GH_TOKEN is not set"
-            exit 1
-          else
-            echo "GH_TOKEN is available"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-
       - name: Install Node.js
         uses: actions/setup-node@v3
         with:
@@ -54,7 +43,7 @@ jobs:
 
       - name: Build Electron app
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.mac-arch }}" != "" ]]; then
             yarn electron:build --mac --arch=${{ matrix.mac-arch }}
@@ -94,4 +83,4 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
