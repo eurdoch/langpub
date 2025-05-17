@@ -62,7 +62,22 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}${{ matrix.mac-name != '' && format('-{0}', matrix.mac-name) || '' }}
-          path: release/*/*.{dmg,zip,exe,AppImage,deb}
+          path: |
+            release/*/*.dmg
+            release/*/*.exe
+            release/*/*.AppImage
+            release/*/*.deb
+            release/*/*.zip
+            release/**/*.dmg
+            release/**/*.exe
+            release/**/*.AppImage
+            release/**/*.deb
+            release/**/*.zip
+            *.dmg
+            *.exe
+            *.AppImage
+            *.deb
+            *.zip
           if-no-files-found: warn
 
   publish:
