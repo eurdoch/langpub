@@ -22,7 +22,8 @@
         "arch": "arm64"
       }
     ],
-    "artifactName": "${productName}-Mac-${arch}-${version}-Installer.${ext}"
+    "artifactName": "${productName}-Mac-${arch}-${version}-Installer.${ext}",
+    "identity": null
   },
   "win": {
     "target": [
