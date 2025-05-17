@@ -47,12 +47,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.mac-arch }}" != "" ]]; then
-            yarn electron:build --mac --arch=${{ matrix.mac-arch }}
+          if [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.mac-arch }}" == "x64" ]]; then
+            yarn electron:build --mac --x64 --publish never
+          elif [[ "${{ matrix.os }}" == "macos-latest" && "${{ matrix.mac-arch }}" == "arm64" ]]; then
+            yarn electron:build --mac --arm64 --publish never
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            yarn electron:build --linux
+            yarn electron:build --linux --publish never
           elif [ "${{ matrix.os }}" = "windows-latest" ]; then
-            yarn electron:build --win
+            yarn electron:build --win --publish never
           fi
         shell: bash
 
