@@ -26,5 +26,6 @@ dist-ssr
 *.sw?
 
 ecosystem_dev.config.cjs
+ecosystem.config.cjs
 
 TODO
