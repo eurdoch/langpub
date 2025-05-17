@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
-import { languageMap, detectLanguage } from '../language'
+import { availableLanguages, detectLanguage } from '../language'
 
 interface BookViewerProps {
   filePath: string
@@ -109,74 +109,60 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                   rendition.book.locations.generate(1000).then((locations: any) => {
                     setTotalLocations(locations.length)
                   })
-                  
-                  const dcLanguage = rendition.book.package.metadata.language;
-                  //const convertedLanguage = languageMap[dcLanguage];
-                  const convertedLanguage = null;
-                  if (convertedLanguage) {
-                    setBookLanguage(convertedLanguage);
-                  } else {
-                    // No metadata language found, try to detect it from the content
-                    console.log("No language metadata found, attempting to detect language...");
-                    
-                    // Using the rendition to detect language from current content
+                })
+                
+                rendition.on('rendered', (section: any) => {
+                  // We only need to detect the language once
+                  const languageDetectionHandler = async () => {
                     try {
-                      // Get the current contents
-                      const contents = rendition.getContents();
-                      if (contents && contents.length > 0) {
-                        const firstContent = contents[0];
-                        if (firstContent && firstContent.document) {
-                          // Get text content from the document
-                          const doc = firstContent.document;
-                          
-                          // Get paragraphs from the document
-                          const paragraphs = doc.querySelectorAll('p');
-                          
-                          if (paragraphs.length > 0) {
-                            // Extract a couple of paragraphs of text
-                            let sampleText = '';
-                            const maxParagraphs = Math.min(paragraphs.length, 5);
-                            
-                            for (let i = 0; i < maxParagraphs; i++) {
-                              if (paragraphs[i] && paragraphs[i].textContent) {
-                                sampleText += paragraphs[i].textContent + ' ';
-                              }
-                            }
-                            
-                            // If we don't have enough text, try to get more from the body
-                            if (sampleText.length < 100 && doc.body) {
-                              sampleText = doc.body.textContent || '';
-                            }
-                            
-                            // Ensure we have enough text for detection (trim to 1000 chars if too long)
-                            sampleText = sampleText.trim().substring(0, 1000);
-                            
-                            if (sampleText.length > 100) { // Ensure we have enough text to analyze
-                              console.log("Detecting language from text sample:", sampleText.substring(0, 100) + "...");
-                              
-                              // Call the language detection function
-                              detectLanguage(sampleText).then(detectedLanguage => {
-                                console.log("Detected language:", detectedLanguage);
-                                
-                                // Set the book language
-                                if (detectedLanguage) {
-                                  setBookLanguage(detectedLanguage);
-                                }
-                              });
-                            } else {
-                              console.log("Not enough text to detect language, sample length:", sampleText.length);
-                            }
-                          } else {
-                            console.log("No paragraphs found in the document");
-                          }
-                        }
-                      } else {
-                        console.log("No contents available yet");
+                      // First check if we can get the language from metadata
+                      const dcLanguage = rendition.book.package.metadata.language;
+                      const convertedLanguage = languageMap[dcLanguage];
+                      
+                      if (convertedLanguage) {
+                        // We found the language in metadata
+                        console.log("Found language in book metadata:", convertedLanguage);
+                        setBookLanguage(convertedLanguage);
+                        rendition.off('rendered', languageDetectionHandler);
+                        return;
                       }
+                      
+                      console.log("Attempting to detect language from spine item...");
+                      
+                      // Access spine items from the book
+                      const fourthItem = rendition.book.spine.spineItems[3];
+                      fourthItem.load(rendition.book.load.bind(rendition.book))
+                        .then(contents => {
+                          const paragraphs = contents.querySelectorAll('p');
+                          if (paragraphs.length >= 2) {
+                            const firstParagraph = paragraphs[0].textContent.trim();
+                            const secondParagraph = paragraphs[1].textContent.trim();
+                            
+                            const excerpt = firstParagraph + "\n\n" + secondParagraph;
+                            detectLanguage(excerpt).then(detectedLanguage => {
+                              console.log('Detected language: ', detectedLanguage);
+                              if (availableLanguages.includes(detectedLanguage)) {
+                                setBookLanguage(detectedLanguage);
+                              } 
+                            });
+                          } else {
+                            console.log("No paragraphs found in this spine item");
+                          }
+                          
+                          // When done, unload to free memory
+                          fourthItem.unload();
+                        })
+                        .catch(error => {
+                          console.error("Error loading spine item:", error);
+                        });
+                        
                     } catch (error) {
                       console.error("Error detecting language from content:", error);
                     }
-                  }
+                  };
+                  
+                  // Call the handler for the first render and register it for future renders
+                  languageDetectionHandler();
                 })
                 
                 // Add selection event listener
