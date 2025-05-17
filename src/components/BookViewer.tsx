@@ -5,10 +5,9 @@ import type { Contents } from 'epubjs'
 interface BookViewerProps {
   filePath: string
   onTextSelection?: (text: string | null) => void
-  onBookLoaded?: (text: string) => void
 }
 
-const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBookLoaded }) => {
+const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) => {
   const [location, setLocation] = useState<string | number>(0)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
@@ -109,80 +108,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                     setTotalLocations(locations.length)
                   })
                   
-                  // Extract a sample of text from the book for language detection
-                  if (onBookLoaded) {
-                    try {
-                      // Get text from the current section
-                      const contents = rendition.getContents() as any
-                      const content = contents && contents.length > 0 ? contents[0] : null
-                      if (content) {
-                        // Get the content document
-                        const doc = content.document
-                        if (doc && doc.body) {
-                          // Extract text content from body
-                          let sampleText = doc.body.textContent || ''
-                          
-                          // Clean up the text and limit to a reasonable size
-                          sampleText = sampleText.replace(/\s+/g, ' ').trim().substring(0, 1000)
-                          
-                          if (sampleText) {
-                            console.log('Found sample text for language detection')
-                            onBookLoaded(sampleText)
-                          } else {
-                            // If no text is found, try to navigate to the next section and try again
-                            rendition.next().then(() => {
-                              setTimeout(() => {
-                                const nextContents = rendition.getContents() as any
-                                const nextContent = nextContents && nextContents.length > 0 ? nextContents[0] : null
-                                if (nextContent && nextContent.document && nextContent.document.body) {
-                                  const nextSampleText = nextContent.document.body.textContent || ''
-                                  const cleanedText = nextSampleText.replace(/\s+/g, ' ').trim().substring(0, 1000)
-                                  if (cleanedText) {
-                                    onBookLoaded(cleanedText)
-                                  }
-                                }
-                              }, 300)
-                            }).catch(err => {
-                              console.error('Error navigating to next section:', err)
-                            })
-                          }
-                        }
-                      }
-                    } catch (error) {
-                      console.error('Error extracting text for language detection:', error)
-                    }
-                  }
-                })
-                
-                // Try to extract sample text from the book after content is loaded
-                rendition.on('rendered', (section: any) => {
-                  if (onBookLoaded && section) {
-                    // Only do this once
-                    const extractTextHandler = () => {
-                      try {
-                        const contents = rendition.getContents() as any
-                        const content = contents && contents.length > 0 ? contents[0] : null
-                        if (content && content.document && content.document.body) {
-                          let sampleText = content.document.body.textContent || ''
-                          sampleText = sampleText.replace(/\s+/g, ' ').trim().substring(0, 1000)
-                          
-                          if (sampleText) {
-                            console.log('Found sample text on render for language detection')
-                            onBookLoaded(sampleText)
-                            // Remove the event listener to avoid multiple calls
-                            rendition.off('rendered', extractTextHandler)
-                          }
-                        }
-                      } catch (error) {
-                        console.error('Error extracting text on render:', error)
-                      }
-                    }
-                    
-                    // Add the event handler
-                    rendition.on('rendered', extractTextHandler)
-                    // Call it immediately for the first render
-                    extractTextHandler()
-                  }
+                  // TODO Extract a sample of text from the book for language detection
                 })
                 
                 // Add selection event listener

@@ -16,8 +16,6 @@ function App() {
   const [translatedText, setTranslatedText] = useState<string | null>(null)
   const [isTranslating, setIsTranslating] = useState<boolean>(false)
   const [bookLanguage, setBookLanguage] = useState<string | null>(null)
-  const [isDetectingLanguage, setIsDetectingLanguage] = useState<boolean>(false)
-  const [languageDetectionAttempted, setLanguageDetectionAttempted] = useState<boolean>(false)
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -61,7 +59,6 @@ function App() {
         setSelectedWord(null)
         setTranslatedWord(null)
         setWordExplanation(null)
-        setLanguageDetectionAttempted(false)
         
         // Set the new file path
         setSelectedFile(filePath)
@@ -171,17 +168,6 @@ function App() {
     if (newLanguage !== bookLanguage) {
       console.log('Language changed to:', newLanguage)
       setBookLanguage(newLanguage)
-      
-      // Retranslate the current selection with the new language
-      if (selectedText) {
-        translateText(selectedText, newLanguage)
-      }
-      
-      // Retranslate the current word with the new language
-      if (selectedWord) {
-        translateWord(selectedWord, newLanguage)
-        fetchWordAudio(selectedWord, newLanguage)
-      }
     }
   }
 
@@ -196,14 +182,6 @@ function App() {
       }
     }
     // When text is null, we do nothing - maintaining the current state
-  }
-  
-  const handleBookLoaded = (sampleText: string) => {
-    // Only attempt language detection once when a book is first loaded
-    if (!languageDetectionAttempted) {
-      console.log('Book loaded, extracting language from sample text...')
-      detectBookLanguage(sampleText)
-    }
   }
   
   const handleWordClick = (word: string) => {
@@ -367,7 +345,6 @@ function App() {
             <BookViewer 
               filePath={selectedFile} 
               onTextSelection={handleTextSelection}
-              onBookLoaded={handleBookLoaded}
             />
           </div>
           <div className="right-panel">
@@ -376,16 +353,11 @@ function App() {
               <div className="language-selector">
                 <FormControl variant="outlined" size="small">
                   <Select
-                    value={isDetectingLanguage ? '' : (bookLanguage === 'Unknown' ? '' : (bookLanguage || ''))}
                     onChange={handleLanguageChange}
                     displayEmpty
                     inputProps={{ 'aria-label': 'Language' }}
                     className="language-select"
-                    disabled={isDetectingLanguage}
                   >
-                    <MenuItem value="" disabled>
-                      {isDetectingLanguage ? 'Detecting language...' : 'Select language'}
-                    </MenuItem>
                     {availableLanguages.map((language) => (
                       <MenuItem key={language} value={language}>
                         {language}
@@ -455,20 +427,14 @@ function App() {
                   </div>
                   <audio ref={audioRef} src={audioUrl || ''} />{/* Hidden audio element */}
                   
-                  {isDetectingLanguage ? (
-                    <div className="translation-loading">Detecting book language...</div>
-                  ) : isTranslating ? (
+                  {isTranslating ? (
                     <div className="translation-loading">Translating...</div>
-                  ) : bookLanguage && translatedText ? (
+                  ) : (
                     <>
                       <h3>Translated:</h3>
                       <div className="text-snippet translation">{translatedText}</div>
                     </>
-                  ) : bookLanguage === 'Unknown' ? (
-                    <div className="translation-error">
-                      Could not detect book language. Please select a language manually from the dropdown above.
-                    </div>
-                  ) : null}
+                  )}
                   
                   {/* Word details section */}
                   {selectedWord && (
