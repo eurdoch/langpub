@@ -76,10 +76,6 @@ jobs:
         with:
           path: artifacts
 
-      - name: List downloaded artifacts
-        run: find artifacts -type f | sort
-        shell: bash
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
