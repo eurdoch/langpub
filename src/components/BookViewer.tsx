@@ -109,9 +109,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                   rendition.book.locations.generate(1000).then((locations: any) => {
                     setTotalLocations(locations.length)
                   })
-                })
-                
-                rendition.on('rendered', (_) => {
+
                   // We only need to detect the language once
                   const languageDetectionHandler = async () => {
                     try {
