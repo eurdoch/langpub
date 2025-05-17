@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
 
@@ -12,8 +12,13 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
   const [location, setLocation] = useState<string | number>(0)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
-  // const [progress, setProgress] = useState<number>(0)
   const [selectedText, setSelectedText] = useState<string | null>(null)
+  const onTextSelectionRef = useRef(onTextSelection)
+
+  // Update ref when prop changes
+  useEffect(() => {
+    onTextSelectionRef.current = onTextSelection
+  }, [onTextSelection])
 
   useEffect(() => {
     if (!filePath) return
@@ -191,8 +196,8 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, onBo
                     if (text !== selectedText) {
                       setSelectedText(text)
                       // Pass selected text to parent component if callback exists
-                      if (onTextSelection) {
-                        onTextSelection(text)
+                      if (onTextSelectionRef.current) {
+                        onTextSelectionRef.current(text)
                       }
                     }
                   }
