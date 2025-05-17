@@ -1,4 +1,4 @@
-import React, { useState, useRef, ChangeEvent, useEffect } from 'react'
+import React, { useState, useRef, ChangeEvent } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
@@ -32,10 +32,6 @@ function App() {
   // Word explanation states
   const [wordExplanation, setWordExplanation] = useState<string | null>(null)
   const [isExplainingWord, setIsExplainingWord] = useState<boolean>(false)
-
-  useEffect(() => {
-    console.log('bookLangfuage changed: ', bookLanguage);
-  }, [bookLanguage]);
 
   const handleOpenFile = async () => {
     try {
@@ -344,20 +340,19 @@ function App() {
             <div className="panel-header">
               <h2>Translation</h2>
               <div className="language-selector">
-                <FormControl variant="outlined" size="small">
-                  <Select
-                    onChange={handleLanguageChange}
-                    displayEmpty
-                    inputProps={{ 'aria-label': 'Language' }}
-                    className="language-select"
-                  >
-                    {availableLanguages.map((language) => (
-                      <MenuItem key={language} value={language}>
-                        {language}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  onChange={handleLanguageChange}
+                  value={bookLanguage}
+                  displayEmpty
+                  inputProps={{ 'aria-label': 'Language' }}
+                  className="language-select"
+                >
+                  {availableLanguages.map((language) => (
+                    <MenuItem key={language} value={language}>
+                      {language}
+                    </MenuItem>
+                  ))}
+                </Select>
               </div>
             </div>
             <div className="panel-content">
