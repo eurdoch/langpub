@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
+import { languageMap } from '../language'
 
 interface BookViewerProps {
   filePath: string
   onTextSelection?: (text: string | null) => void
+  setBookLanguage: (language: string) => void
 }
 
-const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) => {
+const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setBookLanguage }) => {
   const [location, setLocation] = useState<string | number>(0)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
@@ -108,7 +110,14 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) =>
                     setTotalLocations(locations.length)
                   })
                   
-                  // TODO Extract a sample of text from the book for language detection
+                  const dcLanguage = rendition.book.package.metadata.language;
+                  const convertedLanguage = languageMap[dcLanguage];
+                  console.log('DEBUG convertedLanguage: ' , convertedLanguage);
+                  if (convertedLanguage) {
+                    setBookLanguage(convertedLanguage);
+                  } else {
+                    // TODO detect langauge
+                  }
                 })
                 
                 // Add selection event listener
@@ -169,43 +178,5 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection }) =>
     </div>
   )
 }
-
-// Custom styles for the reader - commented out since we're not using them
-// due to TypeScript errors with the current react-reader type definitions
-/*
-const readerStyles = {
-  container: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    overflow: 'hidden',
-    padding: 0,
-    margin: 0
-  },
-  readerArea: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    overflow: 'auto',
-    backgroundColor: '#fff',
-    padding: 0,
-    margin: 0
-  },
-  tocArea: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: '256px',
-    background: '#f2f2f2',
-    borderRight: '1px solid #ddd',
-    overflowY: 'auto',
-    zIndex: 1
-  },
-  tocButtonExpanded: {
-    background: '#f2f2f2'
-  }
-}
-*/
 
 export default BookViewer

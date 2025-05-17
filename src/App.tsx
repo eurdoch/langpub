@@ -1,4 +1,4 @@
-import React, { useState, useRef, ChangeEvent } from 'react'
+import React, { useState, useRef, ChangeEvent, useEffect } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
@@ -9,6 +9,7 @@ import Button from '@mui/material/Button'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
+import { availableLanguages } from './language'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -19,19 +20,6 @@ function App() {
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  
-  // Define available languages based on LANGUAGE_TO_VOICE in api/index.js
-  const availableLanguages = [
-    'French',
-    'Dutch',
-    'English',
-    'German',
-    'Spanish',
-    'Italian',
-    'Japanese',
-    'Portuguese',
-    'Chinese'
-  ]
   
   // Word details states
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
@@ -44,6 +32,10 @@ function App() {
   // Word explanation states
   const [wordExplanation, setWordExplanation] = useState<string | null>(null)
   const [isExplainingWord, setIsExplainingWord] = useState<boolean>(false)
+
+  useEffect(() => {
+    console.log('bookLangfuage changed: ', bookLanguage);
+  }, [bookLanguage]);
 
   const handleOpenFile = async () => {
     try {
@@ -345,6 +337,7 @@ function App() {
             <BookViewer 
               filePath={selectedFile} 
               onTextSelection={handleTextSelection}
+              setBookLanguage={setBookLanguage}
             />
           </div>
           <div className="right-panel">
