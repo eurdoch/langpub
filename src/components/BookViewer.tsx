@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
-import { availableLanguages, detectLanguage } from '../language'
+import { availableLanguages, detectLanguage, languageMap } from '../language'
 
 interface BookViewerProps {
   filePath: string
