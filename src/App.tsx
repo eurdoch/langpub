@@ -9,7 +9,6 @@ import Button from '@mui/material/Button'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
 import FormControl from '@mui/material/FormControl'
-// import InputLabel from '@mui/material/InputLabel'
 
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
@@ -73,55 +72,10 @@ function App() {
     }
   }
   
-  const detectBookLanguage = async (sampleText: string) => {
-    if (!sampleText || languageDetectionAttempted) return
-    
-    setIsDetectingLanguage(true)
-    setLanguageDetectionAttempted(true)
-    
-    try {
-      // Detect the book's language using the API proxy
-      const languageResponse = await window.ipcRenderer.apiProxy('/language', 'POST', { text: sampleText })
-      
-      if (languageResponse.status !== 200 || !languageResponse.data) {
-        throw new Error('Failed to detect book language')
-      }
-      
-      const detectedLanguage = languageResponse.data.language
-      console.log('Detected book language:', detectedLanguage)
-      
-      // Map the detected language to one in our available languages
-      const normalizedLanguage = detectedLanguage.charAt(0).toUpperCase() + detectedLanguage.slice(1).toLowerCase()
-      
-      // Check if the normalized language is in our available languages
-      if (availableLanguages.includes(normalizedLanguage)) {
-        setBookLanguage(normalizedLanguage)
-      } else {
-        // Try to find a close match
-        const matchedLanguage = availableLanguages.find(lang => 
-          lang.toLowerCase().includes(detectedLanguage.toLowerCase()) || 
-          detectedLanguage.toLowerCase().includes(lang.toLowerCase())
-        )
-        
-        if (matchedLanguage) {
-          setBookLanguage(matchedLanguage)
-        } else {
-          // Default to English if no match found
-          console.log('No matching language found in available languages, defaulting to English')
-          setBookLanguage('English')
-        }
-      }
-    } catch (error) {
-      console.error('Language detection error:', error)
-      // Set a fallback language if detection fails
-      setBookLanguage('Unknown')
-    } finally {
-      setIsDetectingLanguage(false)
-    }
-  }
-  
-  const translateText = async (text: string, forcedLanguage?: string) => {
+  const translateText = async (text: string) => {
     if (!text) return
+      // TODO notify user to select language
+    if (!bookLanguage) return
     
     setIsTranslating(true)
     setTranslatedText(null)
@@ -136,29 +90,8 @@ function App() {
     setIsLoadingAudio(false)
     
     try {
-      // If language is forced, use it; otherwise use bookLanguage
-      let languageToUse = forcedLanguage || bookLanguage
-      
-      // If no language is available or it's unknown, detect it
-      if (!languageToUse || languageToUse === 'Unknown') {
-        console.log('No book language detected yet, detecting from selection')
-        // Call the language detection API 
-        const languageResponse = await window.ipcRenderer.apiProxy('/language', 'POST', { text })
-        
-        if (languageResponse.status === 200 && languageResponse.data) {
-          languageToUse = languageResponse.data.language
-          // Store this language for future use
-          setBookLanguage(languageToUse)
-        } else {
-          // Default to English if we can't detect the language
-          languageToUse = 'English'
-          setBookLanguage('English')
-        }
-      }
-      
-      // Use the language for translation
       const translateResponse = await window.ipcRenderer.apiProxy('/translate', 'POST', { 
-        language: languageToUse, 
+        language: bookLanguage, 
         text 
       })
       
@@ -167,12 +100,7 @@ function App() {
       }
       
       setTranslatedText(translateResponse.data.translated_text)
-      
-      // Only fetch audio if we have a valid language
-      if (languageToUse && languageToUse !== 'Unknown') {
-        // Start fetching audio in the background
-        fetchAudio(text, languageToUse)
-      }
+      fetchAudio(text, bookLanguage)
     } catch (error) {
       console.error('Translation error:', error)
       setTranslatedText('Translation failed. Please try again.')
