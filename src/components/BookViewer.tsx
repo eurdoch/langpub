@@ -111,13 +111,14 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                   })
                 })
                 
-                rendition.on('rendered', (section: any) => {
+                rendition.on('rendered', (_) => {
                   // We only need to detect the language once
                   const languageDetectionHandler = async () => {
                     try {
                       // First check if we can get the language from metadata
                       const dcLanguage = rendition.book.package.metadata.language;
-                      const convertedLanguage = languageMap[dcLanguage];
+                      //const convertedLanguage = languageMap[dcLanguage];
+                      const convertedLanguage = null;
                       
                       if (convertedLanguage) {
                         // We found the language in metadata
@@ -132,7 +133,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                       // Access spine items from the book
                       const fourthItem = rendition.book.spine.spineItems[3];
                       fourthItem.load(rendition.book.load.bind(rendition.book))
-                        .then(contents => {
+                        .then((contents: any) => {
                           const paragraphs = contents.querySelectorAll('p');
                           if (paragraphs.length >= 2) {
                             const firstParagraph = paragraphs[0].textContent.trim();
@@ -152,7 +153,7 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                           // When done, unload to free memory
                           fourthItem.unload();
                         })
-                        .catch(error => {
+                        .catch((error: Error) => {
                           console.error("Error loading spine item:", error);
                         });
                         
