@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
-import { languageMap } from '../language'
+import { languageMap, detectLanguage } from '../language'
 
 interface BookViewerProps {
   filePath: string
@@ -111,12 +111,71 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                   })
                   
                   const dcLanguage = rendition.book.package.metadata.language;
-                  const convertedLanguage = languageMap[dcLanguage];
-                  console.log('DEBUG convertedLanguage: ' , convertedLanguage);
+                  //const convertedLanguage = languageMap[dcLanguage];
+                  const convertedLanguage = null;
                   if (convertedLanguage) {
                     setBookLanguage(convertedLanguage);
                   } else {
-                    // TODO detect langauge
+                    // No metadata language found, try to detect it from the content
+                    console.log("No language metadata found, attempting to detect language...");
+                    
+                    // Using the rendition to detect language from current content
+                    try {
+                      // Get the current contents
+                      const contents = rendition.getContents();
+                      if (contents && contents.length > 0) {
+                        const firstContent = contents[0];
+                        if (firstContent && firstContent.document) {
+                          // Get text content from the document
+                          const doc = firstContent.document;
+                          
+                          // Get paragraphs from the document
+                          const paragraphs = doc.querySelectorAll('p');
+                          
+                          if (paragraphs.length > 0) {
+                            // Extract a couple of paragraphs of text
+                            let sampleText = '';
+                            const maxParagraphs = Math.min(paragraphs.length, 5);
+                            
+                            for (let i = 0; i < maxParagraphs; i++) {
+                              if (paragraphs[i] && paragraphs[i].textContent) {
+                                sampleText += paragraphs[i].textContent + ' ';
+                              }
+                            }
+                            
+                            // If we don't have enough text, try to get more from the body
+                            if (sampleText.length < 100 && doc.body) {
+                              sampleText = doc.body.textContent || '';
+                            }
+                            
+                            // Ensure we have enough text for detection (trim to 1000 chars if too long)
+                            sampleText = sampleText.trim().substring(0, 1000);
+                            
+                            if (sampleText.length > 100) { // Ensure we have enough text to analyze
+                              console.log("Detecting language from text sample:", sampleText.substring(0, 100) + "...");
+                              
+                              // Call the language detection function
+                              detectLanguage(sampleText).then(detectedLanguage => {
+                                console.log("Detected language:", detectedLanguage);
+                                
+                                // Set the book language
+                                if (detectedLanguage) {
+                                  setBookLanguage(detectedLanguage);
+                                }
+                              });
+                            } else {
+                              console.log("Not enough text to detect language, sample length:", sampleText.length);
+                            }
+                          } else {
+                            console.log("No paragraphs found in the document");
+                          }
+                        }
+                      } else {
+                        console.log("No contents available yet");
+                      }
+                    } catch (error) {
+                      console.error("Error detecting language from content:", error);
+                    }
                   }
                 })
                 
