@@ -11,6 +11,13 @@ import CircularProgress from '@mui/material/CircularProgress'
 import Button from '@mui/material/Button'
 import Select from '@mui/material/Select'
 import MenuItem from '@mui/material/MenuItem'
+import Dialog from '@mui/material/Dialog'
+import DialogActions from '@mui/material/DialogActions'
+import DialogContent from '@mui/material/DialogContent'
+import DialogContentText from '@mui/material/DialogContentText'
+import DialogTitle from '@mui/material/DialogTitle'
+import FormControl from '@mui/material/FormControl'
+import InputLabel from '@mui/material/InputLabel'
 import { availableLanguages } from './language'
 
 function App() {
@@ -37,6 +44,10 @@ function App() {
   
   // Reference to the BookViewer component
   const bookViewerRef = useRef<any>(null)
+  
+  // Language selection dialog state
+  const [languageDialogOpen, setLanguageDialogOpen] = useState<boolean>(false)
+  const [pendingTranslationText, setPendingTranslationText] = useState<string | null>(null)
 
   const handleOpenFile = async () => {
     try {
@@ -64,8 +75,13 @@ function App() {
   
   const translateText = async (text: string) => {
     if (!text) return
-      // TODO notify user to select language
-    if (!bookLanguage) return
+    
+    // Show language selection dialog if language not selected
+    if (!bookLanguage) {
+      setPendingTranslationText(text)
+      setLanguageDialogOpen(true)
+      return
+    }
     
     setIsTranslating(true)
     setTranslatedText(null)
@@ -162,6 +178,24 @@ function App() {
       console.log('Language changed to:', newLanguage)
       setBookLanguage(newLanguage)
     }
+  }
+  
+  // Handle language selection from the dialog
+  const handleLanguageDialogClose = () => {
+    setLanguageDialogOpen(false)
+    setPendingTranslationText(null)
+  }
+  
+  // Handle language selection and continue translation
+  const handleLanguageSelect = () => {
+    setLanguageDialogOpen(false)
+    
+    // If we have pending text and language is now set, translate it
+    if (pendingTranslationText && bookLanguage) {
+      translateText(pendingTranslationText)
+    }
+    
+    setPendingTranslationText(null)
   }
 
   const handleTextSelection = (text: string | null) => {
@@ -535,6 +569,47 @@ function App() {
           </div>
         </div>
       )}
+      
+      {/* Language Selection Dialog */}
+      <Dialog
+        open={languageDialogOpen}
+        onClose={handleLanguageDialogClose}
+        aria-labelledby="language-dialog-title"
+      >
+        <DialogTitle id="language-dialog-title">Select Language</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Please select the language of the book to enable translation.
+          </DialogContentText>
+          <FormControl fullWidth sx={{ mt: 2 }}>
+            <InputLabel id="dialog-language-select-label">Language</InputLabel>
+            <Select
+              labelId="dialog-language-select-label"
+              value={bookLanguage || ''}
+              onChange={handleLanguageChange}
+              label="Language"
+              fullWidth
+            >
+              {availableLanguages.map((language) => (
+                <MenuItem key={language} value={language}>
+                  {language}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleLanguageDialogClose}>Cancel</Button>
+          <Button 
+            onClick={handleLanguageSelect} 
+            disabled={!bookLanguage}
+            variant="contained" 
+            color="primary"
+          >
+            Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   )
 }
