@@ -316,7 +316,7 @@ function App() {
   }
   
   // Handle touch move (for mobile)
-  const handleWordTouchMove = (word: string, e: React.TouchEvent) => {
+  const handleWordTouchMove = (e: React.TouchEvent) => {
     if (!isSelectionMode) return
     
     // Get the element under the touch point
@@ -626,7 +626,7 @@ function App() {
                                   handleWordTouchStart(actualWord)
                                 }}
                                 onTouchEnd={handleTouchEnd}
-                                onTouchMove={(e) => handleWordTouchMove(actualWord, e)}
+                                onTouchMove={handleWordTouchMove}
                                 style={{
                                   backgroundColor: isSelectionMode && selectedWords.includes(actualWord) ? 'rgba(74, 144, 226, 0.3)' : 'transparent',
                                   cursor: isSelectionMode ? 'grab' : 'pointer',

@@ -2,10 +2,6 @@ import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 're
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
 import { availableLanguages, detectLanguage, languageMap } from '../language'
-import FormatSizeIcon from '@mui/icons-material/FormatSize'
-import AddIcon from '@mui/icons-material/Add'
-import RemoveIcon from '@mui/icons-material/Remove'
-import IconButton from '@mui/material/IconButton'
 
 interface BookViewerProps {
   filePath: string
