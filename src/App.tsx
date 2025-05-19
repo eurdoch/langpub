@@ -3,6 +3,9 @@ import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import FormatSizeIcon from '@mui/icons-material/FormatSize'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
 import IconButton from '@mui/material/IconButton'
 import CircularProgress from '@mui/material/CircularProgress'
 import Button from '@mui/material/Button'
@@ -31,6 +34,9 @@ function App() {
   // Word explanation states
   const [wordExplanation, setWordExplanation] = useState<string | null>(null)
   const [isExplainingWord, setIsExplainingWord] = useState<boolean>(false)
+  
+  // Reference to the BookViewer component
+  const bookViewerRef = useRef<any>(null)
 
   const handleOpenFile = async () => {
     try {
@@ -318,8 +324,39 @@ function App() {
 
   return (
     <div className="container">
-      <div className="header">
+      <div className="header" style={{ 
+        display: 'flex', 
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}>
         <button onClick={handleOpenFile} className="open-epub-button">Open Epub</button>
+        
+        {selectedFile && (
+          <div className="font-controls" style={{ 
+            display: 'flex', 
+            alignItems: 'center'
+          }}>
+            <FormatSizeIcon style={{ marginRight: '5px' }} />
+            <IconButton 
+              onClick={() => bookViewerRef.current?.decreaseFontSize()} 
+              size="small" 
+              aria-label="decrease font size"
+            >
+              <RemoveIcon />
+            </IconButton>
+            <span style={{ margin: '0 8px', minWidth: '40px', textAlign: 'center' }}>
+              {bookViewerRef.current?.fontSize || 100}%
+            </span>
+            <IconButton 
+              onClick={() => bookViewerRef.current?.increaseFontSize()} 
+              size="small" 
+              aria-label="increase font size"
+            >
+              <AddIcon />
+            </IconButton>
+          </div>
+        )}
       </div>
       
       {!selectedFile ? (
@@ -330,6 +367,7 @@ function App() {
         <div className="main-content">
           <div className="viewer-container">
             <BookViewer 
+              ref={bookViewerRef}
               filePath={selectedFile} 
               onTextSelection={handleTextSelection}
               setBookLanguage={setBookLanguage}

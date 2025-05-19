@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react'
 import { ReactReader } from 'react-reader'
 import type { Contents } from 'epubjs'
 import { availableLanguages, detectLanguage, languageMap } from '../language'
+import FormatSizeIcon from '@mui/icons-material/FormatSize'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
+import IconButton from '@mui/material/IconButton'
 
 interface BookViewerProps {
   filePath: string
@@ -9,17 +13,29 @@ interface BookViewerProps {
   setBookLanguage: (language: string) => void
 }
 
-const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setBookLanguage }) => {
+const BookViewer = forwardRef<
+  { decreaseFontSize: () => void; increaseFontSize: () => void; fontSize: number }, 
+  BookViewerProps
+>(({ filePath, onTextSelection, setBookLanguage }, ref) => {
   const [location, setLocation] = useState<string | number>(0)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
   const [selectedText, setSelectedText] = useState<string | null>(null)
+  const [fontSize, setFontSize] = useState<number>(100) // Default font size (100%)
+  const renditionRef = useRef<any>(null)
   const onTextSelectionRef = useRef(onTextSelection)
 
   // Update ref when prop changes
   useEffect(() => {
     onTextSelectionRef.current = onTextSelection
   }, [onTextSelection])
+  
+  // Expose functions to parent component
+  useImperativeHandle(ref, () => ({
+    decreaseFontSize,
+    increaseFontSize,
+    fontSize
+  }))
 
   useEffect(() => {
     if (!filePath) return
@@ -79,6 +95,27 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
       console.log(`Reading progress: ${percentage}%`)
     }
   }
+  
+  // Increase font size
+  const increaseFontSize = () => {
+    const newSize = Math.min(fontSize + 10, 200) // Limit max font size to 200%
+    setFontSize(newSize)
+    updateFontSize(newSize)
+  }
+  
+  // Decrease font size
+  const decreaseFontSize = () => {
+    const newSize = Math.max(fontSize - 10, 70) // Limit min font size to 70%
+    setFontSize(newSize)
+    updateFontSize(newSize)
+  }
+  
+  // Apply font size to reader
+  const updateFontSize = (size: number) => {
+    if (renditionRef.current) {
+      renditionRef.current.themes.fontSize(`${size}%`)
+    }
+  }
 
   return (
     <div className="book-viewer-container" style={{ position: 'relative' }}>
@@ -90,6 +127,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
               location={location}
               locationChanged={locationChanged}
               getRendition={rendition => {
+                // Store rendition reference
+                renditionRef.current = rendition
+                
                 // Set styles on rendition
                 rendition.themes.default({
                   '::selection': {
@@ -103,6 +143,9 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
                     margin: '0 !important'
                   }
                 })
+                
+                // Set initial font size
+                updateFontSize(fontSize)
                 
                 // Store total locations for progress calculation
                 rendition.book.ready.then(() => {
@@ -229,6 +272,6 @@ const BookViewer: React.FC<BookViewerProps> = ({ filePath, onTextSelection, setB
       )}
     </div>
   )
-}
+})
 
 export default BookViewer
