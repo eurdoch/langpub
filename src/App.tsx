@@ -48,6 +48,11 @@ function App() {
   // Language selection dialog state
   const [languageDialogOpen, setLanguageDialogOpen] = useState<boolean>(false)
   const [pendingTranslationText, setPendingTranslationText] = useState<string | null>(null)
+  
+  // Word selection mode state
+  const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false)
+  const [selectedWords, setSelectedWords] = useState<string[]>([])
+  const selectionTimeoutRef = useRef<number | null>(null)
 
   const handleOpenFile = async () => {
     try {
@@ -211,17 +216,130 @@ function App() {
     // When text is null, we do nothing - maintaining the current state
   }
   
-  const handleWordClick = (word: string) => {
-    if (!word || word.trim() === '') return
+  // Helper function to clean a word
+  const cleanWordText = (word: string): string => {
+    if (!word || word.trim() === '') return ''
     
-    // Just trim whitespace but preserve internal punctuation
+    // Clean the word
     const trimmedWord = word.trim()
-    
-    // Only remove punctuation from the start and end of the word
     const cleanWord = trimmedWord
       .replace(/^[^\wÀ-ÿ\u00C0-\u017F]+/, '') // Remove leading punctuation
       .replace(/[^\wÀ-ÿ\u00C0-\u017F]+$/, '') // Remove trailing punctuation
     
+    return cleanWord
+  }
+  
+  // Handle mouse down on word (start of potential long press)
+  const handleWordMouseDown = (word: string) => {
+    const cleanWord = cleanWordText(word)
+    if (cleanWord === '') return
+    
+    // Set a timeout to detect long press (500ms)
+    if (selectionTimeoutRef.current) {
+      window.clearTimeout(selectionTimeoutRef.current)
+    }
+    
+    selectionTimeoutRef.current = window.setTimeout(() => {
+      console.log('Long press detected on word:', cleanWord)
+      setIsSelectionMode(true)
+      setSelectedWords([cleanWord])
+    }, 500) // 500ms for long press
+  }
+  
+  // Handle touch start on word (for mobile devices)
+  const handleWordTouchStart = (word: string) => {
+    const cleanWord = cleanWordText(word)
+    if (cleanWord === '') return
+    
+    // Set a timeout to detect long press (500ms)
+    if (selectionTimeoutRef.current) {
+      window.clearTimeout(selectionTimeoutRef.current)
+    }
+    
+    selectionTimeoutRef.current = window.setTimeout(() => {
+      console.log('Long press detected on word (touch):', cleanWord)
+      setIsSelectionMode(true)
+      setSelectedWords([cleanWord])
+    }, 500) // 500ms for long press
+  }
+  
+  // Handle mouse up on word
+  const handleWordMouseUp = () => {
+    // Clear the long press timeout
+    if (selectionTimeoutRef.current) {
+      window.clearTimeout(selectionTimeoutRef.current)
+      selectionTimeoutRef.current = null
+    }
+    
+    // If we're in selection mode, finish the selection
+    if (isSelectionMode) {
+      console.log('Selection complete:', selectedWords)
+      
+      // Join the selected words with spaces
+      const selectedPhrase = selectedWords.join(' ')
+      
+      // Reset explanation
+      setWordExplanation(null)
+      
+      // Set the selected word to the phrase
+      setSelectedWord(selectedPhrase)
+      
+      // Translate the phrase
+      translateWord(selectedPhrase)
+      
+      // Get audio for the phrase
+      fetchWordAudio(selectedPhrase)
+      
+      // Exit selection mode
+      setIsSelectionMode(false)
+      setSelectedWords([])
+    }
+  }
+  
+  // Handle mouse enter on word (during drag)
+  const handleWordMouseEnter = (word: string) => {
+    if (!isSelectionMode) return
+    
+    const cleanWord = cleanWordText(word)
+    if (cleanWord === '') return
+    
+    // Add the word to the selection if it's not already there
+    if (!selectedWords.includes(cleanWord)) {
+      setSelectedWords([...selectedWords, cleanWord])
+    }
+  }
+  
+  // Handle touch end (for mobile)
+  const handleTouchEnd = () => {
+    // Reuse the same logic as mouse up
+    handleWordMouseUp()
+  }
+  
+  // Handle touch move (for mobile)
+  const handleWordTouchMove = (word: string, e: React.TouchEvent) => {
+    if (!isSelectionMode) return
+    
+    // Get the element under the touch point
+    const touch = e.touches[0]
+    const element = document.elementFromPoint(touch.clientX, touch.clientY)
+    
+    // If it's a word element, handle it
+    if (element && element.classList.contains('clickable-word')) {
+      const wordText = element.textContent || ''
+      const cleanWord = cleanWordText(wordText)
+      
+      if (cleanWord !== '' && !selectedWords.includes(cleanWord)) {
+        setSelectedWords([...selectedWords, cleanWord])
+      }
+    }
+  }
+  
+  // Regular word click handler (for single clicks)
+  const handleWordClick = (word: string) => {
+    // If this is the end of a long press, don't process as a click
+    if (isSelectionMode) return
+    
+    const cleanWord = cleanWordText(word)
     if (cleanWord === '') return
     
     console.log('Clicked word:', cleanWord)
@@ -448,7 +566,39 @@ function App() {
                       </div>
                     )}
                   </div>
-                  <div className="text-snippet">
+                  <div 
+                    className="text-snippet"
+                    style={{ position: 'relative' }}
+                    onMouseDown={(e) => {
+                      // If clicking directly on the container (not on a word), clear selection mode
+                      if (e.target === e.currentTarget && isSelectionMode) {
+                        setIsSelectionMode(false)
+                        setSelectedWords([])
+                      }
+                    }}
+                    onTouchStart={(e) => {
+                      // If touching directly on the container (not on a word), clear selection mode
+                      if (e.target === e.currentTarget && isSelectionMode) {
+                        setIsSelectionMode(false)
+                        setSelectedWords([])
+                      }
+                    }}
+                  >
+                    {isSelectionMode && (
+                      <div className="selection-mode-indicator" style={{
+                        position: 'absolute',
+                        top: '0px',
+                        right: '0px',
+                        padding: '4px 8px',
+                        backgroundColor: 'rgba(74, 144, 226, 0.8)',
+                        color: 'white',
+                        borderRadius: '0 0 0 4px',
+                        fontSize: '11px',
+                        zIndex: 1
+                      }}>
+                        Selection Mode: {selectedWords.length} words
+                      </div>
+                    )}
                     {selectedText && selectedText.split(/\s+/).map((word, index, array) => {
                       const isLastWord = index === array.length - 1
                       
@@ -463,8 +613,27 @@ function App() {
                             <React.Fragment key={index}>
                               {leadingPunct}
                               <span 
-                                className="clickable-word"
+                                className={`clickable-word ${isSelectionMode && selectedWords.includes(actualWord) ? 'selected-word' : ''}`}
                                 onClick={() => handleWordClick(actualWord)}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation() // Prevent container's mouseDown from firing
+                                  handleWordMouseDown(actualWord)
+                                }}
+                                onMouseUp={handleWordMouseUp}
+                                onMouseEnter={() => handleWordMouseEnter(actualWord)}
+                                onTouchStart={(e) => {
+                                  e.stopPropagation() // Prevent container's touchStart from firing
+                                  handleWordTouchStart(actualWord)
+                                }}
+                                onTouchEnd={handleTouchEnd}
+                                onTouchMove={(e) => handleWordTouchMove(actualWord, e)}
+                                style={{
+                                  backgroundColor: isSelectionMode && selectedWords.includes(actualWord) ? 'rgba(74, 144, 226, 0.3)' : 'transparent',
+                                  cursor: isSelectionMode ? 'grab' : 'pointer',
+                                  userSelect: 'none', /* Prevent native text selection */
+                                  WebkitUserSelect: 'none',
+                                  MozUserSelect: 'none'
+                                }}
                               >
                                 {actualWord}
                               </span>
