@@ -57,7 +57,7 @@ Text: ${text}
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1024,
       messages: [
         {
@@ -68,7 +68,7 @@ Text: ${text}
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': anthropicApiKey,
+        'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01'
       }
     });
@@ -139,7 +139,7 @@ Text: ${text}
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1024,
       messages: [
         {
@@ -150,7 +150,7 @@ Text: ${text}
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': anthropicApiKey,
+        'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01'
       }
     });
@@ -181,7 +181,7 @@ Return all tenses and conjugations of the verb ${verb}, including the infinitive
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1024,
       messages: [
         {
@@ -192,7 +192,7 @@ Return all tenses and conjugations of the verb ${verb}, including the infinitive
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': anthropicApiKey,
+        'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01'
       }
     });
@@ -272,7 +272,7 @@ Word: ${word}
 
   try {
     const response = await axios.post('https://api.anthropic.com/v1/messages', {
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 1024,
       messages: [
         {
@@ -283,7 +283,7 @@ Word: ${word}
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': anthropicApiKey,
+        'x-api-key': anthropicApiKey,
         'anthropic-version': '2023-06-01'
       }
     });
@@ -293,6 +293,106 @@ Word: ${word}
   } catch (err) {
     console.error(err);
     res.status(500).send('Internal Server Error');
+  }
+});
+
+app.post('/chat', async (req, res) => {
+  console.log('Received /chat request');
+  console.log('Request body:', req.body);
+  const { messages, language } = req.body;
+  
+  // Validate required parameters
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    console.error('Missing or invalid messages array');
+    res.status(400).send('Missing or invalid messages array');
+    return;
+  }
+  
+  if (!language) {
+    console.error('Missing language parameter');
+    res.status(400).send('Missing language parameter');
+    return;
+  }
+  
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!anthropicApiKey) {
+    res.status(500).send('ANTHROPIC_API_KEY must be set');
+    return;
+  }
+
+  // Create the system prompt to establish context
+  const systemPrompt = `You are a language learning assistant helping someone learn ${language}. 
+Provide helpful, concise explanations in English about word meanings, usage, grammar, or any other aspects they ask about.
+Your responses should be informative and educational, helping the learner understand the language better.`;
+
+  let formattedMessages = [];
+
+  // Add the conversation history
+  messages.forEach(message => {
+    formattedMessages.push({
+      role: message.role,
+      content: message.content
+    });
+  });
+
+  try {
+    console.log('Sending request to Anthropic API with formatted messages:', JSON.stringify(formattedMessages));
+    
+    const response = await axios.post('https://api.anthropic.com/v1/messages', {
+      system: systemPrompt,
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: 8096,
+      messages: formattedMessages
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicApiKey,
+        'anthropic-version': '2023-06-01'
+      }
+    });
+
+    console.log('Received response from Anthropic API:', response.status);
+    
+    if (response.data && response.data.content && response.data.content[0]) {
+      const aiResponse = response.data.content[0].text;
+      console.log('AI response:', aiResponse.substring(0, 100) + '...');
+      res.status(200).json({ response: aiResponse });
+    } else {
+      console.error('Unexpected response structure from Anthropic API:', JSON.stringify(response.data));
+      res.status(500).json({ 
+        error: 'Unexpected API response structure', 
+        details: 'The AI response did not contain expected content'
+      });
+    }
+  } catch (err) {
+    console.error('Error communicating with Anthropic API:');
+    if (err.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      console.error('Response error data:', err.response.data);
+      console.error('Response error status:', err.response.status);
+      console.error('Response error headers:', err.response.headers);
+      res.status(err.response.status).json({ 
+        error: 'API Error', 
+        details: err.response.data,
+        message: err.message
+      });
+    } else if (err.request) {
+      // The request was made but no response was received
+      console.error('No response received:', err.request);
+      res.status(500).json({ 
+        error: 'No response from API',
+        message: err.message
+      });
+    } else {
+      // Something happened in setting up the request that triggered an Error
+      console.error('Error setting up request:', err.message);
+      res.status(500).json({ 
+        error: 'Request setup error',
+        message: err.message
+      });
+    }
   }
 });
 

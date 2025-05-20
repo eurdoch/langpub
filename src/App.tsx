@@ -38,9 +38,10 @@ function App() {
   const [isLoadingWordAudio, setIsLoadingWordAudio] = useState<boolean>(false)
   const wordAudioRef = useRef<HTMLAudioElement | null>(null)
   
-  // Word explanation states
-  const [wordExplanation, setWordExplanation] = useState<string | null>(null)
+  // Chat explanation states
+  const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([])
   const [isExplainingWord, setIsExplainingWord] = useState<boolean>(false)
+  const [newChatMessage, setNewChatMessage] = useState<string>('')
   
   // Reference to the BookViewer component
   const bookViewerRef = useRef<any>(null)
@@ -67,7 +68,7 @@ function App() {
         setTranslatedText(null)
         setSelectedWord(null)
         setTranslatedWord(null)
-        setWordExplanation(null)
+        setChatMessages([])
         
         // Set the new file path
         setSelectedFile(filePath)
@@ -278,8 +279,8 @@ function App() {
       // Join the selected words with spaces
       const selectedPhrase = selectedWords.join(' ')
       
-      // Reset explanation
-      setWordExplanation(null)
+      // Reset chat messages
+      setChatMessages([])
       
       // Set the selected word to the phrase
       setSelectedWord(selectedPhrase)
@@ -344,8 +345,8 @@ function App() {
     
     console.log('Clicked word:', cleanWord)
     
-    // Reset explanation
-    setWordExplanation(null)
+    // Reset chat messages when selecting a new word
+    setChatMessages([])
     
     // Set the selected word
     setSelectedWord(cleanWord)
@@ -452,23 +453,121 @@ function App() {
     if (!selectedWord || !bookLanguage) return
     
     setIsExplainingWord(true)
-    setWordExplanation(null)
+    console.log('Explaining word:', selectedWord, 'Language:', bookLanguage);
     
     try {
+      // Create an initial user message asking for explanation (will be added to chat history)
+      const initialUserMessage = `Explain the meaning of "${selectedWord}" in ${bookLanguage}.`;
+      
       // Use the explain endpoint to get an explanation for the word
       const explainResponse = await window.ipcRenderer.apiProxy('/explain', 'POST', {
         word: selectedWord,
         language: bookLanguage
       })
       
+      console.log('Explanation response:', explainResponse);
+      
       if (explainResponse.status === 200 && explainResponse.data) {
-        setWordExplanation(explainResponse.data.explanation)
+        // Initialize the chat with both a user query (implicit) and the AI's explanation
+        const initialChat = [
+          { role: 'user', content: initialUserMessage },
+          { role: 'assistant', content: explainResponse.data.explanation }
+        ];
+        
+        setChatMessages(initialChat);
+        console.log('Set initial chat messages:', initialChat);
       } else {
         throw new Error('Failed to get word explanation')
       }
     } catch (error) {
       console.error('Word explanation error:', error)
-      setWordExplanation('Could not get explanation for this word.')
+      setChatMessages([
+        { role: 'assistant', content: 'Could not get an explanation for this word.' }
+      ])
+    } finally {
+      setIsExplainingWord(false)
+    }
+  }
+  
+  // Function to send a new message to the chat
+  const sendChatMessage = async () => {
+    if (!newChatMessage.trim() || !bookLanguage) return
+    
+    console.log('Sending chat message:', newChatMessage);
+    console.log('Current book language:', bookLanguage);
+    console.log('Current chat messages:', chatMessages);
+    
+    // Add the user message to the chat
+    const updatedMessages = [
+      ...chatMessages,
+      { role: 'user', content: newChatMessage }
+    ]
+    setChatMessages(updatedMessages)
+    setNewChatMessage('') // Clear the input
+    
+    // Set loading state
+    setIsExplainingWord(true)
+    
+    try {
+      // Make sure we're passing valid data to the API
+      const validMessages = updatedMessages.filter(msg => 
+        msg.role && (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system') && 
+        msg.content && typeof msg.content === 'string'
+      );
+      
+      console.log('Validated messages for API:', validMessages);
+      
+      if (validMessages.length === 0) {
+        console.error('No valid messages to send to API');
+        throw new Error('No valid messages to send to API');
+      }
+      
+      // Send the conversation history to the API for a response
+      console.log('Sending request to /chat API with:', {
+        language: bookLanguage,
+        messages: validMessages
+      });
+      
+      const chatResponse = await window.ipcRenderer.apiProxy('/chat', 'POST', {
+        language: bookLanguage,
+        messages: validMessages
+      });
+      
+      console.log('Chat response:', chatResponse);
+      
+      if (chatResponse.status === 200 && chatResponse.data && chatResponse.data.response) {
+        console.log('Successfully received chat response');
+        // Add the AI's response to the chat
+        setChatMessages([
+          ...updatedMessages,
+          { role: 'assistant', content: chatResponse.data.response }
+        ]);
+      } else {
+        console.error('Invalid response structure:', chatResponse);
+        if (chatResponse.data && chatResponse.data.error) {
+          throw new Error(`API Error: ${chatResponse.data.error} - ${chatResponse.data.message || chatResponse.data.details || ''}`);
+        } else {
+          throw new Error(`Failed to get chat response: Status ${chatResponse.status}`);
+        }
+      }
+    } catch (error) {
+      console.error('Chat response error:', error);
+      console.error('Error details:', error.message);
+      // Create a user-friendly error message
+      let errorMessage = 'Sorry, I had trouble responding to your message.';
+      
+      if (error.message) {
+        if (error.message.includes('claude-3-5-haiku-20241022')) {
+          errorMessage += ' There was a model configuration issue. Please try again.';
+        } else {
+          errorMessage += ` Error: ${error.message}`;
+        }
+      }
+      
+      setChatMessages([
+        ...updatedMessages,
+        { role: 'assistant', content: errorMessage }
+      ])
     } finally {
       setIsExplainingWord(false)
     }
@@ -697,7 +796,7 @@ function App() {
                           </div>
                         </div>
                         
-                        {!wordExplanation && !isExplainingWord && (
+                        {chatMessages.length === 0 && !isExplainingWord && (
                           <div className="word-explanation-button-container">
                             <Button 
                               variant="outlined" 
@@ -711,18 +810,54 @@ function App() {
                           </div>
                         )}
                         
-                        {isExplainingWord && (
+                        {isExplainingWord && chatMessages.length === 0 && (
                           <div className="word-explanation-loading">
                             <CircularProgress size={20} />
                             <span>Getting explanation...</span>
                           </div>
                         )}
                         
-                        {wordExplanation && (
-                          <div className="word-explanation">
-                            <h4>Explanation:</h4>
-                            <div className="explanation-content">
-                              {wordExplanation}
+                        {chatMessages.length > 0 && (
+                          <div className="chat-container">
+                            <h4>Chat:</h4>
+                            <div className="chat-messages">
+                              {chatMessages.map((message, index) => (
+                                <div 
+                                  key={index} 
+                                  className={`chat-message ${message.role === 'assistant' ? 'assistant' : 'user'}`}
+                                >
+                                  <div className="message-content">
+                                    {message.content}
+                                  </div>
+                                </div>
+                              ))}
+                              {isExplainingWord && (
+                                <div className="chat-loading">
+                                  <CircularProgress size={18} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="chat-input">
+                              <input 
+                                type="text" 
+                                value={newChatMessage}
+                                onChange={(e) => setNewChatMessage(e.target.value)}
+                                placeholder="Ask a question..."
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    sendChatMessage();
+                                  }
+                                }}
+                                disabled={isExplainingWord}
+                              />
+                              <Button 
+                                variant="contained" 
+                                size="small"
+                                onClick={sendChatMessage}
+                                disabled={isExplainingWord || !newChatMessage.trim()}
+                              >
+                                Send
+                              </Button>
                             </div>
                           </div>
                         )}
