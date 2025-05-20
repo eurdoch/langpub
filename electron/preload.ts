@@ -28,5 +28,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   
   // API proxy to avoid CORS issues
   apiProxy: (endpoint: string, method: string, data: any) => 
-    ipcRenderer.invoke('api-proxy', { endpoint, method, data })
+    ipcRenderer.invoke('api-proxy', { endpoint, method, data }),
+    
+  // State persistence
+  saveAppState: (state: any) => ipcRenderer.invoke('save-app-state', state),
+  loadAppState: () => ipcRenderer.invoke('load-app-state')
 })

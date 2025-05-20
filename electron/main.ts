@@ -6,6 +6,9 @@ import fs from 'node:fs'
 // Import createRequire was removed as it's not used
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// Path for storing app state
+const STATE_FILE_PATH = path.join(app.getPath('userData'), 'app-state.json')
+
 // The built directory structure
 //
 // ├─┬─┬ dist
@@ -204,6 +207,35 @@ app.whenReady().then(() => {
         status: 500,
         error: errorMessage || 'Internal Server Error'
       }
+    }
+  })
+  
+  // Save application state to disk
+  ipcMain.handle('save-app-state', async (_, state) => {
+    try {
+      await fs.promises.writeFile(STATE_FILE_PATH, JSON.stringify(state, null, 2))
+      return { success: true }
+    } catch (error) {
+      console.error('Error saving app state:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, error: errorMessage }
+    }
+  })
+  
+  // Load application state from disk
+  ipcMain.handle('load-app-state', async () => {
+    try {
+      // Check if the state file exists
+      if (!fs.existsSync(STATE_FILE_PATH)) {
+        return { success: true, data: null }
+      }
+      
+      const data = await fs.promises.readFile(STATE_FILE_PATH, 'utf-8')
+      return { success: true, data: JSON.parse(data) }
+    } catch (error) {
+      console.error('Error loading app state:', error)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, error: errorMessage }
     }
   })
 })

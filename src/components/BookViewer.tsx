@@ -4,27 +4,34 @@ import type { Contents } from 'epubjs'
 import { availableLanguages, detectLanguage, languageMap } from '../language'
 
 interface BookViewerProps {
-  filePath: string
-  onTextSelection?: (text: string | null) => void
-  setBookLanguage: (language: string) => void
+  filePath: string;
+  onTextSelection?: (text: string | null) => void;
+  setBookLanguage: (language: string) => void;
+  onLocationChange?: (location: string | number) => void;
+  initialLocation?: string | number;
 }
 
 const BookViewer = forwardRef<
   { decreaseFontSize: () => void; increaseFontSize: () => void; fontSize: number }, 
   BookViewerProps
->(({ filePath, onTextSelection, setBookLanguage }, ref) => {
-  const [location, setLocation] = useState<string | number>(0)
+>(({ filePath, onTextSelection, setBookLanguage, onLocationChange, initialLocation = 0 }, ref) => {
+  const [location, setLocation] = useState<string | number>(initialLocation)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [fontSize, setFontSize] = useState<number>(100) // Default font size (100%)
   const renditionRef = useRef<any>(null)
   const onTextSelectionRef = useRef(onTextSelection)
+  const onLocationChangeRef = useRef(onLocationChange)
 
-  // Update ref when prop changes
+  // Update refs when props change
   useEffect(() => {
     onTextSelectionRef.current = onTextSelection
   }, [onTextSelection])
+  
+  useEffect(() => {
+    onLocationChangeRef.current = onLocationChange
+  }, [onLocationChange])
   
   // Expose functions to parent component
   useImperativeHandle(ref, () => ({
@@ -82,6 +89,11 @@ const BookViewer = forwardRef<
   const locationChanged = (epubcifi: string) => {
     // Persist location
     setLocation(epubcifi)
+    
+    // Call the onLocationChange callback if provided
+    if (onLocationChangeRef.current) {
+      onLocationChangeRef.current(epubcifi)
+    }
     
     // Calculate progress
     if (totalLocations > 0) {

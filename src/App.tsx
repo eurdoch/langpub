@@ -1,4 +1,4 @@
-import React, { useState, useRef, ChangeEvent } from 'react'
+import React, { useState, useRef, ChangeEvent, useEffect } from 'react'
 import './App.css'
 import BookViewer from './components/BookViewer'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
@@ -20,6 +20,14 @@ import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import { availableLanguages } from './language'
 
+// Interface for the persisted state
+interface AppState {
+  currentFile: string | null;
+  currentLocation: string | number;
+  bookLanguage: string | null;
+  fontSize: number;
+}
+
 function App() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [selectedText, setSelectedText] = useState<string | null>(null)
@@ -29,6 +37,7 @@ function App() {
   const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [currentLocation, setCurrentLocation] = useState<string | number>(0)
   
   // Word details states
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
@@ -54,6 +63,78 @@ function App() {
   const [isSelectionMode, setIsSelectionMode] = useState<boolean>(false)
   const [selectedWords, setSelectedWords] = useState<string[]>([])
   const selectionTimeoutRef = useRef<number | null>(null)
+  
+  // Flag to avoid saving state during initial load
+  const initialLoadRef = useRef<boolean>(true)
+  
+  // Load app state from disk when component mounts
+  useEffect(() => {
+    const loadAppState = async () => {
+      try {
+        console.log('Loading app state from disk...')
+        const result = await window.ipcRenderer.loadAppState()
+        
+        if (result.success && result.data) {
+          console.log('State loaded:', result.data)
+          
+          // Apply the loaded state
+          const state = result.data as AppState
+          
+          if (state.currentFile) {
+            setSelectedFile(state.currentFile)
+          }
+          
+          if (state.bookLanguage) {
+            setBookLanguage(state.bookLanguage)
+          }
+          
+          if (state.currentLocation) {
+            setCurrentLocation(state.currentLocation)
+          }
+        } else {
+          console.log('No saved state found or state loading failed')
+        }
+      } catch (error) {
+        console.error('Error loading app state:', error)
+      } finally {
+        // Set initialLoadRef to false after loading
+        initialLoadRef.current = false
+      }
+    }
+    
+    loadAppState()
+  }, [])
+  
+  // Save app state when relevant state changes
+  useEffect(() => {
+    // Skip saving during initial load
+    if (initialLoadRef.current) {
+      return
+    }
+    
+    // Only save if we have a file selected
+    if (!selectedFile) {
+      return
+    }
+    
+    const saveAppState = async () => {
+      try {
+        const state: AppState = {
+          currentFile: selectedFile,
+          currentLocation: currentLocation,
+          bookLanguage: bookLanguage,
+          fontSize: bookViewerRef.current?.fontSize || 100
+        }
+        
+        console.log('Saving app state:', state)
+        await window.ipcRenderer.saveAppState(state)
+      } catch (error) {
+        console.error('Error saving app state:', error)
+      }
+    }
+    
+    saveAppState()
+  }, [selectedFile, currentLocation, bookLanguage])
 
   const handleOpenFile = async () => {
     try {
@@ -623,6 +704,8 @@ function App() {
               filePath={selectedFile} 
               onTextSelection={handleTextSelection}
               setBookLanguage={setBookLanguage}
+              onLocationChange={setCurrentLocation}
+              initialLocation={currentLocation}
             />
           </div>
           <div className="right-panel">
