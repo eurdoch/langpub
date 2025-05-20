@@ -9,17 +9,18 @@ interface BookViewerProps {
   setBookLanguage: (language: string) => void;
   onLocationChange?: (location: string | number) => void;
   initialLocation?: string | number;
+  initialFontSize?: number;
 }
 
 const BookViewer = forwardRef<
   { decreaseFontSize: () => void; increaseFontSize: () => void; fontSize: number }, 
   BookViewerProps
->(({ filePath, onTextSelection, setBookLanguage, onLocationChange, initialLocation = 0 }, ref) => {
+>(({ filePath, onTextSelection, setBookLanguage, onLocationChange, initialLocation = 0, initialFontSize = 100 }, ref) => {
   const [location, setLocation] = useState<string | number>(initialLocation)
   const [bookUrl, setBookUrl] = useState<string | null>(null)
   const [totalLocations, setTotalLocations] = useState<number>(0)
   const [selectedText, setSelectedText] = useState<string | null>(null)
-  const [fontSize, setFontSize] = useState<number>(100) // Default font size (100%)
+  const [fontSize, setFontSize] = useState<number>(initialFontSize) // Initialize with saved font size
   const renditionRef = useRef<any>(null)
   const onTextSelectionRef = useRef(onTextSelection)
   const onLocationChangeRef = useRef(onLocationChange)

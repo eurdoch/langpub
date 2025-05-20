@@ -38,6 +38,7 @@ function App() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [currentLocation, setCurrentLocation] = useState<string | number>(0)
+  const [fontSize, setFontSize] = useState<number>(100) // Track the current font size
   
   // Word details states
   const [selectedWord, setSelectedWord] = useState<string | null>(null)
@@ -91,6 +92,10 @@ function App() {
           if (state.currentLocation) {
             setCurrentLocation(state.currentLocation)
           }
+          
+          if (state.fontSize) {
+            setFontSize(state.fontSize)
+          }
         } else {
           console.log('No saved state found or state loading failed')
         }
@@ -123,7 +128,7 @@ function App() {
           currentFile: selectedFile,
           currentLocation: currentLocation,
           bookLanguage: bookLanguage,
-          fontSize: bookViewerRef.current?.fontSize || 100
+          fontSize: fontSize
         }
         
         console.log('Saving app state:', state)
@@ -134,7 +139,7 @@ function App() {
     }
     
     saveAppState()
-  }, [selectedFile, currentLocation, bookLanguage])
+  }, [selectedFile, currentLocation, bookLanguage, fontSize])
 
   const handleOpenFile = async () => {
     try {
@@ -530,6 +535,23 @@ function App() {
     }
   }
   
+  // Custom font size control methods
+  const increaseFontSize = () => {
+    const newSize = Math.min(fontSize + 10, 200) // Limit max font size to 200%
+    setFontSize(newSize)
+    if (bookViewerRef.current) {
+      bookViewerRef.current.increaseFontSize()
+    }
+  }
+  
+  const decreaseFontSize = () => {
+    const newSize = Math.max(fontSize - 10, 70) // Limit min font size to 70%
+    setFontSize(newSize)
+    if (bookViewerRef.current) {
+      bookViewerRef.current.decreaseFontSize()
+    }
+  }
+  
   const explainWord = async () => {
     if (!selectedWord || !bookLanguage) return
     
@@ -672,17 +694,17 @@ function App() {
           }}>
             <FormatSizeIcon style={{ marginRight: '5px' }} />
             <IconButton 
-              onClick={() => bookViewerRef.current?.decreaseFontSize()} 
+              onClick={decreaseFontSize} 
               size="small" 
               aria-label="decrease font size"
             >
               <RemoveIcon />
             </IconButton>
             <span style={{ margin: '0 8px', minWidth: '40px', textAlign: 'center' }}>
-              {bookViewerRef.current?.fontSize || 100}%
+              {fontSize}%
             </span>
             <IconButton 
-              onClick={() => bookViewerRef.current?.increaseFontSize()} 
+              onClick={increaseFontSize} 
               size="small" 
               aria-label="increase font size"
             >
@@ -706,6 +728,7 @@ function App() {
               setBookLanguage={setBookLanguage}
               onLocationChange={setCurrentLocation}
               initialLocation={currentLocation}
+              initialFontSize={fontSize}
             />
           </div>
           <div className="right-panel">
