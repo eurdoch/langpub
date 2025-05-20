@@ -552,15 +552,16 @@ function App() {
       }
     } catch (error) {
       console.error('Chat response error:', error);
-      console.error('Error details:', error.message);
+      const typedError = error as Error;
+      console.error('Error details:', typedError.message);
       // Create a user-friendly error message
       let errorMessage = 'Sorry, I had trouble responding to your message.';
       
-      if (error.message) {
-        if (error.message.includes('claude-3-5-haiku-20241022')) {
+      if (typedError.message) {
+        if (typedError.message.includes('claude-3-5-haiku-20241022')) {
           errorMessage += ' There was a model configuration issue. Please try again.';
         } else {
-          errorMessage += ` Error: ${error.message}`;
+          errorMessage += ` Error: ${typedError.message}`;
         }
       }
       
