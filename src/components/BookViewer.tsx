@@ -261,7 +261,6 @@ const BookViewer = forwardRef<
               epubOptions={{
                 flow: 'scrolled',
                 manager: 'continuous',
-                infinite: true
               }}
               tocChanged={toc => {
                 console.log('Table of contents:', toc)
