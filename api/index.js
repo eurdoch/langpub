@@ -49,6 +49,7 @@ app.post('/translate', async (req, res) => {
   }
 
   const prompt = `Translate the following text from source language to target language. Only return the translated text.
+Do not return any text like 'The following is a translation'. Just the translation.
 
 Source language: ${language}
 Target language: English
