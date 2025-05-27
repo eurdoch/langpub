@@ -255,7 +255,7 @@ app.post('/marks', async (req, res) => {
 
 app.post('/explain', async (req, res) => {
   console.log('Received /explain request');
-  const { word, language } = req.body;
+  const { word, language, sentence } = req.body;
   const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!anthropicApiKey) {
@@ -264,8 +264,10 @@ app.post('/explain', async (req, res) => {
   }
 
   const prompt = `
-Explain the meaning of the following word in English. Provide a clear and concise explanation suitable for language learners.
+Explain the meaning of the following word using English in the context of the given sentence. 
+Provide a clear and concise explanation suitable for language learners.
 
+Sentence: ${sentence}
 Language: ${language}
 Word: ${word}
 `;

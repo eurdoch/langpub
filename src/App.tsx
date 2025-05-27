@@ -565,7 +565,8 @@ function App() {
       // Use the explain endpoint to get an explanation for the word
       const explainResponse = await window.ipcRenderer.apiProxy('/explain', 'POST', {
         word: selectedWord,
-        language: bookLanguage
+        language: bookLanguage,
+        sentence: selectedText
       })
       
       console.log('Explanation response:', explainResponse);
