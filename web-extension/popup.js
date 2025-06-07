@@ -22,8 +22,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
   let currentEmail = '';
   let userData = null;
+  let currentStep = 'login'; // 'login', 'verification', 'language'
 
-  // Check for existing authentication on load
+  // Check for existing authentication and step on load
   checkExistingAuth();
 
   // Event listeners
@@ -46,16 +47,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Functions
   function checkExistingAuth() {
-    chrome.storage.local.get(['langpub_user'], function(result) {
+    chrome.storage.local.get(['langpub_user', 'langpub_step', 'langpub_email'], function(result) {
+      // Check if user is fully authenticated
       if (result.langpub_user) {
         try {
           userData = JSON.parse(result.langpub_user);
           showLanguageView();
           console.log('User authenticated from storage:', userData.email);
+          return;
         } catch (error) {
           console.error('Error parsing stored user data:', error);
           chrome.storage.local.remove(['langpub_user']);
         }
+      }
+      
+      // Check if user was in verification step
+      if (result.langpub_step === 'verification' && result.langpub_email) {
+        currentEmail = result.langpub_email;
+        currentStep = 'verification';
+        showVerificationView();
+        console.log('Restored verification step for:', currentEmail);
+      } else {
+        // Default to login view
+        showLoginView();
       }
     });
   }
@@ -85,6 +99,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (response.ok) {
         currentEmail = email;
+        currentStep = 'verification';
+        
+        // Store step and email in Chrome storage
+        chrome.storage.local.set({ 
+          langpub_step: 'verification',
+          langpub_email: email
+        });
+        
         showVerificationView();
         console.log('Verification email sent successfully');
       } else {
@@ -127,13 +149,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (response.ok && data) {
         userData = data;
+        currentStep = 'language';
         
-        // Store user data in Chrome storage
+        // Store user data and clear temporary step data
         chrome.storage.local.set({ 
-          langpub_user: JSON.stringify(userData) 
+          langpub_user: JSON.stringify(userData)
         }, function() {
           console.log('User data stored successfully');
         });
+        
+        // Clear temporary step data since user is now fully authenticated
+        chrome.storage.local.remove(['langpub_step', 'langpub_email']);
         
         showLanguageView();
         console.log('User authenticated successfully:', userData.email);
@@ -152,18 +178,24 @@ document.addEventListener('DOMContentLoaded', function() {
   function backToEmailView() {
     verificationCodeInput.value = '';
     hideError(verificationError);
+    currentStep = 'login';
+    
+    // Clear temporary step data
+    chrome.storage.local.remove(['langpub_step', 'langpub_email']);
+    
     showLoginView();
   }
 
   function logout() {
     userData = null;
     currentEmail = '';
+    currentStep = 'login';
     emailInput.value = '';
     verificationCodeInput.value = '';
     languageSelect.value = '';
     
-    // Clear stored data
-    chrome.storage.local.remove(['langpub_user'], function() {
+    // Clear all stored data
+    chrome.storage.local.remove(['langpub_user', 'langpub_step', 'langpub_email'], function() {
       console.log('User data cleared');
     });
     
