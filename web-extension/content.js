@@ -1,6 +1,24 @@
 // Content script for LangPub extension
 console.log('LangPub content script loaded');
 
+// Helper function to safely send messages to background script
+function safeSendMessage(message, callback) {
+  try {
+    chrome.runtime.sendMessage(message, (response) => {
+      // Check if the extension context is invalidated
+      if (chrome.runtime.lastError) {
+        console.log('Extension context invalidated, ignoring message:', chrome.runtime.lastError.message);
+        if (callback) callback(null);
+        return;
+      }
+      if (callback) callback(response);
+    });
+  } catch (error) {
+    console.log('Extension context invalidated, cannot send message:', error.message);
+    if (callback) callback(null);
+  }
+}
+
 // Add text selection listener on mouseup only
 document.addEventListener('mouseup', function(e) {
   const selectedText = window.getSelection().toString().trim();
@@ -9,7 +27,7 @@ document.addEventListener('mouseup', function(e) {
     console.log('Selected text:', selectedText);
     
     // Send message to background script to handle translation
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       action: 'translate',
       text: selectedText
     }, (response) => {
@@ -19,6 +37,9 @@ document.addEventListener('mouseup', function(e) {
       } else if (response && response.error) {
         console.error('Translation error:', response.error);
         showTranslationModal(selectedText, 'Translation failed');
+      } else if (response === null) {
+        // Extension context invalidated, show fallback
+        showTranslationModal(selectedText, 'Extension reloaded - please try again');
       }
     });
   }
@@ -168,7 +189,7 @@ async function translateWord(word) {
   }
   
   // Send message to background script to translate the word
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     action: 'translate',
     text: word
   }, (response) => {
@@ -176,6 +197,8 @@ async function translateWord(word) {
       wordResultDiv.innerHTML = `<strong>${word}</strong> → ${response.translation.translated_text}`;
     } else if (response && response.error) {
       wordResultDiv.innerHTML = `Translation failed: ${response.error}`;
+    } else if (response === null) {
+      wordResultDiv.innerHTML = 'Extension reloaded - please try again';
     }
   });
 }
@@ -190,7 +213,7 @@ async function explainWord(word, sentence) {
   wordResultDiv.innerHTML = 'Getting explanation...';
   
   // Send message to background script to explain the word
-  chrome.runtime.sendMessage({
+  safeSendMessage({
     action: 'explain',
     word: word,
     sentence: sentence
@@ -199,6 +222,8 @@ async function explainWord(word, sentence) {
       showChatInterface(word, response.explanation);
     } else if (response && response.error) {
       wordResultDiv.innerHTML = `Explanation failed: ${response.error}`;
+    } else if (response === null) {
+      wordResultDiv.innerHTML = 'Extension reloaded - please try again';
     }
   });
 }
@@ -279,7 +304,7 @@ function initializeChat(word, explanation) {
     addMessageToChat('assistant', 'Thinking...');
     
     // Send to API
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       action: 'chat',
       messages: chatMessages
     }, (response) => {
@@ -290,6 +315,8 @@ function initializeChat(word, explanation) {
       if (response && response.response) {
         addMessageToChat('assistant', response.response);
         chatMessages.push({ role: 'assistant', content: response.response });
+      } else if (response === null) {
+        addMessageToChat('assistant', 'Extension reloaded - please try again.');
       } else {
         addMessageToChat('assistant', 'Sorry, I could not process your message.');
       }
