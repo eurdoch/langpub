@@ -7,6 +7,18 @@ document.addEventListener('mouseup', function(e) {
   
   if (selectedText.length > 0) {
     console.log('Selected text:', selectedText);
+    
+    // Send message to background script to handle translation
+    chrome.runtime.sendMessage({
+      action: 'translate',
+      text: selectedText
+    }, (response) => {
+      if (response && response.translation) {
+        console.log('Translation:', response.translation);
+      } else if (response && response.error) {
+        console.error('Translation error:', response.error);
+      }
+    });
   }
 });
 
