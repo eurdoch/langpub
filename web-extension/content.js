@@ -128,12 +128,6 @@ function showTranslationModal(originalText, translatedText) {
     }
   });
   
-  // Auto-hide after 10 seconds
-  setTimeout(() => {
-    if (modal.parentNode) {
-      modal.remove();
-    }
-  }, 10000);
 }
 
 // Function to translate individual words
