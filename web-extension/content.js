@@ -1,6 +1,15 @@
 // Content script for LangPub extension
 console.log('LangPub content script loaded');
 
+// Add text selection listener on mouseup only
+document.addEventListener('mouseup', function(e) {
+  const selectedText = window.getSelection().toString().trim();
+  
+  if (selectedText.length > 0) {
+    console.log('Selected text:', selectedText);
+  }
+});
+
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'activate_reader') {
