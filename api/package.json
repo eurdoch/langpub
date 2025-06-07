@@ -8,8 +8,10 @@
   "type": "module",
   "dependencies": {
     "@aws-sdk/client-polly": "^3.716.0",
+    "@aws-sdk/client-ses": "^3.826.0",
     "axios": "^1.8.2",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
     "openai": "^4.87.3"
   }
 }
