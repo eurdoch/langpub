@@ -35,7 +35,7 @@ const sesClient = new SESClient({
 });
 
 // Verification configuration
-const SES_SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'noreply@langpub.com';
+const SES_SENDER_EMAIL = process.env.SES_SENDER_EMAIL || 'athousandapps@gmail.com';
 const JWT_SECRET = process.env.JWT_SECRET || 'langpub-jwt-secret-key-development-only';
 const JWT_EXPIRES_IN = '30d';
 const DEMO_JWT_EXPIRES_IN = '2h';
