@@ -17,6 +17,9 @@ document.addEventListener('DOMContentLoaded', function() {
   const userEmailDisplay = document.getElementById('user-email');
   const logoutButton = document.getElementById('logout');
   
+  const extensionToggle = document.getElementById('extension-toggle');
+  const statusText = document.getElementById('status-text');
+  
   // API base URL
   const API_BASE_URL = 'https://langpub.directto.link';
   
@@ -32,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
   verifyButton.addEventListener('click', verifyCode);
   backToEmailButton.addEventListener('click', backToEmailView);
   logoutButton.addEventListener('click', logout);
+  extensionToggle.addEventListener('change', toggleExtension);
   
   languageSelect.addEventListener('change', function() {
     const selectedLanguage = languageSelect.value;
@@ -225,11 +229,16 @@ document.addEventListener('DOMContentLoaded', function() {
       userEmailDisplay.textContent = userData.email;
     }
     
-    // Load saved language if any
-    chrome.storage.local.get(['selectedLanguage'], function(result) {
+    // Load saved language and extension state
+    chrome.storage.local.get(['selectedLanguage', 'extensionEnabled'], function(result) {
       if (result.selectedLanguage) {
         languageSelect.value = result.selectedLanguage;
       }
+      
+      // Set extension toggle state (default to enabled if not set)
+      const isEnabled = result.extensionEnabled !== false;
+      extensionToggle.checked = isEnabled;
+      updateStatusText(isEnabled);
     });
   }
 
@@ -240,5 +249,40 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function hideError(errorElement) {
     errorElement.classList.add('hidden');
+  }
+
+  function toggleExtension() {
+    const isEnabled = extensionToggle.checked;
+    
+    // Save the extension state
+    chrome.storage.local.set({ extensionEnabled: isEnabled }, function() {
+      console.log('Extension state saved:', isEnabled ? 'enabled' : 'disabled');
+    });
+    
+    // Update status text
+    updateStatusText(isEnabled);
+    
+    // Send message to background script to update global state
+    chrome.runtime.sendMessage({
+      action: 'toggle_extension',
+      enabled: isEnabled
+    });
+    
+    // Send message to all tabs to update content script state
+    chrome.tabs.query({}, function(tabs) {
+      tabs.forEach(function(tab) {
+        chrome.tabs.sendMessage(tab.id, {
+          action: 'extension_toggled',
+          enabled: isEnabled
+        }).catch(() => {
+          // Ignore errors for tabs that don't have the content script
+        });
+      });
+    });
+  }
+
+  function updateStatusText(isEnabled) {
+    statusText.textContent = isEnabled ? 'Extension is active' : 'Extension is disabled';
+    statusText.style.color = isEnabled ? '#4CAF50' : '#f44336';
   }
 });

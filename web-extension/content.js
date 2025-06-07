@@ -1,6 +1,15 @@
 // Content script for LangPub extension
 console.log('LangPub content script loaded');
 
+// Extension state
+let extensionEnabled = true;
+
+// Check extension state on load
+chrome.storage.local.get(['extensionEnabled'], function(result) {
+  extensionEnabled = result.extensionEnabled !== false; // Default to enabled
+  console.log('Extension state loaded:', extensionEnabled ? 'enabled' : 'disabled');
+});
+
 // Helper function to safely send messages to background script
 function safeSendMessage(message, callback) {
   try {
@@ -21,6 +30,11 @@ function safeSendMessage(message, callback) {
 
 // Add text selection listener on mouseup only
 document.addEventListener('mouseup', function(e) {
+  // Check if extension is enabled
+  if (!extensionEnabled) {
+    return;
+  }
+  
   const selectedText = window.getSelection().toString().trim();
   
   if (selectedText.length > 0) {
@@ -36,6 +50,11 @@ document.addEventListener('mouseup', function(e) {
         showTranslationModal(selectedText, response.translation.translated_text);
       } else if (response && response.error) {
         console.error('Translation error:', response.error);
+        if (response.error === 'Extension is disabled') {
+          // Extension was disabled, update local state
+          extensionEnabled = false;
+          return;
+        }
         showTranslationModal(selectedText, 'Translation failed');
       } else if (response === null) {
         // Extension context invalidated, show fallback
@@ -355,6 +374,20 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log('Activating language reader');
     // TODO: Implement language learning functionality
     activateLanguageReader();
+  }
+  
+  // Handle extension toggle messages
+  if (request.action === 'extension_toggled') {
+    extensionEnabled = request.enabled;
+    console.log('Extension state updated:', extensionEnabled ? 'enabled' : 'disabled');
+    
+    // Close any open translation modals when disabled
+    if (!extensionEnabled) {
+      const existingModal = document.getElementById('langpub-translation-modal');
+      if (existingModal) {
+        existingModal.remove();
+      }
+    }
   }
 });
 

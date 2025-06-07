@@ -18,31 +18,52 @@ chrome.runtime.onInstalled.addListener(function(details) {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background received message:', request);
   
-  // Handle translation requests
-  if (request.action === 'translate') {
-    translateText(request.text, sendResponse);
-    return true; // Keep message channel open for async response
+  // Handle extension toggle
+  if (request.action === 'toggle_extension') {
+    console.log('Extension toggled:', request.enabled ? 'enabled' : 'disabled');
+    // Store the global extension state
+    chrome.storage.local.set({ extensionEnabled: request.enabled });
+    return;
   }
   
-  // Handle explanation requests
-  if (request.action === 'explain') {
-    explainWord(request.word, request.sentence, sendResponse);
-    return true; // Keep message channel open for async response
-  }
+  // Check if extension is enabled before processing other requests
+  chrome.storage.local.get(['extensionEnabled'], function(result) {
+    const isEnabled = result.extensionEnabled !== false; // Default to enabled
+    
+    if (!isEnabled) {
+      console.log('Extension is disabled, ignoring request:', request.action);
+      sendResponse({ error: 'Extension is disabled' });
+      return;
+    }
+    
+    // Handle translation requests
+    if (request.action === 'translate') {
+      translateText(request.text, sendResponse);
+      return;
+    }
+    
+    // Handle explanation requests
+    if (request.action === 'explain') {
+      explainWord(request.word, request.sentence, sendResponse);
+      return;
+    }
+    
+    // Handle chat requests
+    if (request.action === 'chat') {
+      chatWithAI(request.messages, sendResponse);
+      return;
+    }
+    
+    // Handle any background processing here
+    if (request.action === 'get_settings') {
+      chrome.storage.sync.get(['langpub_enabled', 'target_language'], function(result) {
+        sendResponse(result);
+      });
+      return;
+    }
+  });
   
-  // Handle chat requests
-  if (request.action === 'chat') {
-    chatWithAI(request.messages, sendResponse);
-    return true; // Keep message channel open for async response
-  }
-  
-  // Handle any background processing here
-  if (request.action === 'get_settings') {
-    chrome.storage.sync.get(['langpub_enabled', 'target_language'], function(result) {
-      sendResponse(result);
-    });
-    return true; // Keep message channel open for async response
-  }
+  return true; // Keep message channel open for async response
 });
 
 // Function to translate text using the API
