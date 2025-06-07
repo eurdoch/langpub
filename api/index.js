@@ -5,6 +5,7 @@ import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import OpenAI from 'openai';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { MongoClient } from 'mongodb';
 
 const app = express();
 app.use(express.json());
@@ -43,6 +44,43 @@ const VERIFICATION_CODE_EXPIRY = 10 * 60 * 1000; // 10 minutes
 
 // In-memory store for verification codes (in production, use a database)
 const verificationCodes = new Map();
+
+// MongoDB connection
+let db = null;
+let userCollection = null;
+let verificationCollection = null;
+
+// Initialize MongoDB connection
+const initializeDatabase = async () => {
+  try {
+    const mongoUri = process.env.MONGO_URI;
+    if (!mongoUri) {
+      console.error('MONGO_URI environment variable is not set');
+      return;
+    }
+
+    const client = new MongoClient(mongoUri);
+    await client.connect();
+    console.log('Connected to MongoDB successfully');
+    
+    db = client.db('langpub');
+    userCollection = db.collection('users');
+    verificationCollection = db.collection('verification_codes');
+    
+    // Create indexes for better performance
+    await userCollection.createIndex({ user_id: 1 }, { unique: true });
+    await userCollection.createIndex({ email: 1 });
+    await verificationCollection.createIndex({ email: 1 });
+    await verificationCollection.createIndex({ expires: 1 }, { expireAfterSeconds: 0 });
+    
+    console.log('Database indexes created successfully');
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+  }
+};
+
+// Initialize database connection
+initializeDatabase();
 
 const LANGUAGE_TO_VOICE = {
   'French': 'Mathieu',
@@ -99,12 +137,25 @@ const generateVerificationCode = () => {
 };
 
 // Cleanup expired verification codes
-const cleanupExpiredCodes = () => {
-  const now = Date.now();
-  for (const [email, data] of verificationCodes.entries()) {
-    if (data.expires < now) {
-      verificationCodes.delete(email);
+const cleanupExpiredCodes = async () => {
+  try {
+    // Cleanup in-memory codes
+    const now = Date.now();
+    for (const [email, data] of verificationCodes.entries()) {
+      if (data.expires < now) {
+        verificationCodes.delete(email);
+      }
     }
+    
+    // Cleanup database codes (if database is available)
+    if (verificationCollection) {
+      await verificationCollection.deleteMany({
+        expires: { $lt: new Date() }
+      });
+      console.log('Cleaned up expired verification codes from database');
+    }
+  } catch (error) {
+    console.error('Error cleaning up expired verification codes:', error);
   }
 };
 
@@ -158,12 +209,30 @@ app.post('/verification/send', async (req, res) => {
     // Generate a verification code
     const verificationCode = generateVerificationCode();
     
-    // Store the code in memory with expiry time
-    verificationCodes.set(email.toLowerCase(), {
-      code: verificationCode,
-      expires: Date.now() + VERIFICATION_CODE_EXPIRY,
-      created_at: new Date()
-    });
+    // Store the code in database (fallback to memory if database not available)
+    const expiryTime = new Date(Date.now() + VERIFICATION_CODE_EXPIRY);
+    
+    if (verificationCollection) {
+      await verificationCollection.updateOne(
+        { email: email.toLowerCase() },
+        { 
+          $set: { 
+            email: email.toLowerCase(),
+            code: verificationCode,
+            expires: expiryTime,
+            created_at: new Date()
+          } 
+        },
+        { upsert: true }
+      );
+    } else {
+      // Fallback to in-memory storage
+      verificationCodes.set(email.toLowerCase(), {
+        code: verificationCode,
+        expires: Date.now() + VERIFICATION_CODE_EXPIRY,
+        created_at: new Date()
+      });
+    }
     
     // Prepare the email
     const sendEmailCommand = new SendEmailCommand({
@@ -382,14 +451,33 @@ app.post('/verification/check', async (req, res) => {
       console.log('Demo account detected, bypassing verification');
       verificationStatus = 'approved';
     } else {
-      // Find verification code in memory
-      const storedVerification = verificationCodes.get(email.toLowerCase());
+      // Find verification code in database or memory
+      let storedVerification = null;
       
-      if (storedVerification && storedVerification.code === code && storedVerification.expires > Date.now()) {
-        verificationStatus = 'approved';
-        // Delete the used code
-        verificationCodes.delete(email.toLowerCase());
+      if (verificationCollection) {
+        storedVerification = await verificationCollection.findOne({
+          email: email.toLowerCase(),
+          code: code,
+          expires: { $gt: new Date() }
+        });
+        
+        if (storedVerification) {
+          verificationStatus = 'approved';
+          // Delete the used code from database
+          await verificationCollection.deleteOne({ _id: storedVerification._id });
+        }
       } else {
+        // Fallback to in-memory verification
+        storedVerification = verificationCodes.get(email.toLowerCase());
+        
+        if (storedVerification && storedVerification.code === code && storedVerification.expires > Date.now()) {
+          verificationStatus = 'approved';
+          // Delete the used code
+          verificationCodes.delete(email.toLowerCase());
+        }
+      }
+      
+      if (!storedVerification || verificationStatus !== 'approved') {
         verificationStatus = 'failed';
       }
     }
@@ -400,26 +488,102 @@ app.post('/verification/check', async (req, res) => {
       const userId = generateConsistentHash(email);
       console.log('Generated user ID from email:', userId);
       
-      // Generate JWT for the user
-      const token = jwt.sign(
-        { 
+      // Check if user exists in database and create/update as needed
+      let user = null;
+      let userResponse = null;
+      
+      if (userCollection) {
+        // Try to find the user by user_id
+        user = await userCollection.findOne({ user_id: userId });
+        
+        if (user) {
+          console.log('User found in database:', user.user_id);
+          
+          // Update last login time
+          await userCollection.updateOne(
+            { user_id: userId },
+            { 
+              $set: { 
+                last_login: new Date(),
+                email: email // Update email in case it changed case
+              }
+            }
+          );
+          
+          // Get the updated user data
+          user = await userCollection.findOne({ user_id: userId });
+        } else {
+          console.log('Creating new user with ID:', userId);
+          
+          // Create a new user entry
+          const newUser = {
+            user_id: userId,
+            email: email,
+            created_at: new Date(),
+            last_login: new Date(),
+            premium: false,
+            premium_updated_at: null,
+            subscription_receipts: [],
+            settings: {
+              preferred_languages: [],
+              font_size: 100
+            }
+          };
+          
+          // Insert the new user into the database
+          const result = await userCollection.insertOne(newUser);
+          console.log('New user created with DB ID:', result.insertedId);
+          
+          // Get the created user
+          user = await userCollection.findOne({ _id: result.insertedId });
+        }
+        
+        // Generate JWT for the user
+        const token = jwt.sign(
+          { 
+            user_id: userId,
+            email: email,
+            is_demo: email === DEMO_EMAIL,
+          }, 
+          JWT_SECRET, 
+          { expiresIn: email === DEMO_EMAIL ? DEMO_JWT_EXPIRES_IN : JWT_EXPIRES_IN }
+        );
+        
+        // Create the user response with token
+        userResponse = {
+          user_id: user.user_id,
+          email: user.email,
+          token: token,
+          premium: user.premium || false,
+          created_at: user.created_at,
+          last_login: user.last_login,
+          settings: user.settings || {}
+        };
+      } else {
+        console.log('No database connection, creating minimal user response');
+        
+        // Generate JWT for the user
+        const token = jwt.sign(
+          { 
+            user_id: userId,
+            email: email,
+            is_demo: email === DEMO_EMAIL,
+          }, 
+          JWT_SECRET, 
+          { expiresIn: email === DEMO_EMAIL ? DEMO_JWT_EXPIRES_IN : JWT_EXPIRES_IN }
+        );
+        
+        // Create a minimal user response without database
+        userResponse = {
           user_id: userId,
           email: email,
-          is_demo: email === DEMO_EMAIL,
-        }, 
-        JWT_SECRET, 
-        { expiresIn: email === DEMO_EMAIL ? DEMO_JWT_EXPIRES_IN : JWT_EXPIRES_IN }
-      );
-      
-      // Create user response
-      const userResponse = {
-        user_id: userId,
-        email: email,
-        token: token,
-        premium: false,
-        created_at: new Date(),
-        last_login: new Date()
-      };
+          token: token,
+          premium: false,
+          created_at: new Date(),
+          last_login: new Date(),
+          settings: {}
+        };
+      }
       
       res.status(200).json(userResponse);
     } else {
@@ -448,15 +612,36 @@ app.get('/verification/user', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid user token' });
     }
 
-    // Return user information
-    res.status(200).json({
-      user_id: user_id,
-      email: email || '',
-      premium: false,
-      created_at: new Date(),
-      last_login: new Date(),
-      is_demo: is_demo || false
-    });
+    // Look up user in the database if available
+    if (userCollection) {
+      const user = await userCollection.findOne({ user_id });
+      
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      // Return user information from database
+      res.status(200).json({
+        user_id: user.user_id,
+        email: user.email || '',
+        premium: user.premium || false,
+        created_at: user.created_at,
+        last_login: user.last_login,
+        is_demo: is_demo || false,
+        settings: user.settings || {}
+      });
+    } else {
+      // If no database connection, return minimal user info from token
+      res.status(200).json({
+        user_id: user_id,
+        email: email || '',
+        premium: false,
+        created_at: new Date(),
+        last_login: new Date(),
+        is_demo: is_demo || false,
+        settings: {}
+      });
+    }
   } catch (error) {
     console.error('Error getting user information:', error);
     res.status(500).json({

@@ -18,6 +18,10 @@ import DialogContentText from '@mui/material/DialogContentText'
 import DialogTitle from '@mui/material/DialogTitle'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
+import TextField from '@mui/material/TextField'
+import Box from '@mui/material/Box'
+import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
 import { availableLanguages } from './language'
 
 // Interface for the persisted state
@@ -28,7 +32,27 @@ interface AppState {
   fontSize: number;
 }
 
+// Interface for user authentication
+interface UserData {
+  user_id: string;
+  email: string;
+  token: string;
+  premium: boolean;
+  created_at: string;
+  last_login: string;
+}
+
 function App() {
+  // Authentication states
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [email, setEmail] = useState<string>('')
+  const [verificationCode, setVerificationCode] = useState<string>('')
+  const [isEmailSent, setIsEmailSent] = useState<boolean>(false)
+  const [isSendingEmail, setIsSendingEmail] = useState<boolean>(false)
+  const [isVerifying, setIsVerifying] = useState<boolean>(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [selectedText, setSelectedText] = useState<string | null>(null)
   const [translatedText, setTranslatedText] = useState<string | null>(null)
@@ -68,6 +92,26 @@ function App() {
   // Flag to avoid saving state during initial load
   const initialLoadRef = useRef<boolean>(true)
   
+  // Check for existing authentication on app load
+  useEffect(() => {
+    const checkExistingAuth = () => {
+      try {
+        const storedUserData = localStorage.getItem('langpub_user')
+        if (storedUserData) {
+          const userData = JSON.parse(storedUserData) as UserData
+          setUserData(userData)
+          setIsAuthenticated(true)
+          console.log('User authenticated from storage:', userData.email)
+        }
+      } catch (error) {
+        console.error('Error checking existing authentication:', error)
+        localStorage.removeItem('langpub_user')
+      }
+    }
+
+    checkExistingAuth()
+  }, [])
+
   // Load app state from disk when component mounts
   useEffect(() => {
     const loadAppState = async () => {
@@ -163,6 +207,79 @@ function App() {
     } catch (error) {
       console.error('Error opening file:', error)
     }
+  }
+
+  // Authentication functions
+  const sendVerificationEmail = async () => {
+    if (!email.trim()) {
+      setAuthError('Please enter a valid email address')
+      return
+    }
+
+    setIsSendingEmail(true)
+    setAuthError(null)
+
+    try {
+      const response = await window.ipcRenderer.apiProxy('/verification/send', 'POST', { email })
+      
+      if (response.status === 200) {
+        setIsEmailSent(true)
+        console.log('Verification email sent successfully')
+      } else {
+        throw new Error(response.data?.error || 'Failed to send verification email')
+      }
+    } catch (error) {
+      console.error('Error sending verification email:', error)
+      setAuthError('Failed to send verification email. Please try again.')
+    } finally {
+      setIsSendingEmail(false)
+    }
+  }
+
+  const verifyCode = async () => {
+    if (!verificationCode.trim() || verificationCode.length !== 6) {
+      setAuthError('Please enter a valid 6-digit code')
+      return
+    }
+
+    setIsVerifying(true)
+    setAuthError(null)
+
+    try {
+      const response = await window.ipcRenderer.apiProxy('/verification/check', 'POST', { 
+        email, 
+        code: verificationCode 
+      })
+      
+      if (response.status === 200 && response.data) {
+        const userData = response.data as UserData
+        setUserData(userData)
+        setIsAuthenticated(true)
+        
+        // Store user data in localStorage
+        localStorage.setItem('langpub_user', JSON.stringify(userData))
+        
+        console.log('User authenticated successfully:', userData.email)
+      } else {
+        throw new Error(response.data?.error || 'Invalid verification code')
+      }
+    } catch (error) {
+      console.error('Error verifying code:', error)
+      setAuthError('Invalid or expired verification code. Please try again.')
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+
+  const logout = () => {
+    setIsAuthenticated(false)
+    setUserData(null)
+    setEmail('')
+    setVerificationCode('')
+    setIsEmailSent(false)
+    setAuthError(null)
+    localStorage.removeItem('langpub_user')
+    console.log('User logged out')
   }
   
   const translateText = async (text: string) => {
@@ -678,6 +795,127 @@ function App() {
     }
   }
 
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="container">
+        <Box 
+          display="flex" 
+          flexDirection="column" 
+          alignItems="center" 
+          justifyContent="center" 
+          minHeight="100vh"
+          padding={3}
+        >
+          <Typography variant="h3" component="h1" gutterBottom>
+            Welcome to LangPub
+          </Typography>
+          <Typography variant="h6" color="text.secondary" gutterBottom sx={{ mb: 4 }}>
+            Your language learning companion
+          </Typography>
+          
+          <Box 
+            component="form" 
+            sx={{ 
+              width: '100%', 
+              maxWidth: 400,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2
+            }}
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!isEmailSent) {
+                sendVerificationEmail()
+              } else {
+                verifyCode()
+              }
+            }}
+          >
+            {!isEmailSent ? (
+              <>
+                <TextField
+                  type="email"
+                  label="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  fullWidth
+                  required
+                  disabled={isSendingEmail}
+                />
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  disabled={isSendingEmail || !email.trim()}
+                  sx={{ mt: 2 }}
+                >
+                  {isSendingEmail ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Sending...
+                    </>
+                  ) : (
+                    'Send Verification Code'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Typography variant="body1" textAlign="center" sx={{ mb: 2 }}>
+                  We've sent a 6-digit verification code to <strong>{email}</strong>
+                </Typography>
+                <TextField
+                  label="Verification Code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  fullWidth
+                  required
+                  inputProps={{ maxLength: 6 }}
+                  disabled={isVerifying}
+                />
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  disabled={isVerifying || verificationCode.length !== 6}
+                  sx={{ mt: 2 }}
+                >
+                  {isVerifying ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify Code'
+                  )}
+                </Button>
+                <Button
+                  variant="text"
+                  fullWidth
+                  onClick={() => {
+                    setIsEmailSent(false)
+                    setVerificationCode('')
+                    setAuthError(null)
+                  }}
+                  disabled={isVerifying}
+                >
+                  Use Different Email
+                </Button>
+              </>
+            )}
+            
+            {authError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {authError}
+              </Alert>
+            )}
+          </Box>
+        </Box>
+      </div>
+    )
+  }
+
   return (
     <div className="container">
       <div className="header" style={{ 
@@ -686,33 +924,50 @@ function App() {
         alignItems: 'center',
         justifyContent: 'space-between'
       }}>
-        <button onClick={handleOpenFile} className="open-epub-button">Open Epub</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button onClick={handleOpenFile} className="open-epub-button">Open Epub</button>
+          
+          {selectedFile && (
+            <div className="font-controls" style={{ 
+              display: 'flex', 
+              alignItems: 'center'
+            }}>
+              <FormatSizeIcon style={{ marginRight: '5px' }} />
+              <IconButton 
+                onClick={decreaseFontSize} 
+                size="small" 
+                aria-label="decrease font size"
+              >
+                <RemoveIcon />
+              </IconButton>
+              <span style={{ margin: '0 8px', minWidth: '40px', textAlign: 'center' }}>
+                {fontSize}%
+              </span>
+              <IconButton 
+                onClick={increaseFontSize} 
+                size="small" 
+                aria-label="increase font size"
+              >
+                <AddIcon />
+              </IconButton>
+            </div>
+          )}
+        </div>
         
-        {selectedFile && (
-          <div className="font-controls" style={{ 
-            display: 'flex', 
-            alignItems: 'center'
-          }}>
-            <FormatSizeIcon style={{ marginRight: '5px' }} />
-            <IconButton 
-              onClick={decreaseFontSize} 
-              size="small" 
-              aria-label="decrease font size"
-            >
-              <RemoveIcon />
-            </IconButton>
-            <span style={{ margin: '0 8px', minWidth: '40px', textAlign: 'center' }}>
-              {fontSize}%
-            </span>
-            <IconButton 
-              onClick={increaseFontSize} 
-              size="small" 
-              aria-label="increase font size"
-            >
-              <AddIcon />
-            </IconButton>
-          </div>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {userData && (
+            <Typography variant="body2" color="text.secondary">
+              {userData.email}
+            </Typography>
+          )}
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={logout}
+          >
+            Logout
+          </Button>
+        </div>
       </div>
       
       {!selectedFile ? (
