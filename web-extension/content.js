@@ -70,6 +70,18 @@ function showTranslationModal(originalText, translatedText) {
     document.head.appendChild(style);
   }
   
+  // Create clickable words from original text
+  const words = originalText.split(/(\s+)/).map((word, index) => {
+    if (word.trim().length > 0) {
+      return `<span class="langpub-clickable-word" data-word="${word.trim()}" style="
+        cursor: pointer;
+        text-decoration: underline;
+        color: #4CAF50;
+      " onmouseover="this.style.background='#e0e0e0'" onmouseout="this.style.background=''">${word}</span>`;
+    }
+    return word;
+  }).join('');
+
   // Create modal content
   modal.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
@@ -88,8 +100,15 @@ function showTranslationModal(originalText, translatedText) {
         justify-content: center;
       ">×</button>
     </div>
-    <div>
+    <div style="margin-bottom: 8px;">
       <div style="background: #e8f5e8; padding: 12px; border-radius: 4px; font-size: 14px;">${translatedText}</div>
+    </div>
+    <div style="margin-bottom: 8px;">
+      <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px; color: #666;">${words}</div>
+    </div>
+    <div id="langpub-word-translation" style="display: none; background: #fff3cd; padding: 8px; border-radius: 4px; font-size: 12px; border: 1px solid #ffeaa7;">
+      <div style="font-weight: bold; margin-bottom: 4px;">Word Translation:</div>
+      <div id="langpub-word-result"></div>
     </div>
   `;
   
@@ -101,12 +120,44 @@ function showTranslationModal(originalText, translatedText) {
     modal.remove();
   });
   
+  // Add click handlers for words
+  modal.addEventListener('click', function(e) {
+    if (e.target.classList.contains('langpub-clickable-word')) {
+      const word = e.target.dataset.word;
+      translateWord(word);
+    }
+  });
+  
   // Auto-hide after 10 seconds
   setTimeout(() => {
     if (modal.parentNode) {
       modal.remove();
     }
   }, 10000);
+}
+
+// Function to translate individual words
+async function translateWord(word) {
+  const wordTranslationDiv = document.getElementById('langpub-word-translation');
+  const wordResultDiv = document.getElementById('langpub-word-result');
+  
+  if (!wordTranslationDiv || !wordResultDiv) return;
+  
+  // Show loading state
+  wordTranslationDiv.style.display = 'block';
+  wordResultDiv.innerHTML = 'Translating...';
+  
+  // Send message to background script to translate the word
+  chrome.runtime.sendMessage({
+    action: 'translate',
+    text: word
+  }, (response) => {
+    if (response && response.translation) {
+      wordResultDiv.innerHTML = `<strong>${word}</strong> → ${response.translation.translated_text}`;
+    } else if (response && response.error) {
+      wordResultDiv.innerHTML = `Translation failed: ${response.error}`;
+    }
+  });
 }
 
 // Listen for messages from popup
