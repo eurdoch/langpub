@@ -24,6 +24,18 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     return true; // Keep message channel open for async response
   }
   
+  // Handle explanation requests
+  if (request.action === 'explain') {
+    explainWord(request.word, request.sentence, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+  
+  // Handle chat requests
+  if (request.action === 'chat') {
+    chatWithAI(request.messages, sendResponse);
+    return true; // Keep message channel open for async response
+  }
+  
   // Handle any background processing here
   if (request.action === 'get_settings') {
     chrome.storage.sync.get(['langpub_enabled', 'target_language'], function(result) {
@@ -65,5 +77,76 @@ async function translateText(text, sendResponse) {
     }
   } catch (error) {
     sendResponse({ error: `Translation error: ${error.message}` });
+  }
+}
+
+// Function to explain word using the API
+async function explainWord(word, sentence, sendResponse) {
+  try {
+    // Get the selected language from storage
+    const result = await chrome.storage.local.get(['selectedLanguage']);
+    const language = result.selectedLanguage;
+    
+    if (!language) {
+      sendResponse({ error: 'No target language selected' });
+      return;
+    }
+    
+    // Call the explanation API
+    const response = await fetch('https://langpub.directto.link/explain', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        word: word,
+        language: language,
+        sentence: sentence
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      sendResponse({ explanation: result.explanation });
+    } else {
+      sendResponse({ error: `Explanation failed: ${response.status}` });
+    }
+  } catch (error) {
+    sendResponse({ error: `Explanation error: ${error.message}` });
+  }
+}
+
+// Function to chat with AI using the API
+async function chatWithAI(messages, sendResponse) {
+  try {
+    // Get the selected language from storage
+    const result = await chrome.storage.local.get(['selectedLanguage']);
+    const language = result.selectedLanguage;
+    
+    if (!language) {
+      sendResponse({ error: 'No target language selected' });
+      return;
+    }
+    
+    // Call the chat API
+    const response = await fetch('https://langpub.directto.link/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: messages,
+        language: language
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      sendResponse({ response: result.response });
+    } else {
+      sendResponse({ error: `Chat failed: ${response.status}` });
+    }
+  } catch (error) {
+    sendResponse({ error: `Chat error: ${error.message}` });
   }
 }

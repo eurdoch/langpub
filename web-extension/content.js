@@ -26,6 +26,8 @@ document.addEventListener('mouseup', function(e) {
 
 // Function to show translation modal
 function showTranslationModal(originalText, translatedText) {
+  // Store original text for explanations
+  currentOriginalText = originalText;
   // Remove existing modal if present
   const existingModal = document.getElementById('langpub-translation-modal');
   if (existingModal) {
@@ -109,6 +111,17 @@ function showTranslationModal(originalText, translatedText) {
     <div id="langpub-word-translation" style="display: none; background: #fff3cd; padding: 8px; border-radius: 4px; font-size: 12px; border: 1px solid #ffeaa7;">
       <div style="font-weight: bold; margin-bottom: 4px;">Word Translation:</div>
       <div id="langpub-word-result"></div>
+      <div style="margin-top: 8px;">
+        <button id="langpub-explain-word" style="
+          background: #4CAF50;
+          color: white;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 11px;
+        ">Explain Word</button>
+      </div>
     </div>
   `;
   
@@ -130,16 +143,29 @@ function showTranslationModal(originalText, translatedText) {
   
 }
 
+// Store current word for explanation
+let currentWord = '';
+let currentOriginalText = '';
+
 // Function to translate individual words
 async function translateWord(word) {
   const wordTranslationDiv = document.getElementById('langpub-word-translation');
   const wordResultDiv = document.getElementById('langpub-word-result');
+  const explainButton = document.getElementById('langpub-explain-word');
   
   if (!wordTranslationDiv || !wordResultDiv) return;
+  
+  // Store current word for explanation
+  currentWord = word;
   
   // Show loading state
   wordTranslationDiv.style.display = 'block';
   wordResultDiv.innerHTML = 'Translating...';
+  
+  // Add click handler for explain button
+  if (explainButton) {
+    explainButton.onclick = () => explainWord(currentWord, currentOriginalText);
+  }
   
   // Send message to background script to translate the word
   chrome.runtime.sendMessage({
@@ -152,6 +178,148 @@ async function translateWord(word) {
       wordResultDiv.innerHTML = `Translation failed: ${response.error}`;
     }
   });
+}
+
+// Function to explain word and start chat
+async function explainWord(word, sentence) {
+  const wordResultDiv = document.getElementById('langpub-word-result');
+  
+  if (!wordResultDiv) return;
+  
+  // Show loading state
+  wordResultDiv.innerHTML = 'Getting explanation...';
+  
+  // Send message to background script to explain the word
+  chrome.runtime.sendMessage({
+    action: 'explain',
+    word: word,
+    sentence: sentence
+  }, (response) => {
+    if (response && response.explanation) {
+      showChatInterface(word, response.explanation);
+    } else if (response && response.error) {
+      wordResultDiv.innerHTML = `Explanation failed: ${response.error}`;
+    }
+  });
+}
+
+// Function to show chat interface
+function showChatInterface(word, explanation) {
+  const wordTranslationDiv = document.getElementById('langpub-word-translation');
+  
+  if (!wordTranslationDiv) return;
+  
+  // Create chat interface
+  wordTranslationDiv.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 8px; color: #4CAF50;">Chat about "${word}"</div>
+    <div id="langpub-chat-messages" style="
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px;
+      margin-bottom: 8px;
+      background: white;
+    ">
+      <div style="margin-bottom: 8px; padding: 8px; background: #f0f8ff; border-radius: 4px;">
+        <strong>Assistant:</strong> ${explanation}
+      </div>
+    </div>
+    <div style="display: flex; gap: 4px;">
+      <input id="langpub-chat-input" type="text" placeholder="Ask about this word..." style="
+        flex: 1;
+        padding: 6px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+      ">
+      <button id="langpub-chat-send" style="
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      ">Send</button>
+    </div>
+  `;
+  
+  // Initialize chat
+  initializeChat(word, explanation);
+}
+
+// Chat functionality
+let chatMessages = [];
+
+function initializeChat(word, explanation) {
+  const chatInput = document.getElementById('langpub-chat-input');
+  const chatSend = document.getElementById('langpub-chat-send');
+  const chatMessagesDiv = document.getElementById('langpub-chat-messages');
+  
+  // Initialize conversation with explanation
+  chatMessages = [
+    { role: 'user', content: `Explain the word "${word}" in context.` },
+    { role: 'assistant', content: explanation }
+  ];
+  
+  // Send message function
+  function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    // Add user message to chat
+    addMessageToChat('user', message);
+    chatInput.value = '';
+    
+    // Add to conversation history
+    chatMessages.push({ role: 'user', content: message });
+    
+    // Show loading
+    addMessageToChat('assistant', 'Thinking...');
+    
+    // Send to API
+    chrome.runtime.sendMessage({
+      action: 'chat',
+      messages: chatMessages
+    }, (response) => {
+      // Remove loading message
+      const lastMessage = chatMessagesDiv.lastElementChild;
+      if (lastMessage) lastMessage.remove();
+      
+      if (response && response.response) {
+        addMessageToChat('assistant', response.response);
+        chatMessages.push({ role: 'assistant', content: response.response });
+      } else {
+        addMessageToChat('assistant', 'Sorry, I could not process your message.');
+      }
+    });
+  }
+  
+  // Add message to chat display
+  function addMessageToChat(role, content) {
+    const messageDiv = document.createElement('div');
+    messageDiv.style.cssText = `
+      margin-bottom: 8px;
+      padding: 8px;
+      border-radius: 4px;
+      background: ${role === 'user' ? '#e8f5e8' : '#f0f8ff'};
+    `;
+    messageDiv.innerHTML = `<strong>${role === 'user' ? 'You' : 'Assistant'}:</strong> ${content}`;
+    chatMessagesDiv.appendChild(messageDiv);
+    chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  }
+  
+  // Event listeners
+  chatSend.addEventListener('click', sendMessage);
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+  
+  // Focus input
+  chatInput.focus();
 }
 
 // Listen for messages from popup
