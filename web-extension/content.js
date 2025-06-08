@@ -154,27 +154,26 @@ function showTranslationModal(originalText, translatedText) {
 
   // Create modal content
   modal.innerHTML = `
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-      <div style="font-weight: bold; color: #4CAF50;">LangPub Translation</div>
+    <div style="display: flex; justify-content: flex-end; align-items: flex-start; margin-bottom: 12px;">
       <button id="langpub-close-modal" style="
         background: none;
         border: none;
-        font-size: 18px;
+        font-size: 20px;
         cursor: pointer;
         color: #666;
         padding: 0;
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
       ">×</button>
     </div>
     <div style="margin-bottom: 8px;">
-      <div style="background: #e8f5e8; padding: 12px; border-radius: 4px; font-size: 14px;">${translatedText}</div>
+      <div style="background: #e8f5e8; padding: 12px; border-radius: 4px; font-size: 16px;">${translatedText}</div>
     </div>
     <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-      <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px; color: #666; flex: 1;">${words}</div>
+      <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 14px; color: #666; flex: 1;">${words}</div>
       <button id="langpub-speak-button" style="
         background: #4CAF50;
         color: white;
@@ -182,16 +181,16 @@ function showTranslationModal(originalText, translatedText) {
         padding: 8px;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 14px;
-        width: 32px;
-        height: 32px;
+        font-size: 16px;
+        width: 36px;
+        height: 36px;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
       " title="Play speech">🔊</button>
     </div>
-    <div id="langpub-word-translation" style="display: none; background: #fff3cd; padding: 8px; border-radius: 4px; font-size: 12px; border: 1px solid #ffeaa7;">
+    <div id="langpub-word-translation" style="display: none; background: #fff3cd; padding: 8px; border-radius: 4px; font-size: 14px; border: 1px solid #ffeaa7;">
       <div style="font-weight: bold; margin-bottom: 4px;">Word Translation:</div>
       <div id="langpub-word-result"></div>
       <div style="margin-top: 8px;">
@@ -199,10 +198,10 @@ function showTranslationModal(originalText, translatedText) {
           background: #4CAF50;
           color: white;
           border: none;
-          padding: 4px 8px;
+          padding: 6px 10px;
           border-radius: 4px;
           cursor: pointer;
-          font-size: 11px;
+          font-size: 13px;
         ">Explain Word</button>
       </div>
     </div>
@@ -371,7 +370,7 @@ function showChatInterface(word, explanation) {
   
   // Create chat interface
   wordTranslationDiv.innerHTML = `
-    <div style="font-weight: bold; margin-bottom: 8px; color: #4CAF50;">Chat about "${word}"</div>
+    <div style="font-weight: bold; margin-bottom: 8px; color: #4CAF50; font-size: 15px;">Chat about "${word}"</div>
     <div id="langpub-chat-messages" style="
       max-height: 200px;
       overflow-y: auto;
@@ -380,6 +379,7 @@ function showChatInterface(word, explanation) {
       padding: 8px;
       margin-bottom: 8px;
       background: white;
+      font-size: 13px;
     ">
       <div style="margin-bottom: 8px; padding: 8px; background: #f0f8ff; border-radius: 4px;">
         <strong>Assistant:</strong> ${explanation}
@@ -388,19 +388,19 @@ function showChatInterface(word, explanation) {
     <div style="display: flex; gap: 4px;">
       <input id="langpub-chat-input" type="text" placeholder="Ask about this word..." style="
         flex: 1;
-        padding: 6px;
+        padding: 8px;
         border: 1px solid #ccc;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 14px;
       ">
       <button id="langpub-chat-send" style="
         background: #4CAF50;
         color: white;
         border: none;
-        padding: 6px 12px;
+        padding: 8px 14px;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 14px;
       ">Send</button>
     </div>
   `;
