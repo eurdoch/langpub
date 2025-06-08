@@ -54,6 +54,18 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       return;
     }
     
+    // Handle speech synthesis requests
+    if (request.action === 'synthesize_speech') {
+      synthesizeSpeech(request.text, request.language, sendResponse);
+      return;
+    }
+    
+    // Handle language detection requests
+    if (request.action === 'detect_language') {
+      detectLanguage(request.text, sendResponse);
+      return;
+    }
+    
     // Handle any background processing here
     if (request.action === 'get_settings') {
       chrome.storage.sync.get(['langpub_enabled', 'target_language'], function(result) {
@@ -169,5 +181,63 @@ async function chatWithAI(messages, sendResponse) {
     }
   } catch (error) {
     sendResponse({ error: `Chat error: ${error.message}` });
+  }
+}
+
+// Function to synthesize speech using the API
+async function synthesizeSpeech(text, language, sendResponse) {
+  try {
+    // Call the speech synthesis API
+    const response = await fetch('https://langpub.directto.link/speech', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text,
+        language: language
+      })
+    });
+    
+    if (response.ok) {
+      // Get the audio data as a blob
+      const audioBlob = await response.blob();
+      
+      // Convert blob to data URL
+      const reader = new FileReader();
+      reader.onload = function() {
+        sendResponse({ audioUrl: reader.result });
+      };
+      reader.readAsDataURL(audioBlob);
+    } else {
+      sendResponse({ error: `Speech synthesis failed: ${response.status}` });
+    }
+  } catch (error) {
+    sendResponse({ error: `Speech synthesis error: ${error.message}` });
+  }
+}
+
+// Function to detect language using the API
+async function detectLanguage(text, sendResponse) {
+  try {
+    // Call the language detection API
+    const response = await fetch('https://langpub.directto.link/language', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      sendResponse({ language: result.language });
+    } else {
+      sendResponse({ error: `Language detection failed: ${response.status}` });
+    }
+  } catch (error) {
+    sendResponse({ error: `Language detection error: ${error.message}` });
   }
 }

@@ -40,26 +40,54 @@ document.addEventListener('mouseup', function(e) {
   if (selectedText.length > 0) {
     console.log('Selected text:', selectedText);
     
-    // Send message to background script to handle translation
+    // First detect the language of the selected text
     safeSendMessage({
-      action: 'translate',
+      action: 'detect_language',
       text: selectedText
-    }, (response) => {
-      if (response && response.translation) {
-        console.log('Translation:', response.translation);
-        showTranslationModal(selectedText, response.translation.translated_text);
-      } else if (response && response.error) {
-        console.error('Translation error:', response.error);
-        if (response.error === 'Extension is disabled') {
-          // Extension was disabled, update local state
-          extensionEnabled = false;
-          return;
-        }
-        showTranslationModal(selectedText, 'Translation failed');
-      } else if (response === null) {
-        // Extension context invalidated, show fallback
-        showTranslationModal(selectedText, 'Extension reloaded - please try again');
+    }, (languageResponse) => {
+      let detectedLanguage = 'Unknown';
+      
+      if (languageResponse && languageResponse.language) {
+        detectedLanguage = languageResponse.language;
+        currentLanguage = detectedLanguage;
+        console.log('Detected language:', detectedLanguage);
+        
+        // Start speech synthesis in parallel with translation
+        safeSendMessage({
+          action: 'synthesize_speech',
+          text: selectedText,
+          language: detectedLanguage
+        }, (speechResponse) => {
+          if (speechResponse && speechResponse.audioUrl) {
+            speechAudioUrl = speechResponse.audioUrl;
+            console.log('Speech synthesis ready');
+          } else {
+            console.log('Speech synthesis failed:', speechResponse?.error || 'Unknown error');
+          }
+        });
       }
+      
+      // Send message to background script to handle translation
+      safeSendMessage({
+        action: 'translate',
+        text: selectedText
+      }, (response) => {
+        if (response && response.translation) {
+          console.log('Translation:', response.translation);
+          showTranslationModal(selectedText, response.translation.translated_text);
+        } else if (response && response.error) {
+          console.error('Translation error:', response.error);
+          if (response.error === 'Extension is disabled') {
+            // Extension was disabled, update local state
+            extensionEnabled = false;
+            return;
+          }
+          showTranslationModal(selectedText, 'Translation failed');
+        } else if (response === null) {
+          // Extension context invalidated, show fallback
+          showTranslationModal(selectedText, 'Extension reloaded - please try again');
+        }
+      });
     });
   }
 });
@@ -145,8 +173,23 @@ function showTranslationModal(originalText, translatedText) {
     <div style="margin-bottom: 8px;">
       <div style="background: #e8f5e8; padding: 12px; border-radius: 4px; font-size: 14px;">${translatedText}</div>
     </div>
-    <div style="margin-bottom: 8px;">
-      <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px; color: #666;">${words}</div>
+    <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+      <div style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 12px; color: #666; flex: 1;">${words}</div>
+      <button id="langpub-speak-button" style="
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      " title="Play speech">🔊</button>
     </div>
     <div id="langpub-word-translation" style="display: none; background: #fff3cd; padding: 8px; border-radius: 4px; font-size: 12px; border: 1px solid #ffeaa7;">
       <div style="font-weight: bold; margin-bottom: 4px;">Word Translation:</div>
@@ -173,6 +216,11 @@ function showTranslationModal(originalText, translatedText) {
     modal.remove();
   });
   
+  // Add speech button functionality
+  document.getElementById('langpub-speak-button').addEventListener('click', function() {
+    playSpeech(originalText);
+  });
+  
   // Add click handlers for words
   modal.addEventListener('click', function(e) {
     if (e.target.classList.contains('langpub-clickable-word')) {
@@ -186,6 +234,74 @@ function showTranslationModal(originalText, translatedText) {
 // Store current word for explanation
 let currentWord = '';
 let currentOriginalText = '';
+let currentLanguage = '';
+let speechAudioUrl = null;
+
+// Function to play speech audio
+function playSpeech(text) {
+  const speakButton = document.getElementById('langpub-speak-button');
+  
+  if (!speakButton) return;
+  
+  // If audio is already available, play it
+  if (speechAudioUrl) {
+    const audio = new Audio(speechAudioUrl);
+    
+    // Visual feedback
+    const originalContent = speakButton.innerHTML;
+    speakButton.innerHTML = '🔊';
+    speakButton.style.background = '#45a049';
+    
+    audio.play().then(() => {
+      console.log('Audio playing');
+    }).catch(error => {
+      console.error('Error playing audio:', error);
+      speakButton.innerHTML = '❌';
+      setTimeout(() => {
+        speakButton.innerHTML = originalContent;
+        speakButton.style.background = '#4CAF50';
+      }, 2000);
+    });
+    
+    audio.onended = () => {
+      speakButton.innerHTML = originalContent;
+      speakButton.style.background = '#4CAF50';
+    };
+    
+    return;
+  }
+  
+  // If no audio available yet, try to synthesize it
+  if (currentLanguage && currentLanguage !== 'Unknown') {
+    speakButton.innerHTML = '⏳';
+    speakButton.style.background = '#ffa500';
+    
+    safeSendMessage({
+      action: 'synthesize_speech',
+      text: text,
+      language: currentLanguage
+    }, (response) => {
+      if (response && response.audioUrl) {
+        speechAudioUrl = response.audioUrl;
+        playSpeech(text); // Recursive call to play the now-available audio
+      } else {
+        console.error('Speech synthesis failed:', response?.error || 'Unknown error');
+        speakButton.innerHTML = '❌';
+        setTimeout(() => {
+          speakButton.innerHTML = '🔊';
+          speakButton.style.background = '#4CAF50';
+        }, 2000);
+      }
+    });
+  } else {
+    console.log('No language detected, cannot synthesize speech');
+    speakButton.innerHTML = '❌';
+    setTimeout(() => {
+      speakButton.innerHTML = '🔊';
+      speakButton.style.background = '#4CAF50';
+    }, 2000);
+  }
+}
 
 // Function to translate individual words
 async function translateWord(word) {
